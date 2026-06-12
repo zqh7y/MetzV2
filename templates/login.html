@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Login{% endblock %}
+
+{% block content %}
+<div class="auth-page">
+<div class="container">
+    <div class="auth-brand">
+        <div class="auth-brand-logo">M</div>
+        <div class="auth-brand-name">Metz</div>
+    </div>
+
+    <h2>Welcome back</h2>
+    <p class="auth-subtitle">Log in to discover meetups near you</p>
+
+    {% if message %}
+        <p class="error-msg">{{ message }}</p>
+    {% endif %}
+
+    <form method="post">
+        <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" placeholder="you@example.com" required>
+        </div>
+
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" placeholder="Your password" required>
+        </div>
+
+        <button type="submit" class="btn-primary">Login</button>
+    </form>
+
+    <p class="footer-link">Don't have an account? <a href="/signup">Sign up</a></p>
+</div>
+</div>
+{% endblock %}

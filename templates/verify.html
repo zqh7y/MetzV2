@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Verify your email{% endblock %}
+
+{% block content %}
+<div class="auth-page">
+<div class="container verify-container">
+    <div class="auth-brand">
+        <div class="auth-brand-logo">M</div>
+        <div class="auth-brand-name">Metz</div>
+    </div>
+
+    <div class="verify-icon">📧</div>
+    <h2>Check your email</h2>
+    <p class="auth-subtitle">We sent a 4-digit code to<br><strong>{{ email }}</strong></p>
+
+    {% if message %}
+        <p class="error-msg">{{ message }}</p>
+    {% endif %}
+
+    <form method="post" id="verify-form">
+        <div class="code-input-row">
+            <input type="text" name="digit0" class="code-input" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" required autofocus>
+            <input type="text" name="digit1" class="code-input" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" required>
+            <input type="text" name="digit2" class="code-input" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" required>
+            <input type="text" name="digit3" class="code-input" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" required>
+        </div>
+
+        <button type="submit" class="btn-primary">Verify</button>
+    </form>
+
+    <p class="footer-link">Didn't get a code? <a href="{{ url_for('verify_resend') }}">Resend code</a></p>
+</div>
+</div>
+
+<script>
+(function () {
+    var inputs = Array.from(document.querySelectorAll('.code-input'));
+    inputs.forEach(function (input, i) {
+        input.addEventListener('input', function () {
+            input.value = input.value.replace(/[^0-9]/g, '').slice(0, 1);
+            if (input.value && inputs[i + 1]) inputs[i + 1].focus();
+        });
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'Backspace' && !input.value && inputs[i - 1]) {
+                inputs[i - 1].focus();
+            }
+        });
+        input.addEventListener('paste', function (e) {
+            var text = (e.clipboardData || window.clipboardData).getData('text').replace(/[^0-9]/g, '');
+            if (!text) return;
+            e.preventDefault();
+            text.slice(0, 4).split('').forEach(function (ch, idx) {
+                if (inputs[idx]) inputs[idx].value = ch;
+            });
+            var next = inputs[Math.min(text.length, inputs.length - 1)];
+            if (next) next.focus();
+        });
+    });
+})();
+</script>
+{% endblock %}

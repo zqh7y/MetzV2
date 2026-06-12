@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}{{ username }}'s Profile{% endblock %}
+
+{% block content %}
+<div class="profile-page">
+
+    <!-- Avatar + name -->
+    <div class="profile-hero">
+        <a href="javascript:history.back()" class="profile-back-btn" title="Back">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+                <polyline points="15 18 9 12 15 6"/>
+            </svg>
+        </a>
+        <div class="profile-avatar" {% if not profile_picture %}style="background: {{ profile_color }};"{% endif %}>
+            {% if profile_picture %}
+                <img src="{{ profile_picture }}" alt="avatar" class="profile-avatar-img" />
+            {% else %}
+                <span class="profile-avatar-id">{{ uid }}</span>
+            {% endif %}
+        </div>
+        <h2 class="profile-name">{{ username }}</h2>
+        <p class="profile-email">@{{ uid }}</p>
+    </div>
+
+    <!-- Stats row -->
+    <div class="profile-stats">
+        <div class="stat-card">
+            <div class="stat-icon stat-icon-created">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+                    <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="12" y1="14" x2="12" y2="18"/><line x1="10" y1="16" x2="14" y2="16"/>
+                </svg>
+            </div>
+            <span class="stat-number">{{ meetings_created }}</span>
+            <span class="stat-label">Created</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-card">
+            <div class="stat-icon stat-icon-joined">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+            </div>
+            <span class="stat-number">{{ meetings_joined }}</span>
+            <span class="stat-label">Joined</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-card">
+            <div class="stat-icon stat-icon-swiped">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+                    <path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/>
+                </svg>
+            </div>
+            <span class="stat-number">{{ meetings_swiped }}</span>
+            <span class="stat-label">Swiped</span>
+        </div>
+    </div>
+
+    <!-- Activity -->
+    <div class="profile-activity">
+        <div class="activity-row">
+            <span class="activity-icon">📅</span>
+            <div class="activity-text">
+                <span class="activity-label">Member since</span>
+                <span class="activity-value">{{ joined_at }}</span>
+            </div>
+        </div>
+        <div class="activity-row">
+            <span class="activity-icon">🟢</span>
+            <div class="activity-text">
+                <span class="activity-label">Last online</span>
+                <span class="activity-value">{{ last_online }}</span>
+            </div>
+        </div>
+    </div>
+
+    {% set active_page = 'swipe' %}
+    {% include 'nav.html' %}
+</div>
+{% endblock %}

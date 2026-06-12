@@ -1,0 +1,7 @@
+venv/
+__pycache__/
+*.pyc
+flask_session/
+metz-firebase.json
+.env
+.claude/

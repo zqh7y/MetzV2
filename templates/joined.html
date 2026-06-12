@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}My Joined Meetings{% endblock %}
+
+{% block content %}
+<div class="likes-page">
+
+    <div class="likes-header">
+        <h2>🤝 My Joined Meetings</h2>
+        <p>{{ meetings | length }} meeting{{ 's' if meetings | length != 1 }}</p>
+    </div>
+
+    <div class="likes-list">
+        {% if meetings %}
+            {% for meeting in meetings %}
+            <div class="like-card" id="joined-card-{{ meeting.id }}">
+                {% if meeting.image %}
+                <div class="like-card-color like-card-image" style="background-image: url('{{ url_for('static', filename=meeting.image) }}')"></div>
+                {% else %}
+                <div class="like-card-color card-color-{{ loop.index0 % 5 }}"></div>
+                {% endif %}
+                <div class="like-card-body">
+                    <div class="like-card-badge">{{ '🌐 Online' if meeting.link else '📍 In-Person' }}</div>
+                    <h3 class="like-card-title">{{ meeting.title }}</h3>
+                    {% if meeting.creator_username %}
+                    <div class="like-card-creator">👤 by {{ meeting.creator_username }}</div>
+                    {% endif %}
+                    <p class="like-card-desc">{{ meeting.description }}</p>
+                    <div class="like-card-meta">
+                        <span>🕐 {{ meeting.time }}</span>
+                        {% if meeting.link %}
+                        <a href="{{ meeting.link }}" target="_blank" class="like-join-btn">Join →</a>
+                        {% endif %}
+                        <span class="join-btn-count" title="People joined">{{ meeting.joined_count }} joined</span>
+                        {% if is_admin or uid == meeting.creator_uid %}
+                        <button class="delete-btn" title="Delete meeting" onclick="event.stopPropagation(); deleteMeeting({{ meeting.id }}, this.closest('.like-card'))">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                <button class="unlike-btn" onclick="leaveMeeting({{ meeting.id }})" title="Leave this meeting">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="likes-empty">
+                <div class="likes-empty-icon">🤝</div>
+                <h3>No joined meetings yet</h3>
+                <p>Go discover some meetings!</p>
+                <a href="/swipe" class="no-more-btn">Discover</a>
+            </div>
+        {% endif %}
+    </div>
+
+    {% set active_page = 'joined' %}
+    {% include 'nav.html' %}
+</div>
+
+<script>
+function leaveMeeting(id) {
+    fetch('/join/' + id, { method: 'POST' }).then(function() {
+        var card = document.getElementById('joined-card-' + id);
+        card.style.transition = 'opacity 0.3s, transform 0.3s';
+        card.style.opacity = '0';
+        card.style.transform = 'translateX(60px)';
+        setTimeout(function() { card.remove(); }, 300);
+    });
+}
+</script>
+{% endblock %}
