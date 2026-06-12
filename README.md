@@ -38,18 +38,6 @@ for user accounts.
 
 ---
 
-## 🖼️ Screenshots
-
-> Sample images used inside the app (event cover photos shown on meeting cards):
-
-<p align="center">
-  <img src="styles/uploads/977f10ef29dd4433aee741c4dc8f1712.jpg" width="260" alt="Meeting cover example 1">
-  <img src="styles/uploads/6cf09765acfb41968f3f06a292914821.jpg" width="260" alt="Meeting cover example 2">
-  <img src="styles/uploads/7f9498d1d7dc45d4bffc9f1019531075.jpg" width="260" alt="Meeting cover example 3">
-</p>
-
----
-
 ## 🏗️ Project structure
 
 ```
