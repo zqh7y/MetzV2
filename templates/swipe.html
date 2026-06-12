@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+
+{% block title %}Discover{% endblock %}
+
+{% block content %}
+<div class="swipe-page">
+
+    <div class="swipe-header">
+        <h2>Discover</h2>
+        <p>Swipe right to join, left to pass</p>
+    </div>
+
+    <!-- Tab bar -->
+    <div class="discover-tabs">
+        <button class="discover-tab active" id="tab-cards" onclick="switchTab('cards')">Meetings</button>
+        <button class="discover-tab" id="tab-users" onclick="switchTab('users')">People</button>
+    </div>
+
+    <!-- User search panel -->
+    <div class="user-search-panel" id="user-search-panel" style="display:none">
+        <div class="user-search-input-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="18" height="18"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="user-search-input" placeholder="Search by ID or Gmail username…" oninput="searchUsers(this.value)" autocomplete="off" />
+        </div>
+        <div class="user-search-results" id="user-search-results">
+            <p class="user-search-hint">Type to find users</p>
+        </div>
+    </div>
+
+    <div class="cards-area" id="cards-area">
+        {% if meetings %}
+            <div class="cards-stack" id="cards-stack">
+                {% for meeting in meetings %}
+            {% set is_online = meeting.__class__.__name__ == 'OnlineMeeting' %}
+                <div class="swipe-card card-color-{{ loop.index0 % 5 }}{% if meeting.image %} has-image{% endif %}" data-id="{{ meeting.id }}">
+                    <div class="card-overlay like-overlay">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" width="48" height="48"><path d="M20 6L9 17l-5-5"/></svg>
+                        <span>JOIN</span>
+                    </div>
+                    <div class="card-overlay pass-overlay">
+                        <svg viewBox="0 0 24 24" fill="white" width="48" height="48"><line x1="18" y1="6" x2="6" y2="18" stroke="white" stroke-width="3" stroke-linecap="round"/><line x1="6" y1="6" x2="18" y2="18" stroke="white" stroke-width="3" stroke-linecap="round"/></svg>
+                        <span>PASS</span>
+                    </div>
+                    <div class="card-inner">
+                        {% if meeting.image %}
+                        <div class="card-image" style="background-image: url('{{ url_for('static', filename=meeting.image) }}')"></div>
+                        {% endif %}
+                        <div class="card-badge">{{ '🌐 Online' if is_online else '📍 In-Person' }}</div>
+                        <h3 class="card-title">{{ meeting.title }}</h3>
+                        {% if meeting.creator_username %}
+                        <div class="card-creator">👤 by {{ meeting.creator_username }}</div>
+                        {% endif %}
+                        <p class="card-desc">{{ meeting.description }}</p>
+                        <div class="card-meta">
+                            <div class="card-meta-row">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                <span class="card-time" data-time="{{ meeting.time }}" title="{{ meeting.time }}">{{ meeting.time }}</span>
+                            </div>
+                            {% if is_online and meeting.link %}
+                                <a href="{{ meeting.link }}" class="card-join-btn" target="_blank" onclick="event.stopPropagation()">Join →</a>
+                            {% elif meeting.location %}
+                                <span class="card-location-tag">📍 {{ meeting.location }}</span>
+                            {% endif %}
+                            <button class="join-btn {% if uid in meeting.joined_uids %}joined{% endif %}" data-meeting-id="{{ meeting.id }}" onclick="event.stopPropagation(); toggleJoin(this, {{ meeting.id }})">
+                                <span class="join-btn-text">{{ 'Joined' if uid in meeting.joined_uids else 'Join' }}</span>
+                                <span class="join-btn-count">{{ meeting.joined_count }}</span>
+                            </button>
+                            {% if is_admin or uid == meeting.creator_uid %}
+                            <button class="delete-btn" title="Delete meeting" onclick="event.stopPropagation(); deleteMeeting({{ meeting.id }}, this.closest('.swipe-card'))">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="swipe-buttons">
+                <button class="btn-swipe btn-pass" onclick="swipeCard('left')" title="Pass">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="28" height="28" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+                <button class="btn-swipe btn-like" onclick="swipeCard('right')" title="Join">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" width="28" height="28"><path d="M20 6L9 17l-5-5"/></svg>
+                </button>
+            </div>
+
+        {% else %}
+            <div class="no-more-cards">
+                <div class="no-more-icon">🎉</div>
+                <h3>You're all caught up!</h3>
+                <p>No more online meetings to discover.</p>
+                <a href="/" class="no-more-btn">Back to Home</a>
+            </div>
+        {% endif %}
+    </div>
+
+    {% set active_page = 'swipe' %}
+    {% include 'nav.html' %}
+</div>
+
+<script src="{{ url_for('static', filename='time-utils.js') }}"></script>
+<script src="{{ url_for('static', filename='swipe.js') }}"></script>
+<script>
+function switchTab(tab) {
+    var cardsArea = document.getElementById('cards-area');
+    var searchPanel = document.getElementById('user-search-panel');
+    document.getElementById('tab-cards').classList.toggle('active', tab === 'cards');
+    document.getElementById('tab-users').classList.toggle('active', tab === 'users');
+    cardsArea.style.display = tab === 'cards' ? '' : 'none';
+    searchPanel.style.display = tab === 'users' ? '' : 'none';
+}
+
+var searchTimeout;
+function searchUsers(q) {
+    clearTimeout(searchTimeout);
+    var results = document.getElementById('user-search-results');
+    if (!q.trim()) {
+        results.innerHTML = '<p class="user-search-hint">Type to find users</p>';
+        return;
+    }
+    searchTimeout = setTimeout(function() {
+        fetch('/search_users?q=' + encodeURIComponent(q))
+            .then(function(r) { return r.json(); })
+            .then(function(users) {
+                if (!users.length) {
+                    results.innerHTML = '<p class="user-search-hint">No users found</p>';
+                    return;
+                }
+                results.innerHTML = users.map(function(u) {
+                    var initials = u.username.slice(0, 2).toUpperCase();
+                    return '<div class="user-result-card" onclick="location.href=\'/user/' + u.uid + '\'">' +
+                        '<div class="user-result-avatar" style="background:' + u.color + '">' + initials + '</div>' +
+                        '<div class="user-result-info">' +
+                            '<span class="user-result-name">' + u.username + '</span>' +
+                            '<span class="user-result-uid">' + u.uid + '</span>' +
+                        '</div>' +
+                        '<span class="user-result-chevron">›</span>' +
+                    '</div>';
+                }).join('');
+            });
+    }, 300);
+}
+</script>
+{% endblock %}

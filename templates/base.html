@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Meetup App{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    {% block content %}{% endblock %}
+
+    <script>
+        function toggleJoin(btn, meetingId) {
+            fetch('/join/' + meetingId, { method: 'POST' })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data.error) return;
+                    btn.classList.toggle('joined', data.joined);
+                    var countEl = btn.querySelector('.join-btn-count');
+                    if (countEl) countEl.textContent = data.count;
+                    var textEl = btn.querySelector('.join-btn-text');
+                    if (textEl) textEl.textContent = data.joined ? 'Joined' : 'Join';
+                });
+        }
+
+        function deleteMeeting(meetingId, cardEl) {
+            if (!confirm('Delete this meeting?')) return;
+            fetch('/delete/' + meetingId, { method: 'POST' })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data.error) { alert('You are not allowed to delete this meeting.'); return; }
+                    if (cardEl) {
+                        cardEl.style.transition = 'opacity 0.3s, transform 0.3s';
+                        cardEl.style.opacity = '0';
+                        cardEl.style.transform = 'translateX(60px)';
+                        setTimeout(function () { cardEl.remove(); }, 300);
+                    } else {
+                        window.location.reload();
+                    }
+                });
+        }
+    </script>
+</body>
+</html>
