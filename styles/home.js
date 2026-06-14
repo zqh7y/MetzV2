@@ -399,18 +399,14 @@ document.addEventListener("DOMContentLoaded", function () {
     map.on('locationfound', function (e) {
         userLatLng = e.latlng;
         if (userMarker) userMarker.setLatLng(e.latlng);
-        else userMarker = L.marker(e.latlng, { icon: meIcon, zIndexOffset: 1000 }).addTo(map).bindPopup(
-            '<div class="user-location-popup">Me</div>'
-        ).openPopup();
+        else userMarker = L.marker(e.latlng, { icon: meIcon, zIndexOffset: 1000 }).addTo(map);
         map.setView(e.latlng, 16);
         renderSortedList(sortMeetingsByDistance(meetings, e.latlng.lat, e.latlng.lng));
     });
 
     map.on('locationerror', function () {
         if (!userMarker) {
-            userMarker = L.marker([31.7683, 35.2137], { icon: meIcon, zIndexOffset: 1000 }).addTo(map)
-                .bindPopup('<div class="user-location-popup">Me (default location)</div>')
-                .openPopup();
+            userMarker = L.marker([31.7683, 35.2137], { icon: meIcon, zIndexOffset: 1000 }).addTo(map);
         }
         if (!userLatLng) userLatLng = L.latLng(31.7683, 35.2137);
         map.setView([31.7683, 35.2137], 13);
