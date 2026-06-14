@@ -6,16 +6,18 @@ import html
 class Meeting:
     """Base class for all meetings."""
 
+    DEFAULT_EMOJI = "📍"
+
     def __init__(self, id, title, description, time,
-                 creator_uid=None, creator_username=None, image=None, joined_uids=None):
+                 creator_uid=None, creator_username=None, joined_uids=None, emoji=None):
         self.id = id
         self.title = title
         self.description = description
         self.time = time
         self.creator_uid = creator_uid
         self.creator_username = creator_username
-        self.image = image
         self.joined_uids = joined_uids or []
+        self.emoji = emoji or self.DEFAULT_EMOJI
 
     def get_display_text(self):
         """Base method – overridden by subclasses to provide specific display."""
@@ -31,18 +33,20 @@ class Meeting:
             "type": self.__class__.__name__,
             "creator_uid": self.creator_uid,
             "creator_username": self.creator_username,
-            "image": self.image,
             "joined_uids": self.joined_uids,
             "joined_count": len(self.joined_uids),
+            "emoji": self.emoji,
         }
 
 
 class InPersonMeeting(Meeting):
     """Meeting that takes place at a physical location."""
 
+    DEFAULT_EMOJI = "📍"
+
     def __init__(self, id, title, description, time, location, lat, lng,
-                 creator_uid=None, creator_username=None, image=None, joined_uids=None):
-        super().__init__(id, title, description, time, creator_uid, creator_username, image, joined_uids)
+                 creator_uid=None, creator_username=None, joined_uids=None, emoji=None):
+        super().__init__(id, title, description, time, creator_uid, creator_username, joined_uids, emoji)
         self.location = location
         self.lat = lat
         self.lng = lng
@@ -60,9 +64,11 @@ class InPersonMeeting(Meeting):
 class OnlineMeeting(Meeting):
     """Meeting that takes place online via a link."""
 
+    DEFAULT_EMOJI = "💻"
+
     def __init__(self, id, title, description, time, link,
-                 creator_uid=None, creator_username=None, image=None, joined_uids=None):
-        super().__init__(id, title, description, time, creator_uid, creator_username, image, joined_uids)
+                 creator_uid=None, creator_username=None, joined_uids=None, emoji=None):
+        super().__init__(id, title, description, time, creator_uid, creator_username, joined_uids, emoji)
         self.link = link
         self.lat = None
         self.lng = None
@@ -137,8 +143,8 @@ def meeting_from_dict(data):
     common = dict(
         creator_uid=data.get("creator_uid"),
         creator_username=data.get("creator_username"),
-        image=data.get("image"),
         joined_uids=data.get("joined_uids", []),
+        emoji=data.get("emoji"),
     )
     if data.get("type") == "InPersonMeeting":
         return InPersonMeeting(

@@ -389,28 +389,32 @@ body {
     box-shadow: 0 4px 14px rgba(102,126,234,0.35);
 }
 
-/* --- Photo upload --- */
-.file-upload {
+/* --- Map icon (emoji) picker --- */
+.emoji-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.emoji-option {
+    width: 42px;
+    height: 42px;
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 12px 14px;
-    border: 1.5px dashed #c9d6e3;
+    justify-content: center;
+    font-size: 20px;
+    border: 1.5px solid #dce1e7;
     border-radius: 8px;
     background: #fafbfc;
-    color: #667eea;
-    font-size: 14px;
-    font-weight: 600;
     cursor: pointer;
-    transition: border-color 0.2s, background 0.2s;
+    transition: all 0.2s;
 }
 
-.file-upload:hover {
-    border-color: #667eea;
-    background: #f5f7ff;
+.emoji-option.active {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border-color: transparent;
+    box-shadow: 0 4px 14px rgba(102,126,234,0.35);
 }
-
-.file-upload svg { flex-shrink: 0; }
 
 .container .footer-link {
     text-align: center;
@@ -563,64 +567,24 @@ body {
 
 .info-panel-close:hover { background: rgba(0,0,0,0.15); }
 
-/* ── Info panel hero (image or gradient + title) ─────────────────────────── */
+/* ── Info panel hero (plain white header + title) ────────────────────────── */
 .info-hero {
     position: relative;
-    height: 160px;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
     align-items: flex-start;
     gap: 8px;
-    padding: 14px;
-    background-size: cover;
-    background-position: center;
-    overflow: hidden;
+    padding: 20px 16px 14px;
+    background: #fff;
+    border-bottom: 1px solid #f0f0f0;
     transition: opacity 0.12s linear;
-}
-
-.info-hero-inperson { background-image: linear-gradient(135deg, #2c3e50, #3498db); }
-.info-hero-online   { background-image: linear-gradient(135deg, #667eea, #764ba2); }
-
-/* Decorative glow blobs for gradient (no-image) heroes */
-.info-hero:not(.has-image)::before {
-    content: "";
-    position: absolute;
-    width: 130px;
-    height: 130px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.10);
-    top: -50px;
-    left: -30px;
-}
-
-.info-hero:not(.has-image)::after {
-    content: "";
-    position: absolute;
-    width: 180px;
-    height: 180px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.07);
-    bottom: -90px;
-    right: -50px;
-}
-
-/* Darken bottom of photo heroes so text stays readable */
-.info-hero.has-image::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(to bottom, rgba(0,0,0,0.05) 35%, rgba(0,0,0,0.65) 100%);
 }
 
 .info-badge {
     position: relative;
     z-index: 1;
-    background: rgba(255,255,255,0.22);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-    color: #fff;
     font-size: 10px;
     font-weight: 700;
     padding: 4px 11px;
@@ -628,28 +592,22 @@ body {
     letter-spacing: 0.5px;
     text-transform: uppercase;
     white-space: nowrap;
-    border: 1px solid rgba(255,255,255,0.25);
 }
 
 .info-hero-title {
     position: relative;
     z-index: 1;
-    color: #fff;
+    color: #2c3e50;
     font-size: 17px;
     font-weight: 800;
     line-height: 1.25;
-    text-shadow: 0 2px 10px rgba(0,0,0,0.35);
     margin: 0;
 }
 
 .info-body {
     position: relative;
-    z-index: 2;
-    margin-top: -16px;
     background: #fff;
-    border-radius: 18px 18px 0 0;
     padding: 18px 16px 16px;
-    box-shadow: 0 -6px 16px rgba(0,0,0,0.05);
 }
 
 .info-desc {
@@ -817,12 +775,36 @@ body {
     box-shadow: 0 1px 6px rgba(0,0,0,0.4);
 }
 
+.me-marker-avatar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.me-marker-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
 .me-marker-pulse {
     position: absolute;
     top: 0;
     left: 0;
-    width: 22px;
-    height: 22px;
+    width: 30px;
+    height: 30px;
     border-radius: 50%;
     background: rgba(66,133,244,0.35);
     animation: me-marker-pulse 1.8s ease-out infinite;
@@ -832,6 +814,37 @@ body {
     0%   { transform: scale(0.4); opacity: 0.8; }
     70%  { transform: scale(1.6); opacity: 0; }
     100% { transform: scale(1.6); opacity: 0; }
+}
+
+/* ── Meeting markers (emoji circles) ─────────────────────────────────────── */
+.meeting-marker {
+    background: transparent;
+    border: none;
+}
+
+.meeting-marker-circle {
+    position: relative;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid #667eea;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    line-height: 1;
+}
+
+.meeting-marker-circle::after {
+    content: '';
+    position: absolute;
+    bottom: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: #667eea;
 }
 
 /* Style the default Leaflet popup wrapper (used for user location) */
@@ -951,8 +964,9 @@ body {
 
 .meeting-card-body {
     flex: 1;
-    padding: 11px 10px 11px 13px;
+    padding: 11px 10px 46px 13px;
     min-width: 0;
+    position: relative;
 }
 
 .meeting-card-top {
@@ -992,28 +1006,37 @@ body {
     flex-shrink: 0;
 }
 
+.meeting-card-title-row {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-bottom: 3px;
+}
+
 .meeting-card-title {
     font-size: 14px;
     font-weight: 700;
     color: #2c3e50;
-    margin-bottom: 3px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    flex-shrink: 1;
+    min-width: 0;
+}
+
+.meeting-card-address {
+    font-size: 11px;
+    color: #aaa;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 0;
 }
 
 .meeting-card-desc {
     font-size: 12px;
     color: #888;
     margin-bottom: 5px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.meeting-card-location {
-    font-size: 11px;
-    color: #aaa;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -2013,20 +2036,16 @@ body {
     letter-spacing: 0.5px;
 }
 
-/* --- Meeting card image / footer / creator / join button --- */
-.meeting-card-image {
-    width: 90px;
-    flex-shrink: 0;
-    background-size: cover;
-    background-position: center;
-    border-radius: 14px 0 0 14px;
-}
+/* --- Meeting card footer / creator / join button --- */
 
 .meeting-card-footer {
+    position: absolute;
+    left: 13px;
+    right: 10px;
+    bottom: 11px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-top: 8px;
     gap: 8px;
 }
 
@@ -2037,6 +2056,44 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.joined-avatars {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.joined-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    margin-left: -8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    font-size: 10px;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.joined-avatars .joined-avatar:first-child {
+    margin-left: 0;
+}
+
+.joined-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.joined-avatar-more {
+    background: #e6e9f5;
+    color: #667eea;
+    font-size: 9px;
 }
 
 .join-btn {
@@ -2075,40 +2132,7 @@ body {
     background: rgba(255,255,255,0.25);
 }
 
-/* --- Swipe card image / creator --- */
-.card-image {
-    width: 100%;
-    height: 140px;
-    border-radius: 14px;
-    background-size: cover;
-    background-position: center;
-    margin-bottom: 12px;
-}
-
-/* Cards with a photo: image fills the whole card, content overlaid with a
-   gradient that darkens from 50% down to ~70% opacity by 90% of the height */
-.swipe-card.has-image .card-image {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    border-radius: 0;
-    margin-bottom: 0;
-    z-index: 0;
-}
-
-.swipe-card.has-image .card-inner {
-    position: relative;
-    z-index: 1;
-    background: linear-gradient(
-        to bottom,
-        rgba(0,0,0,0) 0%,
-        rgba(0,0,0,0) 50%,
-        rgba(0,0,0,0.7) 90%,
-        rgba(0,0,0,0.7) 100%
-    );
-}
-
+/* --- Swipe card creator --- */
 .card-creator {
     font-size: 13px;
     color: rgba(255,255,255,0.85);
@@ -2130,13 +2154,7 @@ body {
     color: #667eea;
 }
 
-/* --- Likes card image / creator --- */
-.like-card-image {
-    width: 70px !important;
-    background-size: cover;
-    background-position: center;
-}
-
+/* --- Likes card creator --- */
 .like-card-creator {
     font-size: 12px;
     color: #888;

@@ -1,5 +1,5 @@
 from flask import render_template, session, redirect, url_for, jsonify
-from data import get_user, get_all_meetings, user_pass, toggle_join_meeting, delete_meeting, is_admin
+from data import get_user, get_all_meetings, user_pass, toggle_join_meeting, delete_meeting, is_admin, get_joined_users_preview, MEETINGS_DB
 
 
 def joined_route():
@@ -29,6 +29,8 @@ def join_route(meeting_id):
     result = toggle_join_meeting(uid, meeting_id)
     if result is None:
         return jsonify({"error": "not found"}), 404
+    joined_uids = MEETINGS_DB[meeting_id].get("joined_uids", [])
+    result["joined_preview"] = get_joined_users_preview(joined_uids)
     return jsonify(result)
 
 

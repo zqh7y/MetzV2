@@ -68,11 +68,7 @@
             {% for meeting in meetings %}
             {% set is_online = meeting.__class__.__name__ == 'OnlineMeeting' %}
             <div class="meeting-card" data-meeting-id="{{ meeting.id }}">
-                {% if meeting.image %}
-                <div class="meeting-card-image" style="background-image: url('{{ url_for('static', filename=meeting.image) }}')"></div>
-                {% else %}
                 <div class="meeting-card-accent accent-{{ loop.index0 % 5 }}"></div>
-                {% endif %}
                 <div class="meeting-card-body">
                     <div class="meeting-card-top">
                         <span class="meeting-card-type-badge {% if is_online %}badge-type-online{% else %}badge-type-inperson{% endif %}">
@@ -80,20 +76,37 @@
                         </span>
                         <span class="meeting-card-time" data-time="{{ meeting.time }}">{{ meeting.time }}</span>
                     </div>
-                    <h4 class="meeting-card-title">{{ meeting.title }}</h4>
+                    <div class="meeting-card-title-row">
+                        <h4 class="meeting-card-title">{{ meeting.title }}</h4>
+                        {% if meeting.location %}
+                        <span class="meeting-card-address">📍 {{ short_locations.get(meeting.id) }}</span>
+                        {% elif meeting.link %}
+                        <span class="meeting-card-address">🔗 Online</span>
+                        {% endif %}
+                    </div>
                     <p class="meeting-card-desc">{{ meeting.description }}</p>
-                    {% if meeting.location %}
-                    <div class="meeting-card-location">📍 {{ meeting.location }}</div>
-                    {% elif meeting.link %}
-                    <div class="meeting-card-location">🔗 Online meeting</div>
-                    {% endif %}
                     <div class="meeting-card-footer">
                         {% if meeting.creator_username %}
                         <span class="meeting-card-creator">👤 {{ meeting.creator_username }}</span>
                         {% endif %}
+                        {% if meeting.joined_uids|length > 0 %}
+                        <div class="joined-avatars">
+                            {% for u in joined_previews.get(meeting.id, []) %}
+                            <div class="joined-avatar" {% if not u.profile_picture %}style="background: {{ u.color }};"{% endif %} title="{{ u.uid }}">
+                                {% if u.profile_picture %}
+                                <img src="{{ u.profile_picture }}" alt="">
+                                {% else %}
+                                <span>{{ u.initial }}</span>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                            {% if meeting.joined_uids|length > 4 %}
+                            <div class="joined-avatar joined-avatar-more">+{{ meeting.joined_uids|length - 4 }}</div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
                         <button class="join-btn {% if uid in meeting.joined_uids %}joined{% endif %}" data-meeting-id="{{ meeting.id }}" onclick="event.stopPropagation(); toggleJoin(this, {{ meeting.id }})">
                             <span class="join-btn-text">{{ 'Joined' if uid in meeting.joined_uids else 'Join' }}</span>
-                            <span class="join-btn-count">{{ meeting.joined_count }}</span>
                         </button>
                         {% if is_admin or uid == meeting.creator_uid %}
                         <button class="delete-btn" title="Delete meeting" onclick="event.stopPropagation(); deleteMeeting({{ meeting.id }}, this.closest('.meeting-card'))">
@@ -122,6 +135,7 @@
     var STATIC_URL = "{{ url_for('static', filename='') }}";
     var CURRENT_UID = {{ uid | tojson }};
     var CURRENT_IS_ADMIN = {{ is_admin | tojson }};
+    var CURRENT_USER_AVATAR = {{ current_user_avatar | tojson }};
 </script>
 
 {% set active_page = 'home' %}

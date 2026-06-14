@@ -14,11 +14,7 @@
         {% if meetings %}
             {% for meeting in meetings %}
             <div class="like-card" id="joined-card-{{ meeting.id }}">
-                {% if meeting.image %}
-                <div class="like-card-color like-card-image" style="background-image: url('{{ url_for('static', filename=meeting.image) }}')"></div>
-                {% else %}
                 <div class="like-card-color card-color-{{ loop.index0 % 5 }}"></div>
-                {% endif %}
                 <div class="like-card-body">
                     <div class="like-card-badge">{{ '🌐 Online' if meeting.link else '📍 In-Person' }}</div>
                     <h3 class="like-card-title">{{ meeting.title }}</h3>

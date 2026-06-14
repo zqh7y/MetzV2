@@ -1,3 +1,21 @@
+// ─── Joined avatars stack ────────────────────────────────────────────────────
+function buildJoinedAvatarsHtml(meeting) {
+    var preview = meeting.joined_preview || [];
+    var count = meeting.joined_count || 0;
+    if (count === 0) return '';
+    var html = '<div class="joined-avatars">';
+    preview.forEach(function (u) {
+        var style = !u.profile_picture ? ' style="background: ' + u.color + ';"' : '';
+        var inner = u.profile_picture ? '<img src="' + u.profile_picture + '" alt="">' : '<span>' + u.initial + '</span>';
+        html += '<div class="joined-avatar"' + style + ' title="' + u.uid + '">' + inner + '</div>';
+    });
+    if (count > 4) {
+        html += '<div class="joined-avatar joined-avatar-more">+' + (count - 4) + '</div>';
+    }
+    html += '</div>';
+    return html;
+}
+
 // ─── Algorithm 1: Haversine Distance (Client-Side) ───────────────────────────
 function haversineDistance(lat1, lng1, lat2, lng2) {
     var R = 6371;
@@ -101,7 +119,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function showInfoPanel(meeting) {
         var isOnline = meeting.type === 'OnlineMeeting';
-        var headerClass = isOnline ? 'info-header-online' : 'info-header-inperson';
+        var badgeClass = isOnline ? 'badge-type-online' : 'badge-type-inperson';
         var badge = isOnline ? '🌐 Online' : '📍 In-Person';
 
         var extraRow = '';
@@ -113,10 +131,6 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         clearRoute();
-
-        var hasImage = !!meeting.image;
-        var heroStyle = hasImage ? ' style="background-image: url(\'' + STATIC_URL + meeting.image + '\')"' : '';
-        var heroClass = 'info-hero ' + headerClass.replace('info-header-', 'info-hero-') + (hasImage ? ' has-image' : '');
 
         var creatorHtml = meeting.creator_username
             ? '<div class="info-detail-row"><span class="info-detail-icon">👤</span><span>' + meeting.creator_username + '</span></div>'
@@ -134,8 +148,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
         infoPanelContent.innerHTML =
             '<div class="info-sticky-title"><span>' + meeting.title + '</span></div>'
-            + '<div class="' + heroClass + '"' + heroStyle + '>'
-            +   '<span class="info-badge">' + badge + '</span>'
+            + '<div class="info-hero">'
+            +   '<span class="info-badge ' + badgeClass + '">' + badge + '</span>'
             +   '<h3 class="info-hero-title">' + meeting.title + '</h3>'
             + '</div>'
             + '<div class="info-body">'
@@ -149,9 +163,9 @@ document.addEventListener("DOMContentLoaded", function () {
             +   '<div class="info-actions">'
             +   (function () {
                     var joined = (meeting.joined_uids || []).indexOf(CURRENT_UID) !== -1;
-                    var html = '<button class="join-btn info-join-btn' + (joined ? ' joined' : '') + '" onclick="toggleJoin(this, ' + meeting.id + ')">'
+                    var html = buildJoinedAvatarsHtml(meeting)
+                         + '<button class="join-btn info-join-btn' + (joined ? ' joined' : '') + '" onclick="toggleJoin(this, ' + meeting.id + ')">'
                          +   '<span class="join-btn-text">' + (joined ? 'Joined' : 'Join') + '</span>'
-                         +   '<span class="join-btn-count">' + (meeting.joined_count || 0) + '</span>'
                          + '</button>';
                     var canDelete = CURRENT_IS_ADMIN || meeting.creator_uid === CURRENT_UID;
                     if (canDelete) {
@@ -223,9 +237,19 @@ document.addEventListener("DOMContentLoaded", function () {
     map.on('click', hideInfoPanel);
 
     // ─── Markers ─────────────────────────────────────────────────────────
+    function meetingIcon(meeting) {
+        return L.divIcon({
+            className: 'meeting-marker',
+            html: '<div class="meeting-marker-circle">' + (meeting.emoji || '📍') + '</div>',
+            iconSize: [34, 34],
+            iconAnchor: [17, 34],
+            popupAnchor: [0, -34]
+        });
+    }
+
     function addMeetingMarker(meeting) {
         if (!meeting.lat || !meeting.lng) return;
-        var marker = L.marker([meeting.lat, meeting.lng]).addTo(map);
+        var marker = L.marker([meeting.lat, meeting.lng], { icon: meetingIcon(meeting) }).addTo(map);
         marker.on('click', function (e) {
             L.DomEvent.stopPropagation(e); // don't trigger map click (close)
             showInfoPanel(meeting);
@@ -304,12 +328,10 @@ document.addEventListener("DOMContentLoaded", function () {
             var isOnline = meeting.type === 'OnlineMeeting';
             var badge = isOnline ? '🌐 Online' : '📍 In-Person';
             var badgeClass = isOnline ? 'badge-type-online' : 'badge-type-inperson';
-            var locText = meeting.location ? '📍 ' + meeting.location
-                        : meeting.link    ? '🔗 Online meeting' : '';
+            var addressText = meeting.location ? '📍 ' + (meeting.short_location || meeting.location)
+                        : meeting.link    ? '🔗 Online' : '';
 
-            var mediaHtml = meeting.image
-                ? '<div class="meeting-card-image" style="background-image: url(\'' + STATIC_URL + meeting.image + '\')"></div>'
-                : '<div class="meeting-card-accent ' + ACCENTS[i % 5] + '"></div>';
+            var mediaHtml = '<div class="meeting-card-accent ' + ACCENTS[i % 5] + '"></div>';
 
             var creatorHtml = meeting.creator_username
                 ? '<span class="meeting-card-creator">👤 ' + meeting.creator_username + '</span>'
@@ -334,14 +356,16 @@ document.addEventListener("DOMContentLoaded", function () {
               +     '<span class="meeting-card-type-badge ' + badgeClass + '">' + badge + '</span>'
               +     '<span class="meeting-card-time" title="' + meeting.time + '">' + formatTimeUntil(meeting.time) + '</span>'
               +   '</div>'
-              +   '<h4 class="meeting-card-title">' + meeting.title + '</h4>'
+              +   '<div class="meeting-card-title-row">'
+              +     '<h4 class="meeting-card-title">' + meeting.title + '</h4>'
+              +     (addressText ? '<span class="meeting-card-address">' + addressText + '</span>' : '')
+              +   '</div>'
               +   '<p class="meeting-card-desc">' + meeting.description + '</p>'
-              +   (locText ? '<div class="meeting-card-location">' + locText + '</div>' : '')
               +   '<div class="meeting-card-footer">'
               +     creatorHtml
+              +     buildJoinedAvatarsHtml(meeting)
               +     '<button class="join-btn' + (joined ? ' joined' : '') + '" data-meeting-id="' + meeting.id + '" onclick="event.stopPropagation(); toggleJoin(this, ' + meeting.id + ')">'
               +       '<span class="join-btn-text">' + (joined ? 'Joined' : 'Join') + '</span>'
-              +       '<span class="join-btn-count">' + (meeting.joined_count || 0) + '</span>'
               +     '</button>'
               +     deleteHtml
               +   '</div>'
@@ -355,12 +379,21 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function locateUser() { map.locate({ setView: true, maxZoom: 16 }); }
 
-    // ─── Custom "Me" marker (pulsing dot) ──────────────────────────────────
+    // ─── Custom "Me" marker (pulsing pfp circle) ───────────────────────────
+    var meAvatarHtml;
+    if (CURRENT_USER_AVATAR && CURRENT_USER_AVATAR.profile_picture) {
+        meAvatarHtml = '<div class="me-marker-avatar"><img src="' + CURRENT_USER_AVATAR.profile_picture + '" alt=""></div>';
+    } else if (CURRENT_USER_AVATAR) {
+        meAvatarHtml = '<div class="me-marker-avatar" style="background: ' + CURRENT_USER_AVATAR.color + ';"><span>' + CURRENT_USER_AVATAR.initial + '</span></div>';
+    } else {
+        meAvatarHtml = '<div class="me-marker-dot"></div>';
+    }
+
     var meIcon = L.divIcon({
         className: 'me-marker',
-        html: '<div class="me-marker-pulse"></div><div class="me-marker-dot"></div>',
-        iconSize: [22, 22],
-        iconAnchor: [11, 11]
+        html: '<div class="me-marker-pulse"></div>' + meAvatarHtml,
+        iconSize: [30, 30],
+        iconAnchor: [15, 15]
     });
 
     map.on('locationfound', function (e) {
