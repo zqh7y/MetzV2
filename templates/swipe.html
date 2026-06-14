@@ -32,7 +32,7 @@
             <div class="cards-stack" id="cards-stack">
                 {% for meeting in meetings %}
             {% set is_online = meeting.__class__.__name__ == 'OnlineMeeting' %}
-                <div class="swipe-card card-color-{{ loop.index0 % 5 }}{% if meeting.image %} has-image{% endif %}" data-id="{{ meeting.id }}">
+                <div class="swipe-card card-color-{{ loop.index0 % 5 }}" data-id="{{ meeting.id }}">
                     <div class="card-overlay like-overlay">
                         <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" width="48" height="48"><path d="M20 6L9 17l-5-5"/></svg>
                         <span>JOIN</span>
@@ -42,9 +42,6 @@
                         <span>PASS</span>
                     </div>
                     <div class="card-inner">
-                        {% if meeting.image %}
-                        <div class="card-image" style="background-image: url('{{ url_for('static', filename=meeting.image) }}')"></div>
-                        {% endif %}
                         <div class="card-badge">{{ '🌐 Online' if is_online else '📍 In-Person' }}</div>
                         <h3 class="card-title">{{ meeting.title }}</h3>
                         {% if meeting.creator_username %}

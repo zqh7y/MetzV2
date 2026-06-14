@@ -128,6 +128,21 @@ def generate_user_id(email):
     return f"{prefix}{num:04d}"
 
 
+def get_joined_users_preview(joined_uids, limit=4):
+    """Return display info for the first `limit` joined users (avatar/initial/color)."""
+    preview = []
+    for uid in joined_uids[:limit]:
+        user = USERS_DB.get(uid)
+        username = user["username"] if user else uid
+        preview.append({
+            "uid": uid,
+            "profile_picture": user.get("profile_picture") if user else None,
+            "color": generate_user_color(uid),
+            "initial": username[:1].upper(),
+        })
+    return preview
+
+
 def generate_user_color(uid):
     """Create a deterministic, vibrant HSL color string from a user's uid."""
     hue = int(hashlib.md5(uid.encode()).hexdigest(), 16) % 360
@@ -176,6 +191,23 @@ def user_pass(uid, meeting_id):
     if meeting_id not in u["swiped_ids"]:
         u["swiped_ids"].append(meeting_id)
     save_data()
+
+
+def shorten_address(location):
+    """Reduce a full geocoded address down to '<city>, <street>', dropping
+    districts, postal codes, and the country."""
+    if not location:
+        return ""
+    parts = [p.strip() for p in location.split(",") if p.strip()]
+    if len(parts) <= 1:
+        return location
+    parts = parts[:-1]  # drop trailing country
+    parts = [p for p in parts if not p.isdigit() and "district" not in p.lower()]
+    if not parts:
+        return location
+    if len(parts) == 1:
+        return parts[0]
+    return f"{parts[-1]}, {parts[0]}"
 
 
 def search_users(query):

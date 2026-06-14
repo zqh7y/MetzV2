@@ -16,11 +16,39 @@
                 .then(function (data) {
                     if (data.error) return;
                     btn.classList.toggle('joined', data.joined);
-                    var countEl = btn.querySelector('.join-btn-count');
-                    if (countEl) countEl.textContent = data.count;
                     var textEl = btn.querySelector('.join-btn-text');
                     if (textEl) textEl.textContent = data.joined ? 'Joined' : 'Join';
+                    updateJoinedAvatars(btn, data);
+                    if (typeof MEETINGS_DATA !== 'undefined') {
+                        var meeting = MEETINGS_DATA.find(function (m) { return m.id === meetingId; });
+                        if (meeting) {
+                            meeting.joined_count = data.count;
+                            meeting.joined_preview = data.joined_preview;
+                            if (data.joined && meeting.joined_uids.indexOf(CURRENT_UID) === -1) {
+                                meeting.joined_uids.push(CURRENT_UID);
+                            } else if (!data.joined) {
+                                var idx = meeting.joined_uids.indexOf(CURRENT_UID);
+                                if (idx !== -1) meeting.joined_uids.splice(idx, 1);
+                            }
+                        }
+                    }
                 });
+        }
+
+        function updateJoinedAvatars(btn, data) {
+            var container = btn.parentElement;
+            if (!container) return;
+            var avatarsEl = container.querySelector('.joined-avatars');
+            var html = '';
+            if (data.count > 0 && typeof buildJoinedAvatarsHtml === 'function') {
+                html = buildJoinedAvatarsHtml({ joined_count: data.count, joined_preview: data.joined_preview });
+            }
+            if (avatarsEl) {
+                if (html) avatarsEl.outerHTML = html;
+                else avatarsEl.remove();
+            } else if (html) {
+                btn.insertAdjacentHTML('beforebegin', html);
+            }
         }
 
         function deleteMeeting(meetingId, cardEl) {

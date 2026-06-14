@@ -25,19 +25,7 @@
         <p class="error-msg">{{ message }}</p>
     {% endif %}
 
-    <form method="post" enctype="multipart/form-data" onsubmit="return validateMeetingForm(this)">
-        <div class="form-group">
-            <label for="image">Meeting Photo (optional)</label>
-            <label for="image" class="file-upload">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
-                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                    <circle cx="12" cy="13" r="4"/>
-                </svg>
-                <span id="image-filename">Add a photo</span>
-            </label>
-            <input type="file" id="image" name="image" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none" onchange="updateFileName(this)">
-        </div>
-
+    <form method="post" onsubmit="return validateMeetingForm(this)">
         <div class="form-group">
             <label for="title">Meeting Title</label>
             <input type="text" id="title" name="title" placeholder="e.g. Morning Yoga Session" required maxlength="100">
@@ -68,6 +56,16 @@
                 </button>
             </div>
             <input type="hidden" name="type" id="type" value="inperson">
+        </div>
+
+        <div class="form-group">
+            <label>Map Icon</label>
+            <div class="emoji-picker">
+                {% for e in ['📍','🎉','☕','🍕','🎮','🎵','📚','⚽','🧘','🎨','💻','🌐','🎬','🚴','🏕️','🍻'] %}
+                <button type="button" class="emoji-option{% if loop.first %} active{% endif %}" onclick="selectEmoji(this, '{{ e }}')">{{ e }}</button>
+                {% endfor %}
+            </div>
+            <input type="hidden" name="emoji" id="emoji" value="📍">
         </div>
 
         <div class="form-group" id="location-field">
@@ -102,6 +100,14 @@
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="{{ url_for('static', filename='validation.js') }}"></script>
 <script>
+    function selectEmoji(btn, emoji) {
+        document.querySelectorAll('.emoji-option').forEach(function (b) {
+            b.classList.remove('active');
+        });
+        btn.classList.add('active');
+        document.getElementById('emoji').value = emoji;
+    }
+
     function selectType(btn, type) {
         document.querySelectorAll('.type-toggle-btn').forEach(function (b) {
             b.classList.remove('active');
@@ -109,11 +115,6 @@
         btn.classList.add('active');
         document.getElementById('type').value = type;
         toggleFields();
-    }
-
-    function updateFileName(input) {
-        var span = document.getElementById('image-filename');
-        span.textContent = (input.files && input.files[0]) ? input.files[0].name : 'Add a photo';
     }
 
     function toggleFields() {
