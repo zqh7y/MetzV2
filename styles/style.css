@@ -416,6 +416,32 @@ body {
     box-shadow: 0 4px 14px rgba(102,126,234,0.35);
 }
 
+/* --- Interest tag picker (create form) --- */
+.tag-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.tag-option {
+    padding: 7px 13px;
+    font-size: 13px;
+    font-weight: 600;
+    border: 1.5px solid #dce1e7;
+    border-radius: 16px;
+    background: #fafbfc;
+    color: #666;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.tag-option.active {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border-color: transparent;
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(102,126,234,0.35);
+}
+
 .container .footer-link {
     text-align: center;
     margin-top: 18px;
@@ -847,6 +873,27 @@ body {
     border-top-color: #667eea;
 }
 
+/* ── Clustered markers: one big number when zoomed out ───────────────────── */
+.meeting-cluster-icon {
+    background: transparent;
+    border: none;
+}
+
+.meeting-cluster-circle {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 14px;
+    box-shadow: 0 3px 10px rgba(102,126,234,0.5), 0 0 0 4px rgba(102,126,234,0.18);
+    border: 2px solid rgba(255,255,255,0.6);
+}
+
 /* Style the default Leaflet popup wrapper (used for user location) */
 .leaflet-popup-content-wrapper {
     border-radius: 12px !important;
@@ -905,6 +952,133 @@ body {
 .create-btn-small:hover {
     background: #27ae60;
     transform: scale(1.04);
+}
+
+/* ── Filter bar (type + tag chips) ───────────────────────────────────────── */
+.filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.filter-chip {
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    border: 1.5px solid #e8eaed;
+    border-radius: 14px;
+    background: #f8f9fa;
+    color: #666;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.filter-chip.active {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border-color: transparent;
+    color: #fff;
+}
+
+.filter-chip-divider {
+    width: 1px;
+    background: #e8eaed;
+    margin: 2px 2px;
+}
+
+/* ── Trusted-user badge: a small star that keeps cycling colors ─────────────── */
+.trust-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 15px;
+    height: 15px;
+    margin-left: 4px;
+    border-radius: 50%;
+    font-size: 9px;
+    line-height: 1;
+    color: #fff;
+    background: linear-gradient(135deg, #ff6b6b, #f7d716, #4ade80, #38bdf8, #a78bfa, #ff6b6b);
+    background-size: 300% 300%;
+    animation: trust-badge-cycle 5s linear infinite;
+    box-shadow: 0 0 4px rgba(0,0,0,0.25);
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+
+@keyframes trust-badge-cycle {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 300% 50%; }
+}
+
+/* ── Pending-review notice on the home page ──────────────────────────────── */
+.pending-banner {
+    background: #fff7e0;
+    color: #946200;
+    border: 1px solid #ffe2a0;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+
+/* ── Admin: trust toggle button on a user's profile ──────────────────────── */
+.trust-toggle-form { margin-top: 10px; }
+.trust-toggle-btn {
+    padding: 8px 16px;
+    border-radius: 20px;
+    border: 1.5px solid #dce1e7;
+    background: #fafbfc;
+    color: #666;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.trust-toggle-btn.is-trusted {
+    background: linear-gradient(135deg, #ff6b6b, #f7d716, #4ade80, #38bdf8, #a78bfa);
+    border-color: transparent;
+    color: #fff;
+}
+
+/* ── Admin: approve / decline buttons on the pending-review page ─────────── */
+.pending-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+.pending-approve-btn, .pending-decline-btn {
+    flex: 1;
+    padding: 8px 0;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.15s;
+}
+.pending-approve-btn { background: #2ecc71; color: #fff; }
+.pending-decline-btn { background: #e74c3c; color: #fff; }
+.pending-approve-btn:hover, .pending-decline-btn:hover { transform: scale(1.03); }
+
+/* Tag chips shown on a meeting card */
+.meeting-card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin: 4px 0 6px;
+}
+
+.meeting-card-tag {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 9px;
+    background: #f0ebff;
+    color: #764ba2;
+    white-space: nowrap;
 }
 
 /* Search input */
@@ -1194,6 +1368,35 @@ body {
 .nav-icon {
     width: 22px;
     height: 22px;
+}
+
+.nav-icon-wrap {
+    position: relative;
+    display: inline-flex;
+}
+
+.nav-badge-dot {
+    position: absolute;
+    top: -6px;
+    right: -8px;
+    background: #e74c3c;
+    color: #fff;
+    font-size: 9px;
+    font-weight: 800;
+    min-width: 15px;
+    height: 15px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 3px;
+    box-shadow: 0 0 0 2px #1c1c2e;
+    animation: nav-badge-pulse 1.6s infinite;
+}
+
+@keyframes nav-badge-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.15); }
 }
 
 .nav-label {
@@ -1531,8 +1734,59 @@ body {
     margin-top: 4px;
 }
 
+/* Quick stats strip under the header */
+.likes-stats {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    margin: 4px 16px 16px;
+    padding: 14px 10px;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+
+.likes-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    flex: 1;
+}
+
+.likes-stat-number {
+    font-size: 19px;
+    font-weight: 800;
+    color: #2c3e50;
+}
+
+.likes-stat-label {
+    font-size: 11px;
+    color: #999;
+    font-weight: 600;
+}
+
+.likes-stat-divider {
+    width: 1px;
+    height: 28px;
+    background: #eceef1;
+}
+
+.likes-section-label {
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #999;
+    padding: 4px 4px 0;
+    margin-top: 4px;
+}
+
+.likes-section-label:first-child { margin-top: 0; }
+
 .likes-list {
-    padding: 12px 16px;
+    padding: 0 16px 12px;
     display: flex;
     flex-direction: column;
     gap: 14px;
@@ -1567,6 +1821,36 @@ body {
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-bottom: 6px;
+}
+
+.like-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.like-card-footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.like-card-footer .join-btn-count {
+    font-size: 12px;
+    color: #888;
+    font-weight: 600;
+}
+
+.like-card-footer .delete-btn {
+    margin-left: auto;
+}
+
+/* Past meetings read as slightly muted */
+.like-card.is-past {
+    opacity: 0.8;
 }
 
 .like-card-title {
@@ -1821,9 +2105,10 @@ body {
     margin-bottom: 4px;
 }
 
-.stat-icon-created { background: rgba(102,126,234,0.12); color: #667eea; }
-.stat-icon-joined  { background: rgba(46,204,113,0.12); color: #2ecc71; }
-.stat-icon-swiped  { background: rgba(243,156,18,0.12); color: #f39c12; }
+.stat-icon-created      { background: rgba(102,126,234,0.12); color: #667eea; }
+.stat-icon-joined       { background: rgba(46,204,113,0.12); color: #2ecc71; }
+.stat-icon-swiped       { background: rgba(243,156,18,0.12); color: #f39c12; }
+.stat-icon-participants { background: rgba(231,76,60,0.12); color: #e74c3c; font-size: 16px; }
 
 .stat-number {
     font-size: 26px;
@@ -1890,12 +2175,199 @@ body {
 
 .action-icon svg { flex-shrink: 0; }
 
-.action-icon-create { background: rgba(102,126,234,0.12); color: #667eea; }
-.action-icon-joined { background: rgba(231,76,60,0.12); color: #e74c3c; }
-.action-icon-logout { background: rgba(231,76,60,0.12); color: #e74c3c; }
+.action-icon-create  { background: rgba(102,126,234,0.12); color: #667eea; }
+.action-icon-joined  { background: rgba(231,76,60,0.12); color: #e74c3c; }
+.action-icon-logout  { background: rgba(231,76,60,0.12); color: #e74c3c; }
+.action-icon-pending { background: rgba(255,255,255,0.22); color: #fff; font-size: 18px; }
 
 .profile-action-logout {
     color: #e74c3c;
+}
+
+/* --- Prominent "Review Pending Meetings" admin button --- */
+.profile-action-urgent {
+    background: linear-gradient(135deg, #ff9a3c, #ff6262);
+    color: #fff;
+    box-shadow: 0 4px 16px rgba(255,98,98,0.4);
+}
+
+.profile-action-urgent .action-icon {
+    background: rgba(255,255,255,0.22);
+    color: #fff;
+}
+
+.profile-action-urgent.has-pending {
+    animation: urgent-pulse 1.8s infinite;
+}
+
+@keyframes urgent-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(255,98,98,0.55), 0 4px 16px rgba(255,98,98,0.4); }
+    70%  { box-shadow: 0 0 0 10px rgba(255,98,98,0), 0 4px 16px rgba(255,98,98,0.4); }
+    100% { box-shadow: 0 0 0 0 rgba(255,98,98,0), 0 4px 16px rgba(255,98,98,0.4); }
+}
+
+.pending-count-badge {
+    margin-left: auto;
+    background: #fff;
+    color: #ff6262;
+    font-weight: 800;
+    font-size: 12px;
+    border-radius: 12px;
+    padding: 3px 9px;
+    flex-shrink: 0;
+}
+
+/* --- Account status section --- */
+.account-status-card {
+    background: #fff;
+    margin: 16px 16px 0;
+    border-radius: 18px;
+    padding: 20px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+}
+
+.account-status-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 16px;
+}
+
+.account-status-emoji {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+.account-status-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #aaa;
+}
+
+.account-status-name {
+    font-size: 18px;
+    font-weight: 800;
+    color: #2c3e50;
+}
+
+.account-status-blurb {
+    font-size: 12px;
+    color: #999;
+    margin-top: 1px;
+}
+
+.account-status-next {
+    border-top: 1px solid #f0f1f3;
+    padding-top: 14px;
+}
+
+.account-status-next-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #888;
+    margin-bottom: 10px;
+}
+
+.account-status-next-label strong { color: #667eea; }
+
+.account-task {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+}
+
+.account-task-check {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid #dce1e7;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: transparent;
+}
+
+.account-task.done .account-task-check {
+    background: #2ecc71;
+    border-color: #2ecc71;
+    color: #fff;
+}
+
+.account-task-body { flex: 1; min-width: 0; }
+
+.account-task-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #444;
+}
+
+.account-task.done .account-task-label {
+    color: #2ecc71;
+}
+
+.account-task-progress {
+    font-size: 11px;
+    color: #aaa;
+    margin-top: 2px;
+}
+
+.account-task-bar {
+    height: 5px;
+    border-radius: 3px;
+    background: #eee;
+    margin-top: 5px;
+    overflow: hidden;
+}
+
+.account-task-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    border-radius: 3px;
+}
+
+.account-status-maxed {
+    text-align: center;
+    font-size: 13px;
+    color: #999;
+    padding-top: 4px;
+}
+
+.account-status-tiers-hint {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid #f0f1f3;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.account-tier-pill {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 5px 10px;
+    border-radius: 14px;
+    background: #f5f6f8;
+    color: #aaa;
+}
+
+.account-tier-pill.unlocked {
+    background: rgba(102,126,234,0.12);
+    color: #667eea;
 }
 /* --- Profile avatar ID --- */
 .profile-avatar {

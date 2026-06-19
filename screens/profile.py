@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from flask import render_template, session, redirect, url_for, abort
-from data import get_user, generate_user_color
+from data import get_user, generate_user_color, is_admin, is_trusted, set_trusted, get_account_status
 
 
 def _format_timestamp(iso_str):
@@ -61,6 +61,9 @@ def profile_route():
         meetings_created=meetings_created,
         meetings_joined=meetings_joined,
         meetings_swiped=meetings_swiped,
+        is_trusted=is_trusted(uid),
+        is_admin=is_admin(uid),
+        account_status=get_account_status(uid),
     )
 
 
@@ -71,6 +74,8 @@ def user_profile_route(uid):
     user = get_user(uid)
     if not user:
         abort(404)
+
+    viewer_uid = session["user"].get("uid", "")
 
     return render_template(
         "user_profile.html",
@@ -83,4 +88,17 @@ def user_profile_route(uid):
         meetings_swiped=len(user.get("swiped_ids", [])),
         joined_at=_format_timestamp(user.get("joined_at")),
         last_online=_format_timestamp(user.get("last_online")),
+        is_trusted=is_trusted(uid),
+        viewer_is_admin=is_admin(viewer_uid),
+        account_status=get_account_status(uid),
     )
+
+
+def toggle_trust_route(uid):
+    """Admin-only: toggle a user's trusted status."""
+    admin_uid = session.get("user", {}).get("uid", "")
+    user = get_user(uid)
+    if not user:
+        abort(404)
+    set_trusted(uid, not is_trusted(uid), admin_uid)
+    return redirect(url_for("user_profile", uid=uid))

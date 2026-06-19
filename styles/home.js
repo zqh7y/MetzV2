@@ -51,6 +51,23 @@ document.addEventListener("DOMContentLoaded", function () {
     }).addTo(map);
     setTimeout(function () { map.invalidateSize(); }, 100);
 
+    // Cluster nearby meeting pins into one numbered circle when zoomed out
+    var markerCluster = L.markerClusterGroup({
+        maxClusterRadius: 60,
+        spiderfyOnMaxZoom: true,
+        showCoverageOnHover: false,
+        iconCreateFunction: function (cluster) {
+            var count = cluster.getChildCount();
+            var size = count < 10 ? 38 : count < 50 ? 46 : 54;
+            return L.divIcon({
+                html: '<div class="meeting-cluster-circle">' + count + '</div>',
+                className: 'meeting-cluster-icon',
+                iconSize: [size, size]
+            });
+        }
+    });
+    map.addLayer(markerCluster);
+
     var markers = [];
     var markerById = {};
 
@@ -132,8 +149,15 @@ document.addEventListener("DOMContentLoaded", function () {
 
         clearRoute();
 
+        var trustBadgeHtml = meeting.creator_is_trusted ? '<span class="trust-badge" title="Trusted creator">★</span>' : '';
         var creatorHtml = meeting.creator_username
-            ? '<div class="info-detail-row"><span class="info-detail-icon">👤</span><span>' + meeting.creator_username + '</span></div>'
+            ? '<div class="info-detail-row"><span class="info-detail-icon">👤</span><span>' + meeting.creator_username + trustBadgeHtml + '</span></div>'
+            : '';
+
+        var tagsHtml = (meeting.tags && meeting.tags.length)
+            ? '<div class="meeting-card-tags">' + meeting.tags.map(function (t) {
+                return '<span class="meeting-card-tag">' + t + '</span>';
+              }).join('') + '</div>'
             : '';
 
         var navRowHtml = (!isOnline && meeting.lat && meeting.lng)
@@ -153,6 +177,7 @@ document.addEventListener("DOMContentLoaded", function () {
             +   '<h3 class="info-hero-title">' + meeting.title + '</h3>'
             + '</div>'
             + '<div class="info-body">'
+            +   tagsHtml
             +   '<p class="info-desc">' + meeting.description + '</p>'
             +   '<div class="info-details">'
             +     '<div class="info-detail-row"><span class="info-detail-icon">🕐</span><span title="' + meeting.time + '">' + formatTimeUntil(meeting.time) + '</span></div>'
@@ -249,7 +274,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function addMeetingMarker(meeting) {
         if (!meeting.lat || !meeting.lng) return;
-        var marker = L.marker([meeting.lat, meeting.lng], { icon: meetingIcon(meeting) }).addTo(map);
+        var marker = L.marker([meeting.lat, meeting.lng], { icon: meetingIcon(meeting) });
         marker.on('click', function (e) {
             L.DomEvent.stopPropagation(e); // don't trigger map click (close)
             showInfoPanel(meeting);
@@ -258,6 +283,7 @@ document.addEventListener("DOMContentLoaded", function () {
         marker.meeting = meeting;
         markers.push(marker);
         markerById[meeting.id] = marker;
+        markerCluster.addLayer(marker);
     }
 
     meetings.forEach(addMeetingMarker);
@@ -278,43 +304,78 @@ document.addEventListener("DOMContentLoaded", function () {
 
     document.querySelectorAll('.meeting-card').forEach(attachListItemClick);
 
-    // ─── Search ──────────────────────────────────────────────────────────
-    document.getElementById('search-input').addEventListener('input', function (e) {
-        var words = e.target.value.toLowerCase().trim().split(/\s+/).filter(Boolean);
-        var filtered = meetings.filter(function (m) {
+    // ─── Search + type/tag filters ─────────────────────────────────────────
+    var activeTypeFilter = 'all';
+    var activeTagFilters = [];
+
+    window.setTypeFilter = function (btn, type) {
+        activeTypeFilter = type;
+        document.querySelectorAll('.filter-chip[data-filter-type]').forEach(function (b) {
+            b.classList.remove('active');
+        });
+        btn.classList.add('active');
+        applyFilters();
+    };
+
+    window.toggleTagFilter = function (btn, tag) {
+        var idx = activeTagFilters.indexOf(tag);
+        if (idx === -1) {
+            activeTagFilters.push(tag);
+            btn.classList.add('active');
+        } else {
+            activeTagFilters.splice(idx, 1);
+            btn.classList.remove('active');
+        }
+        applyFilters();
+    };
+
+    function getFilteredMeetings() {
+        var words = document.getElementById('search-input').value.toLowerCase().trim().split(/\s+/).filter(Boolean);
+        return meetings.filter(function (m) {
+            if (activeTypeFilter === 'online' && m.type !== 'OnlineMeeting') return false;
+            if (activeTypeFilter === 'inperson' && m.type === 'OnlineMeeting') return false;
+            if (activeTagFilters.length) {
+                var tags = m.tags || [];
+                var hasAll = activeTagFilters.every(function (t) { return tags.indexOf(t) !== -1; });
+                if (!hasAll) return false;
+            }
             var typeWords = m.type === 'OnlineMeeting' ? 'online' : 'in-person in person';
             var haystack = [
                 m.title, m.description, m.location || '', m.link || '',
-                m.creator_username || '', m.time || '', typeWords
+                m.creator_username || '', m.time || '', typeWords, (m.tags || []).join(' ')
             ].join(' ').toLowerCase();
             return words.every(function (w) { return haystack.includes(w); });
         });
+    }
+
+    function applyFilters() {
+        var filtered = getFilteredMeetings();
 
         markers.forEach(function (marker) {
             var show = filtered.some(function (m) { return m.id === marker.meeting.id; });
-            if (show && !map.hasLayer(marker)) map.addLayer(marker);
-            if (!show && map.hasLayer(marker)) map.removeLayer(marker);
+            var has = markerCluster.hasLayer(marker);
+            if (show && !has) markerCluster.addLayer(marker);
+            if (!show && has) markerCluster.removeLayer(marker);
         });
 
-        document.querySelectorAll('.meeting-card').forEach(function (item) {
-            var id = parseInt(item.getAttribute('data-meeting-id'));
-            item.style.display = filtered.some(function (m) { return m.id === id; }) ? 'flex' : 'none';
-        });
+        renderSortedList(filtered);
 
         var list = document.getElementById('meetings-list');
         var emptyMsg = document.getElementById('search-empty-msg');
-        if (!filtered.length && meetings.length && words.length) {
+        if (!filtered.length && meetings.length) {
             if (!emptyMsg) {
                 emptyMsg = document.createElement('div');
                 emptyMsg.id = 'search-empty-msg';
                 emptyMsg.className = 'no-meetings-empty';
-                emptyMsg.innerHTML = '<div class="no-meetings-icon">🔍</div><h3>No matches found</h3><p>Try a different search term.</p>';
+                emptyMsg.innerHTML = '<div class="no-meetings-icon">🔍</div><h3>No matches found</h3><p>Try a different search term or filter.</p>';
                 list.appendChild(emptyMsg);
             }
         } else if (emptyMsg) {
             emptyMsg.remove();
         }
-    });
+    }
+
+    document.getElementById('search-input').addEventListener('input', applyFilters);
 
     // ─── Geolocation + distance sort ─────────────────────────────────────
     var userMarker = null;
@@ -331,10 +392,17 @@ document.addEventListener("DOMContentLoaded", function () {
             var addressText = meeting.location ? '📍 ' + (meeting.short_location || meeting.location)
                         : meeting.link    ? '🔗 Online' : '';
 
+            var tagsHtml = (meeting.tags && meeting.tags.length)
+                ? '<div class="meeting-card-tags">' + meeting.tags.map(function (t) {
+                    return '<span class="meeting-card-tag">' + t + '</span>';
+                  }).join('') + '</div>'
+                : '';
+
             var mediaHtml = '<div class="meeting-card-accent ' + ACCENTS[i % 5] + '"></div>';
 
+            var trustBadgeHtml = meeting.creator_is_trusted ? '<span class="trust-badge" title="Trusted creator">★</span>' : '';
             var creatorHtml = meeting.creator_username
-                ? '<span class="meeting-card-creator">👤 ' + meeting.creator_username + '</span>'
+                ? '<span class="meeting-card-creator">👤 ' + meeting.creator_username + trustBadgeHtml + '</span>'
                 : '';
 
             var joined = (meeting.joined_uids || []).indexOf(CURRENT_UID) !== -1;
@@ -360,6 +428,7 @@ document.addEventListener("DOMContentLoaded", function () {
               +     '<h4 class="meeting-card-title">' + meeting.title + '</h4>'
               +     (addressText ? '<span class="meeting-card-address">' + addressText + '</span>' : '')
               +   '</div>'
+              +   tagsHtml
               +   '<p class="meeting-card-desc">' + meeting.description + '</p>'
               +   '<div class="meeting-card-footer">'
               +     creatorHtml

@@ -45,7 +45,7 @@
                         <div class="card-badge">{{ '🌐 Online' if is_online else '📍 In-Person' }}</div>
                         <h3 class="card-title">{{ meeting.title }}</h3>
                         {% if meeting.creator_username %}
-                        <div class="card-creator">👤 by {{ meeting.creator_username }}</div>
+                        <div class="card-creator">👤 by {{ meeting.creator_username }}{% if trusted_map.get(meeting.creator_uid) %}<span class="trust-badge" title="Trusted creator">★</span>{% endif %}</div>
                         {% endif %}
                         <p class="card-desc">{{ meeting.description }}</p>
                         <div class="card-meta">
@@ -126,10 +126,11 @@ function searchUsers(q) {
                 }
                 results.innerHTML = users.map(function(u) {
                     var initials = u.username.slice(0, 2).toUpperCase();
+                    var badge = (u.is_trusted || u.is_admin) ? '<span class="trust-badge" title="Trusted user">★</span>' : '';
                     return '<div class="user-result-card" onclick="location.href=\'/user/' + u.uid + '\'">' +
                         '<div class="user-result-avatar" style="background:' + u.color + '">' + initials + '</div>' +
                         '<div class="user-result-info">' +
-                            '<span class="user-result-name">' + u.username + '</span>' +
+                            '<span class="user-result-name">' + u.username + badge + '</span>' +
                             '<span class="user-result-uid">' + u.uid + '</span>' +
                         '</div>' +
                         '<span class="user-result-chevron">›</span>' +

@@ -1,14 +1,15 @@
 from datetime import timedelta
 from flask import Flask, session, redirect, url_for, request, jsonify
-from data import search_users, touch_last_online
+from data import search_users, touch_last_online, is_admin, get_all_meetings
 from screens.login import login_route
 from screens.signup import signup_route
 from screens.home import home_route
 from screens.create import create_route
 from screens.swipe import swipe_route
 from screens.joined import joined_route, pass_route, join_route, delete_route
-from screens.profile import profile_route, user_profile_route
+from screens.profile import profile_route, user_profile_route, toggle_trust_route
 from screens.verify import verify_route, resend_verification_route
+from screens.admin import pending_route, approve_route, decline_route
 
 app = Flask(__name__, static_folder="styles")
 app.secret_key = "supersecretkey123"  # Required for session
@@ -21,6 +22,15 @@ app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
 def update_last_online():
     if "user" in session:
         touch_last_online(session["user"].get("uid", ""))
+
+
+@app.context_processor
+def inject_nav_notifications():
+    """Makes the pending-review count available to nav.html on every page,
+    so admins see a notification dot without each route wiring it through."""
+    uid = session.get("user", {}).get("uid", "")
+    count = len(get_all_meetings(status="pending")) if is_admin(uid) else 0
+    return {"nav_pending_count": count}
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -86,6 +96,26 @@ def profile():
 @app.route("/user/<uid>")
 def user_profile(uid):
     return user_profile_route(uid)
+
+
+@app.route("/admin/trust/<uid>", methods=["POST"])
+def admin_trust(uid):
+    return toggle_trust_route(uid)
+
+
+@app.route("/admin/pending")
+def admin_pending():
+    return pending_route()
+
+
+@app.route("/admin/approve/<int:meeting_id>", methods=["POST"])
+def admin_approve(meeting_id):
+    return approve_route(meeting_id)
+
+
+@app.route("/admin/decline/<int:meeting_id>", methods=["POST"])
+def admin_decline(meeting_id):
+    return decline_route(meeting_id)
 
 
 @app.route("/search_users")

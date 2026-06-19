@@ -14,7 +14,7 @@
                 <span class="profile-avatar-id">{{ uid }}</span>
             {% endif %}
         </div>
-        <h2 class="profile-name">{{ username }}</h2>
+        <h2 class="profile-name">{{ username }}{% if is_trusted %}<span class="trust-badge" title="Trusted user">★</span>{% endif %}</h2>
         <p class="profile-email">{{ email }}</p>
     </div>
 
@@ -49,10 +49,74 @@
             <span class="stat-number">{{ meetings_swiped }}</span>
             <span class="stat-label">Swiped</span>
         </div>
+        <div class="stat-divider"></div>
+        <div class="stat-card">
+            <div class="stat-icon stat-icon-participants">👥</div>
+            <span class="stat-number">{{ account_status.stats.participants }}</span>
+            <span class="stat-label">Signed Up</span>
+        </div>
+    </div>
+
+    <!-- Account status -->
+    <div class="account-status-card">
+        <div class="account-status-header">
+            <div class="account-status-emoji">{{ account_status.current.emoji }}</div>
+            <div>
+                <div class="account-status-title">Account Status</div>
+                <div class="account-status-name">{{ account_status.current.name }}</div>
+                <div class="account-status-blurb">{{ account_status.current.blurb }}</div>
+            </div>
+        </div>
+
+        {% if account_status.next %}
+        <div class="account-status-next">
+            <div class="account-status-next-label">
+                Next up: <strong>{{ account_status.next.emoji }} {{ account_status.next.name }}</strong>
+            </div>
+            {% if account_status.next_is_manual %}
+                {% for task in account_status.next_tasks %}
+                <div class="account-task">
+                    <div class="account-task-check">🔒</div>
+                    <div class="account-task-body">
+                        <div class="account-task-label">{{ task.label }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                {% for task in account_status.next_tasks %}
+                <div class="account-task {% if task.done %}done{% endif %}">
+                    <div class="account-task-check">{% if task.done %}✓{% endif %}</div>
+                    <div class="account-task-body">
+                        <div class="account-task-label">{{ task.label }}</div>
+                        <div class="account-task-progress">{{ task.progress }} / {{ task.target }}</div>
+                        <div class="account-task-bar">
+                            <div class="account-task-bar-fill" style="width: {{ (task.progress / task.target * 100) | round(0, 'floor') }}%;"></div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="account-status-maxed">🏆 You've reached the top tier!</div>
+        {% endif %}
+
+        <div class="account-status-tiers-hint">
+            {% for tier in account_status.all_tiers %}
+            <span class="account-tier-pill {% if loop.index0 <= account_status.all_tiers.index(account_status.current) %}unlocked{% endif %}">{{ tier.emoji }} {{ tier.name }}</span>
+            {% endfor %}
+        </div>
     </div>
 
     <!-- Actions -->
     <div class="profile-actions">
+        {% if is_admin %}
+        <a href="/admin/pending" class="profile-action-btn profile-action-urgent {% if nav_pending_count and nav_pending_count > 0 %}has-pending{% endif %}">
+            <span class="action-icon action-icon-pending">⏳</span>
+            Review Pending Meetings
+            {% if nav_pending_count and nav_pending_count > 0 %}<span class="pending-count-badge">{{ nav_pending_count }}</span>{% endif %}
+        </a>
+        {% endif %}
         <a href="/create" class="profile-action-btn">
             <span class="action-icon action-icon-create">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="20" height="20">

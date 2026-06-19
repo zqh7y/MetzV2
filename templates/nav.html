@@ -32,10 +32,15 @@
         <span class="nav-label">Joined</span>
     </a>
     <a href="/profile" class="nav-item {% if active_page == 'profile' %}active{% endif %}">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-            <circle cx="12" cy="7" r="4"/>
-        </svg>
+        <span class="nav-icon-wrap">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+            </svg>
+            {% if nav_pending_count and nav_pending_count > 0 %}
+            <span class="nav-badge-dot">{{ nav_pending_count if nav_pending_count < 10 else '9+' }}</span>
+            {% endif %}
+        </span>
         <span class="nav-label">Profile</span>
     </a>
 </nav>

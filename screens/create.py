@@ -1,6 +1,6 @@
 from flask import request, render_template, session, redirect, url_for
-from data import add_meeting
-from functions.models import InPersonMeeting, OnlineMeeting, validate_meeting_data, sanitize_html
+from data import add_meeting, is_trusted
+from functions.models import InPersonMeeting, OnlineMeeting, validate_meeting_data, sanitize_html, AVAILABLE_TAGS
 
 
 def parse_coord(value):
@@ -24,6 +24,7 @@ def create_route():
         location_name = request.form.get("location_name", "")
         link = request.form.get("link", "")
         emoji = request.form.get("emoji", "").strip()
+        tags = [t for t in request.form.getlist("tags") if t in AVAILABLE_TAGS]
 
         errors = validate_meeting_data(title, description, time, meeting_type,
                                        location_name=location_name, link=link)
@@ -39,16 +40,16 @@ def create_route():
                 lng = parse_coord(request.form.get("lng", ""))
                 new_meeting = InPersonMeeting(
                     id=0, title=title, description=description, time=time,
-                    location=location_name, lat=lat, lng=lng, emoji=emoji,
+                    location=location_name, lat=lat, lng=lng, emoji=emoji, tags=tags,
                 )
                 add_meeting(new_meeting, creator_uid=uid)
-                return redirect(url_for("home"))
+                return redirect(url_for("home", pending=0 if is_trusted(uid) else 1))
 
             elif meeting_type == "online":
                 new_meeting = OnlineMeeting(
-                    id=0, title=title, description=description, time=time, link=link, emoji=emoji,
+                    id=0, title=title, description=description, time=time, link=link, emoji=emoji, tags=tags,
                 )
                 add_meeting(new_meeting, creator_uid=uid)
-                return redirect(url_for("home"))
+                return redirect(url_for("home", pending=0 if is_trusted(uid) else 1))
 
-    return render_template("create.html", message=message)
+    return render_template("create.html", message=message, available_tags=AVAILABLE_TAGS)

@@ -4,6 +4,8 @@
 
 {% block extra_head %}
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
 {% endblock %}
 
 {% block content %}
@@ -48,6 +50,9 @@
 
     <!-- Bottom white panel -->
     <div class="bottom-panel">
+        {% if pending_notice %}
+        <div class="pending-banner">⏳ Your meeting was submitted and is waiting for admin approval.</div>
+        {% endif %}
         <!-- Top bar: title + compact create button -->
         <div class="panel-topbar">
             <span class="panel-title">Nearby Meetings</span>
@@ -62,6 +67,16 @@
 
         <div class="search-container">
             <input type="text" id="search-input" placeholder="Search meetings...">
+        </div>
+
+        <div class="filter-bar" id="filter-bar">
+            <button type="button" class="filter-chip active" data-filter-type="all" onclick="setTypeFilter(this, 'all')">All</button>
+            <button type="button" class="filter-chip" data-filter-type="inperson" onclick="setTypeFilter(this, 'inperson')">📍 In-Person</button>
+            <button type="button" class="filter-chip" data-filter-type="online" onclick="setTypeFilter(this, 'online')">🌐 Online</button>
+            <div class="filter-chip-divider"></div>
+            {% for t in available_tags %}
+            <button type="button" class="filter-chip" data-filter-tag="{{ t }}" onclick="toggleTagFilter(this, '{{ t }}')">{{ t }}</button>
+            {% endfor %}
         </div>
 
         <div class="meetings-list" id="meetings-list">
@@ -84,10 +99,17 @@
                         <span class="meeting-card-address">🔗 Online</span>
                         {% endif %}
                     </div>
+                    {% if meeting.tags %}
+                    <div class="meeting-card-tags">
+                        {% for t in meeting.tags %}
+                        <span class="meeting-card-tag">{{ t }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
                     <p class="meeting-card-desc">{{ meeting.description }}</p>
                     <div class="meeting-card-footer">
                         {% if meeting.creator_username %}
-                        <span class="meeting-card-creator">👤 {{ meeting.creator_username }}</span>
+                        <span class="meeting-card-creator">👤 {{ meeting.creator_username }}{% if trusted_map.get(meeting.creator_uid) %}<span class="trust-badge" title="Trusted creator">★</span>{% endif %}</span>
                         {% endif %}
                         {% if meeting.joined_uids|length > 0 %}
                         <div class="joined-avatars">
@@ -142,6 +164,7 @@
 {% include 'nav.html' %}
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script src="{{ url_for('static', filename='validation.js') }}"></script>
 <script src="{{ url_for('static', filename='time-utils.js') }}"></script>
 <script src="{{ url_for('static', filename='home.js') }}"></script>

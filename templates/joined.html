@@ -7,25 +7,77 @@
 
     <div class="likes-header">
         <h2>🤝 My Joined Meetings</h2>
-        <p>{{ meetings | length }} meeting{{ 's' if meetings | length != 1 }}</p>
+        <p>{{ stats.total }} meeting{{ 's' if stats.total != 1 }} · {{ stats.upcoming }} upcoming</p>
     </div>
 
+    {% if stats.total > 0 %}
+    <div class="likes-stats">
+        <div class="likes-stat">
+            <span class="likes-stat-number">{{ stats.upcoming }}</span>
+            <span class="likes-stat-label">Upcoming</span>
+        </div>
+        <div class="likes-stat-divider"></div>
+        <div class="likes-stat">
+            <span class="likes-stat-number">{{ stats.inperson }}</span>
+            <span class="likes-stat-label">📍 In-Person</span>
+        </div>
+        <div class="likes-stat-divider"></div>
+        <div class="likes-stat">
+            <span class="likes-stat-number">{{ stats.online }}</span>
+            <span class="likes-stat-label">🌐 Online</span>
+        </div>
+    </div>
+    {% endif %}
+
     <div class="likes-list">
-        {% if meetings %}
-            {% for meeting in meetings %}
-            <div class="like-card" id="joined-card-{{ meeting.id }}">
-                <div class="like-card-color card-color-{{ loop.index0 % 5 }}"></div>
+        {% if upcoming or past %}
+
+            {% macro render_card(meeting, loop_index, is_past=False) %}
+            {% set is_online = meeting.__class__.__name__ == 'OnlineMeeting' %}
+            <div class="like-card{% if is_past %} is-past{% endif %}" id="joined-card-{{ meeting.id }}">
+                <div class="like-card-color card-color-{{ loop_index % 5 }}"></div>
                 <div class="like-card-body">
-                    <div class="like-card-badge">{{ '🌐 Online' if meeting.link else '📍 In-Person' }}</div>
+                    <div class="like-card-top">
+                        <span class="meeting-card-type-badge {% if is_online %}badge-type-online{% else %}badge-type-inperson{% endif %}">
+                            {{ '🌐 Online' if is_online else '📍 In-Person' }}
+                        </span>
+                        <span class="meeting-card-time" data-time="{{ meeting.time }}">{{ meeting.time }}</span>
+                    </div>
                     <h3 class="like-card-title">{{ meeting.title }}</h3>
                     {% if meeting.creator_username %}
-                    <div class="like-card-creator">👤 by {{ meeting.creator_username }}</div>
+                    <div class="like-card-creator">👤 by {{ meeting.creator_username }}{% if trusted_map.get(meeting.creator_uid) %}<span class="trust-badge" title="Trusted creator">★</span>{% endif %}</div>
+                    {% endif %}
+                    {% if meeting.tags %}
+                    <div class="meeting-card-tags">
+                        {% for t in meeting.tags %}
+                        <span class="meeting-card-tag">{{ t }}</span>
+                        {% endfor %}
+                    </div>
                     {% endif %}
                     <p class="like-card-desc">{{ meeting.description }}</p>
                     <div class="like-card-meta">
-                        <span>🕐 {{ meeting.time }}</span>
-                        {% if meeting.link %}
-                        <a href="{{ meeting.link }}" target="_blank" class="like-join-btn">Join →</a>
+                        {% if meeting.location %}
+                        <span class="meeting-card-address">📍 {{ short_locations.get(meeting.id) }}</span>
+                        {% elif meeting.link %}
+                        <a href="{{ meeting.link }}" target="_blank" class="like-join-btn">🔗 Join meeting →</a>
+                        {% endif %}
+                    </div>
+                    <div class="like-card-footer">
+                        {% if joined_previews.get(meeting.id) %}
+                        <div class="joined-avatars">
+                            {% for u in joined_previews.get(meeting.id, []) %}
+                            <div class="joined-avatar" {% if not u.profile_picture %}style="background: {{ u.color }};"{% endif %} title="{{ u.uid }}">
+                                {% if u.profile_picture %}
+                                <img src="{{ u.profile_picture }}" alt="">
+                                {% else %}
+                                <span>{{ u.initial }}</span>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                            {% if meeting.joined_uids|length > 4 %}
+                            <div class="joined-avatar joined-avatar-more">+{{ meeting.joined_uids|length - 4 }}</div>
+                            {% endif %}
+                        </div>
                         {% endif %}
                         <span class="join-btn-count" title="People joined">{{ meeting.joined_count }} joined</span>
                         {% if is_admin or uid == meeting.creator_uid %}
@@ -39,7 +91,22 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
             </div>
+            {% endmacro %}
+
+            {% if upcoming %}
+            <div class="likes-section-label">Upcoming</div>
+            {% for meeting in upcoming %}
+                {{ render_card(meeting, loop.index0) }}
             {% endfor %}
+            {% endif %}
+
+            {% if past %}
+            <div class="likes-section-label">Past</div>
+            {% for meeting in past %}
+                {{ render_card(meeting, loop.index0, is_past=True) }}
+            {% endfor %}
+            {% endif %}
+
         {% else %}
             <div class="likes-empty">
                 <div class="likes-empty-icon">🤝</div>
@@ -54,7 +121,13 @@
     {% include 'nav.html' %}
 </div>
 
+<script src="{{ url_for('static', filename='time-utils.js') }}"></script>
 <script>
+document.querySelectorAll('.meeting-card-time[data-time]').forEach(function (el) {
+    el.title = el.getAttribute('data-time');
+    el.textContent = formatTimeUntil(el.getAttribute('data-time'));
+});
+
 function leaveMeeting(id) {
     fetch('/join/' + id, { method: 'POST' }).then(function() {
         var card = document.getElementById('joined-card-' + id);

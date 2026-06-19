@@ -1,5 +1,13 @@
+from datetime import datetime
 from flask import render_template, session, redirect, url_for, jsonify
-from data import get_user, get_all_meetings, user_pass, toggle_join_meeting, delete_meeting, is_admin, get_joined_users_preview, MEETINGS_DB
+from data import get_user, get_all_meetings, user_pass, toggle_join_meeting, delete_meeting, is_admin, is_trusted, get_joined_users_preview, shorten_address, MEETINGS_DB
+
+
+def _parse_time(time_str):
+    try:
+        return datetime.strptime(time_str, "%Y-%m-%d %H:%M")
+    except (ValueError, TypeError):
+        return None
 
 
 def joined_route():
@@ -13,7 +21,29 @@ def joined_route():
     all_meetings = {m.id: m for m in get_all_meetings()}
     joined = [all_meetings[mid] for mid in joined_ids if mid in all_meetings]
 
-    return render_template("joined.html", meetings=joined, uid=uid, is_admin=is_admin(uid))
+    parsed_times = {m.id: _parse_time(m.time) for m in joined}
+    now = datetime.now()
+    joined.sort(key=lambda m: parsed_times[m.id] or datetime.max)
+
+    upcoming = [m for m in joined if parsed_times[m.id] and parsed_times[m.id] >= now]
+    past = [m for m in joined if not parsed_times[m.id] or parsed_times[m.id] < now]
+
+    trusted_map = {m.creator_uid: is_trusted(m.creator_uid) for m in joined if m.creator_uid}
+    joined_previews = {m.id: get_joined_users_preview(m.joined_uids) for m in joined}
+    short_locations = {m.id: shorten_address(getattr(m, "location", None)) for m in joined}
+
+    stats = {
+        "total": len(joined),
+        "upcoming": len(upcoming),
+        "online": len([m for m in joined if getattr(m, "link", None)]),
+        "inperson": len([m for m in joined if getattr(m, "location", None)]),
+    }
+
+    return render_template(
+        "joined.html", upcoming=upcoming, past=past, stats=stats,
+        uid=uid, is_admin=is_admin(uid), trusted_map=trusted_map,
+        joined_previews=joined_previews, short_locations=short_locations,
+    )
 
 
 def pass_route(meeting_id):
