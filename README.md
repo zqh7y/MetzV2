@@ -31,10 +31,36 @@ for user accounts.
 - **User profiles** — search for other users ("People"), view their profile,
   see their joined/created meetings, and get a unique color-coded avatar
   generated from their username.
+- **Interest tags** — meetings can be labeled with tags (Sports, Food & Drink,
+  Study, Music, Art, Tech, Outdoors, Gaming, Social, Fitness). The home page
+  has a filter bar to narrow meetings down by **type** (All / In-Person /
+  Online) and by any combination of tags.
+- **Trust & moderation system** — only **trusted users** and admins can post
+  a meeting that goes live instantly. Everyone else's meetings are submitted
+  as **pending** and only appear once an admin approves them from the
+  **Review Pending Meetings** screen (`/admin/pending`). Trusted users get an
+  animated, color-cycling ★ badge shown next to their name everywhere it
+  appears (home cards, map info panel, swipe cards, joined list, profiles,
+  people search).
+- **Account status tiers** — a small gamification layer on the profile page:
+  🧭 Explorer → 🎨 Creator → 🤝 Connector → 🌟 Organizer → 🛠️ Developer
+  (admin-granted). Each tier shows a live checklist of what's left to unlock
+  it (e.g. "Create 3 meetings", "Get 15 people to join your meetings").
+- **Admin notifications** — admins see a pulsing notification dot on the
+  Profile nav icon and a bold "Review Pending Meetings" button (with a live
+  count badge) whenever there's something waiting for review.
+- **Marker clustering** — on the home map, nearby meeting pins collapse into
+  a single numbered circle as you zoom out, instead of cluttering the map
+  with overlapping markers.
 - **Admin accounts** — a small set of admin emails can delete any meeting,
-  not just their own.
+  approve/decline pending ones, and mark other users as trusted.
 - **Persistent storage** — meetings, users, and joins are saved to
   `app_data.json` so data survives server restarts.
+- **React Native mobile app** (in [`mobile/`](mobile/)) — an Expo app that
+  talks to a JSON API sharing the exact same `data.py`/`functions/models.py`
+  logic as the web app, so meetings, trust/moderation, tags, and
+  account-status tiers stay in sync across both. See
+  [`mobile/README.md`](mobile/README.md) for details.
 
 ---
 
@@ -51,25 +77,32 @@ meetupApp/
 │   ├── login.py
 │   ├── signup.py
 │   ├── verify.py           # Email verification (4-digit code)
-│   ├── home.py             # Map + meeting list
+│   ├── home.py             # Map + meeting list + tag/type filters
 │   ├── swipe.py            # Swipe/discover deck
 │   ├── create.py           # Create a new meeting
 │   ├── joined.py           # Joined meetings, join/pass/delete actions
-│   └── profile.py          # Own profile + other users' profiles
+│   ├── profile.py          # Own profile, other users' profiles, trust toggle
+│   └── admin.py            # Pending-meeting review (approve/decline)
 │
 ├── functions/
-│   ├── models.py           # Meeting / InPersonMeeting / OnlineMeeting classes
+│   ├── models.py           # Meeting / InPersonMeeting / OnlineMeeting classes,
+│   │                       # AVAILABLE_TAGS, meeting status (approved/pending)
 │   ├── auth_errors.py      # Firebase error code → friendly message mapping
 │   └── email_utils.py      # Verification code generation + email sending
 │
 ├── templates/              # Jinja2 HTML templates (one per screen + base.html)
+│   └── pending.html         # Admin pending-meeting review page
 ├── styles/
 │   ├── style.css           # All app styling
-│   ├── home.js              # Map logic, info panel, geolocation
+│   ├── home.js              # Map logic, clustering, info panel, geolocation
 │   ├── swipe.js             # Swipe deck interactions
 │   ├── time-utils.js        # Relative time formatting ("in 2 hours")
 │   ├── validation.js        # Client-side form validation
 │   └── uploads/             # User-uploaded meeting cover images
+│
+├── mobile/                  # React Native (Expo) app + JSON API backend
+│   ├── backend/             # Flask API reusing data.py/functions/ as-is
+│   └── app/                 # Expo app (Login, Home, Create, Joined, Profile...)
 │
 └── .gitignore
 ```
@@ -214,6 +247,43 @@ def validate_meeting_data(title, description, time, meeting_type, location_name=
 User-submitted text is also passed through `sanitize_html()` (using Python's
 `html.escape`) before being stored, to prevent XSS.
 
+### Trust & moderation
+
+Every meeting has a `status` of `"approved"` or `"pending"`. When a meeting
+is created, [`data.add_meeting()`](data.py) checks whether the creator is
+trusted (or an admin — admins are always implicitly trusted):
+
+```python
+if creator_uid and creator_uid in USERS_DB:
+    meeting_obj.status = "approved" if is_trusted(creator_uid) else "pending"
+```
+
+Only **approved** meetings show up on the home/swipe/joined screens
+(`get_all_meetings(status="approved")`). Admins review everything still
+`"pending"` on [`/admin/pending`](templates/pending.html) and either
+`approve_meeting()` or `decline_meeting()` (which just deletes it) —
+both guarded by `is_admin()`.
+
+### Account status tiers
+
+[`data.get_account_status()`](data.py) walks a fixed list of tiers
+(`ACCOUNT_TIERS`), each with its own requirements (meetings created, total
+participants across your meetings, or — for the admin-only **Developer**
+tier — being granted admin access). It returns the user's current tier plus
+a progress checklist for the next one, which the profile page renders as a
+live checklist with progress bars:
+
+```python
+ACCOUNT_TIERS = [
+    {"id": "explorer", "name": "Explorer", "emoji": "🧭", "requires": []},
+    {"id": "creator", "name": "Creator", "emoji": "🎨",
+     "requires": [{"label": "Create 3 meetings", "key": "created", "target": 3}]},
+    # ...connector, organizer...
+    {"id": "developer", "name": "Developer", "emoji": "🛠️", "manual": True,
+     "requires": [{"label": "Be granted admin access by the team", "key": "admin", "target": 1}]},
+]
+```
+
 ### Data persistence
 
 There's no external database — [`data.py`](data.py) keeps everything in
@@ -262,6 +332,9 @@ enough for a school assignment while still surviving server restarts.
 | `/join/<id>`, `/pass/<id>`, `/delete/<id>` | Join, pass, or delete a meeting |
 | `/profile`, `/user/<uid>` | Your profile / another user's profile |
 | `/search_users?q=...` | Search for users by name |
+| `/admin/pending` | Admin: review meetings awaiting approval |
+| `/admin/approve/<id>`, `/admin/decline/<id>` | Admin: approve or decline a pending meeting |
+| `/admin/trust/<uid>` | Admin: toggle a user's trusted status |
 
 ---
 
@@ -272,3 +345,7 @@ enough for a school assignment while still surviving server restarts.
 - A development shortcut: during signup verification, the code **`1234`**
   is always accepted in addition to the real generated code, so the flow can
   be tested without email access.
+- The [`mobile/`](mobile/) React Native app and its JSON API are a separate,
+  parallel client on top of the same `data.py` — see
+  [`mobile/README.md`](mobile/README.md) for how to run and test it
+  (including testing on a physical Android phone via Expo Go).
