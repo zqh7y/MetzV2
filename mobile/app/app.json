@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "Metz",
+    "slug": "metz-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#667eea"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "android": {
+      "package": "com.metz.app",
+      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"]
+    },
+    "ios": {
+      "bundleIdentifier": "com.metz.app"
+    }
+  }
+}
