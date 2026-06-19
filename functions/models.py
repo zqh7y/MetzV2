@@ -3,13 +3,20 @@
 import html
 
 
+# Fixed set of interest tags a meeting can be labeled with.
+AVAILABLE_TAGS = [
+    "Sports", "Food & Drink", "Study", "Music", "Art",
+    "Tech", "Outdoors", "Gaming", "Social", "Fitness",
+]
+
+
 class Meeting:
     """Base class for all meetings."""
 
     DEFAULT_EMOJI = "📍"
 
     def __init__(self, id, title, description, time,
-                 creator_uid=None, creator_username=None, joined_uids=None, emoji=None):
+                 creator_uid=None, creator_username=None, joined_uids=None, emoji=None, tags=None, status=None):
         self.id = id
         self.title = title
         self.description = description
@@ -18,6 +25,9 @@ class Meeting:
         self.creator_username = creator_username
         self.joined_uids = joined_uids or []
         self.emoji = emoji or self.DEFAULT_EMOJI
+        self.tags = tags or []
+        # "approved" meetings are publicly visible; "pending" ones await admin review.
+        self.status = status or "approved"
 
     def get_display_text(self):
         """Base method – overridden by subclasses to provide specific display."""
@@ -36,6 +46,8 @@ class Meeting:
             "joined_uids": self.joined_uids,
             "joined_count": len(self.joined_uids),
             "emoji": self.emoji,
+            "tags": self.tags,
+            "status": self.status,
         }
 
 
@@ -45,8 +57,8 @@ class InPersonMeeting(Meeting):
     DEFAULT_EMOJI = "📍"
 
     def __init__(self, id, title, description, time, location, lat, lng,
-                 creator_uid=None, creator_username=None, joined_uids=None, emoji=None):
-        super().__init__(id, title, description, time, creator_uid, creator_username, joined_uids, emoji)
+                 creator_uid=None, creator_username=None, joined_uids=None, emoji=None, tags=None, status=None):
+        super().__init__(id, title, description, time, creator_uid, creator_username, joined_uids, emoji, tags, status)
         self.location = location
         self.lat = lat
         self.lng = lng
@@ -67,8 +79,8 @@ class OnlineMeeting(Meeting):
     DEFAULT_EMOJI = "💻"
 
     def __init__(self, id, title, description, time, link,
-                 creator_uid=None, creator_username=None, joined_uids=None, emoji=None):
-        super().__init__(id, title, description, time, creator_uid, creator_username, joined_uids, emoji)
+                 creator_uid=None, creator_username=None, joined_uids=None, emoji=None, tags=None, status=None):
+        super().__init__(id, title, description, time, creator_uid, creator_username, joined_uids, emoji, tags, status)
         self.link = link
         self.lat = None
         self.lng = None
@@ -145,6 +157,8 @@ def meeting_from_dict(data):
         creator_username=data.get("creator_username"),
         joined_uids=data.get("joined_uids", []),
         emoji=data.get("emoji"),
+        tags=data.get("tags", []),
+        status=data.get("status", "approved"),
     )
     if data.get("type") == "InPersonMeeting":
         return InPersonMeeting(

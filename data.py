@@ -44,14 +44,22 @@ def load_data():
     _next_meeting_id = saved.get("next_meeting_id", _next_meeting_id)
 
 
-def get_all_meetings():
-    """Return all meetings as model objects."""
+def get_all_meetings(status=None):
+    """Return meetings as model objects, optionally filtered by status
+    ("approved" or "pending")."""
     from functions.models import meeting_from_dict
-    return [meeting_from_dict(d) for d in MEETINGS_DB.values()]
+    meetings = [meeting_from_dict(d) for d in MEETINGS_DB.values()]
+    if status:
+        meetings = [m for m in meetings if m.status == status]
+    return meetings
 
 
 def add_meeting(meeting_obj, creator_uid=None):
-    """Add a meeting to MEETINGS_DB and record it on the creator's profile."""
+    """Add a meeting to MEETINGS_DB and record it on the creator's profile.
+
+    Meetings from trusted users (and admins) go live immediately; everyone
+    else's meetings start out "pending" until an admin approves them.
+    """
     global _next_meeting_id
     meeting_obj.id = _next_meeting_id
     _next_meeting_id += 1
@@ -59,9 +67,29 @@ def add_meeting(meeting_obj, creator_uid=None):
         meeting_obj.creator_uid = creator_uid
         meeting_obj.creator_username = USERS_DB[creator_uid]["username"]
         USERS_DB[creator_uid]["created_meeting_ids"].append(meeting_obj.id)
+        meeting_obj.status = "approved" if is_trusted(creator_uid) else "pending"
     MEETINGS_DB[meeting_obj.id] = meeting_obj.to_dict()
     save_data()
     return meeting_obj
+
+
+def approve_meeting(meeting_id, admin_uid):
+    """Approve a pending meeting. Only admins may approve."""
+    if not is_admin(admin_uid):
+        return False
+    m = MEETINGS_DB.get(meeting_id)
+    if not m:
+        return False
+    m["status"] = "approved"
+    save_data()
+    return True
+
+
+def decline_meeting(meeting_id, admin_uid):
+    """Decline (= delete) a pending meeting. Only admins may decline."""
+    if not is_admin(admin_uid):
+        return False
+    return delete_meeting(meeting_id, admin_uid)
 
 
 def delete_meeting(meeting_id, uid):
@@ -121,6 +149,132 @@ def is_admin(uid):
     return bool(user and user.get("is_admin"))
 
 
+def get_total_participants(uid):
+    """Total number of people who joined any meeting this user created."""
+    user = USERS_DB.get(uid)
+    if not user:
+        return 0
+    total = 0
+    for mid in user.get("created_meeting_ids", []):
+        m = MEETINGS_DB.get(mid)
+        if m:
+            total += len(m.get("joined_uids", []))
+    return total
+
+
+# ─── Account status tiers ───────────────────────────────────────────────────
+# Each tier (besides the starting one) lists tasks a user must complete to
+# unlock it. "manual" tiers can't be earned by stats alone — an admin has to
+# grant them (e.g. Developer = actual app maintainers).
+ACCOUNT_TIERS = [
+    {
+        "id": "explorer",
+        "name": "Explorer",
+        "emoji": "🧭",
+        "blurb": "Just getting started around here.",
+        "requires": [],
+    },
+    {
+        "id": "creator",
+        "name": "Creator",
+        "emoji": "🎨",
+        "blurb": "Brings new meetings to life.",
+        "requires": [
+            {"label": "Create 3 meetings", "key": "created", "target": 3},
+        ],
+    },
+    {
+        "id": "connector",
+        "name": "Connector",
+        "emoji": "🤝",
+        "blurb": "Builds meetings people actually show up to.",
+        "requires": [
+            {"label": "Create 3 meetings", "key": "created", "target": 3},
+            {"label": "Get 15 people to join your meetings", "key": "participants", "target": 15},
+        ],
+    },
+    {
+        "id": "organizer",
+        "name": "Organizer",
+        "emoji": "🌟",
+        "blurb": "A pillar of the community.",
+        "requires": [
+            {"label": "Create 8 meetings", "key": "created", "target": 8},
+            {"label": "Get 40 people to join your meetings", "key": "participants", "target": 40},
+        ],
+    },
+    {
+        "id": "developer",
+        "name": "Developer",
+        "emoji": "🛠️",
+        "blurb": "Helps run Metz behind the scenes.",
+        "requires": [
+            {"label": "Be granted admin access by the team", "key": "admin", "target": 1},
+        ],
+        "manual": True,
+    },
+]
+
+
+def get_account_status(uid):
+    """Work out a user's current account-status tier and what's left to
+    unlock the next one."""
+    user = USERS_DB.get(uid)
+    stats = {
+        "created": len(user.get("created_meeting_ids", [])) if user else 0,
+        "participants": get_total_participants(uid),
+        "admin": 1 if (user and user.get("is_admin")) else 0,
+    }
+
+    def tier_met(tier):
+        if tier.get("manual") and not stats["admin"]:
+            return False
+        return all(stats.get(r["key"], 0) >= r["target"] for r in tier["requires"])
+
+    achieved = [t for t in ACCOUNT_TIERS if tier_met(t)]
+    current = achieved[-1] if achieved else ACCOUNT_TIERS[0]
+    current_index = ACCOUNT_TIERS.index(current)
+    next_tier = ACCOUNT_TIERS[current_index + 1] if current_index + 1 < len(ACCOUNT_TIERS) else None
+
+    next_tasks = []
+    if next_tier:
+        for r in next_tier["requires"]:
+            progress = stats.get(r["key"], 0)
+            next_tasks.append({
+                "label": r["label"],
+                "progress": min(progress, r["target"]),
+                "target": r["target"],
+                "done": progress >= r["target"],
+            })
+
+    return {
+        "current": current,
+        "next": next_tier,
+        "next_tasks": next_tasks,
+        "next_is_manual": bool(next_tier and next_tier.get("manual")),
+        "stats": stats,
+        "all_tiers": ACCOUNT_TIERS,
+    }
+
+
+def is_trusted(uid):
+    """Trusted users (and admins) can post meetings without review."""
+    user = USERS_DB.get(uid)
+    return bool(user and (user.get("is_trusted") or user.get("is_admin")))
+
+
+def set_trusted(uid, trusted, admin_uid):
+    """Mark a user trusted/untrusted. Only an admin may do this."""
+    if not is_admin(admin_uid):
+        return False
+    user = USERS_DB.get(uid)
+    if not user:
+        return False
+    user["is_trusted"] = bool(trusted)
+    save_data()
+    return True
+
+
 def generate_user_id(email):
     """Create a short deterministic display ID from an email, e.g. 'ART4821'."""
     num = int(hashlib.md5(email.encode()).hexdigest(), 16) % 10000
@@ -163,6 +317,7 @@ def register_user(email):
             "created_meeting_ids": [],
             "profile_picture": None,
             "is_admin": email.lower() in ADMIN_EMAILS,
+            "is_trusted": False,
             "joined_at": now,
             "last_online": now,
         }

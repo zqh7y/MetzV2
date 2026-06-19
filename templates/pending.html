@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Pending Meetings{% endblock %}
+
+{% block content %}
+<div class="likes-page">
+
+    <div class="likes-header">
+        <h2>⏳ Pending Meetings</h2>
+        <p>{{ meetings | length }} awaiting review</p>
+    </div>
+
+    <div class="likes-list" id="pending-list">
+        {% if meetings %}
+            {% for meeting in meetings %}
+            <div class="like-card" id="pending-card-{{ meeting.id }}">
+                <div class="like-card-color card-color-{{ loop.index0 % 5 }}"></div>
+                <div class="like-card-body">
+                    <div class="like-card-badge">{{ '🌐 Online' if meeting.link else '📍 In-Person' }}</div>
+                    <h3 class="like-card-title">{{ meeting.title }}</h3>
+                    {% if meeting.creator_username %}
+                    <div class="like-card-creator">👤 by {{ meeting.creator_username }}{% if trusted_map.get(meeting.creator_uid) %}<span class="trust-badge" title="Trusted creator">★</span>{% endif %}</div>
+                    {% endif %}
+                    <p class="like-card-desc">{{ meeting.description }}</p>
+                    <div class="like-card-meta">
+                        <span>🕐 {{ meeting.time }}</span>
+                        {% if meeting.location %}
+                        <span class="card-location-tag">📍 {{ meeting.location }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="pending-actions">
+                        <button class="pending-approve-btn" onclick="moderateMeeting({{ meeting.id }}, 'approve')">✓ Approve</button>
+                        <button class="pending-decline-btn" onclick="moderateMeeting({{ meeting.id }}, 'decline')">✕ Decline</button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="likes-empty">
+                <div class="likes-empty-icon">✅</div>
+                <h3>Nothing pending</h3>
+                <p>All caught up — no meetings waiting for review.</p>
+                <a href="/profile" class="no-more-btn">Back to Profile</a>
+            </div>
+        {% endif %}
+    </div>
+
+    {% set active_page = 'profile' %}
+    {% include 'nav.html' %}
+</div>
+
+<script>
+function moderateMeeting(id, action) {
+    fetch('/admin/' + action + '/' + id, { method: 'POST' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.error) { alert('Not allowed.'); return; }
+            var card = document.getElementById('pending-card-' + id);
+            if (card) {
+                card.style.transition = 'opacity 0.3s, transform 0.3s';
+                card.style.opacity = '0';
+                card.style.transform = 'translateX(60px)';
+                setTimeout(function () { card.remove(); }, 300);
+            }
+        });
+}
+</script>
+{% endblock %}

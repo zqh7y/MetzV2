@@ -59,6 +59,16 @@
         </div>
 
         <div class="form-group">
+            <label>Interests (pick any that fit)</label>
+            <div class="tag-picker">
+                {% for t in available_tags %}
+                <button type="button" class="tag-option" data-tag="{{ t }}" onclick="toggleTag(this, '{{ t }}')">{{ t }}</button>
+                {% endfor %}
+            </div>
+            <div id="tags-hidden-container"></div>
+        </div>
+
+        <div class="form-group">
             <label>Map Icon</label>
             <div class="emoji-picker">
                 {% for e in ['📍','🎉','☕','🍕','🎮','🎵','📚','⚽','🧘','🎨','💻','🌐','🎬','🚴','🏕️','🍻'] %}
@@ -100,6 +110,28 @@
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="{{ url_for('static', filename='validation.js') }}"></script>
 <script>
+    var selectedTags = [];
+
+    function toggleTag(btn, tag) {
+        var idx = selectedTags.indexOf(tag);
+        if (idx === -1) {
+            selectedTags.push(tag);
+            btn.classList.add('active');
+        } else {
+            selectedTags.splice(idx, 1);
+            btn.classList.remove('active');
+        }
+        var container = document.getElementById('tags-hidden-container');
+        container.innerHTML = '';
+        selectedTags.forEach(function (t) {
+            var input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'tags';
+            input.value = t;
+            container.appendChild(input);
+        });
+    }
+
     function selectEmoji(btn, emoji) {
         document.querySelectorAll('.emoji-option').forEach(function (b) {
             b.classList.remove('active');

@@ -19,8 +19,27 @@
                 <span class="profile-avatar-id">{{ uid }}</span>
             {% endif %}
         </div>
-        <h2 class="profile-name">{{ username }}</h2>
+        <h2 class="profile-name">{{ username }}{% if is_trusted %}<span class="trust-badge" title="Trusted user">★</span>{% endif %}</h2>
         <p class="profile-email">@{{ uid }}</p>
+        {% if viewer_is_admin %}
+        <form method="post" action="/admin/trust/{{ uid }}" class="trust-toggle-form">
+            <button type="submit" class="trust-toggle-btn {% if is_trusted %}is-trusted{% endif %}">
+                {{ '★ Remove Trusted Status' if is_trusted else '☆ Mark as Trusted' }}
+            </button>
+        </form>
+        {% endif %}
+    </div>
+
+    <!-- Account status -->
+    <div class="account-status-card">
+        <div class="account-status-header">
+            <div class="account-status-emoji">{{ account_status.current.emoji }}</div>
+            <div>
+                <div class="account-status-title">Account Status</div>
+                <div class="account-status-name">{{ account_status.current.name }}</div>
+                <div class="account-status-blurb">{{ account_status.current.blurb }}</div>
+            </div>
+        </div>
     </div>
 
     <!-- Stats row -->
