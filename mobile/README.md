@@ -4,8 +4,8 @@ A React Native (Expo) port of the Metz web app, talking to a JSON API that
 shares the exact same business logic as the Flask web app — same `data.py`,
 same `functions/models.py`, same Firebase project. There is no second
 implementation of meetings, trust/moderation, tags, or account-status tiers;
-`mobile/backend/api.py` just exposes the existing logic as JSON instead of
-HTML.
+the route modules in `mobile/backend/` just expose the existing logic as
+JSON instead of HTML.
 
 ```
 mobile/
@@ -44,20 +44,29 @@ run in the *same* process, so for now treat them as two views into the same
 
 ## Running the app
 
+This project targets **Expo SDK 54**, which requires **Node.js 20.19.4+**
+(react-native 0.81 / Metro will fail with cryptic `toReversed is not a
+function` errors on older Node — check `node --version` if `expo start`
+won't boot). If you're on an older Node, install
+[nvm-windows](https://github.com/coreybutler/nvm-windows) and run
+`nvm install 20.19.4 && nvm use 20.19.4` first.
+
 ```bash
 cd mobile/app
 npm install
 npx expo start
 ```
 
-Then press `a` for Android emulator, `i` for iOS simulator, or scan the QR
-code with Expo Go on a physical device.
+Then press `a` for Android emulator, `i` for iOS simulator, or open the
+connection URL with **Expo Go** on a physical device (scan the QR code, or
+enter it manually as `exp://<your-computer's-LAN-IP>:8081`).
 
 **Before running**, edit `mobile/app/src/config.js` and point
-`API_BASE_URL` at wherever `api.py` is reachable:
+`API_BASE_URL` at wherever `server.py` is reachable:
 - Android emulator → `http://10.0.2.2:5051` (already the default)
 - iOS simulator → `http://localhost:5051`
-- Physical device → `http://<your-computer's-LAN-IP>:5051`
+- Physical device on the same WiFi (e.g. Expo Go) → your computer's LAN IP,
+  e.g. `http://10.0.0.7:5051`
 
 ## What's implemented
 
