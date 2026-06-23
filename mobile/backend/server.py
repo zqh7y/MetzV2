@@ -5,7 +5,7 @@ route modules) to start the server:
     python mobile/backend/server.py
 
 This deliberately does NOT duplicate any business logic — every route
-module imports the exact same data.py / functions/models.py that the Flask
+module imports the exact same data.py / utils/models.py that the Flask
 web app (templates + server-rendered HTML) already uses, and just exposes
 it as JSON instead of HTML. One source of truth for meetings, users,
 trust/moderation, tags, and account-status tiers, shared by the web app and
@@ -23,9 +23,14 @@ import os
 import sys
 
 # Reuse the existing project's data layer instead of re-implementing it.
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+sys.path.insert(0, _ROOT)
 # Let route modules do plain `from helpers import ...` regardless of cwd.
 sys.path.insert(0, os.path.dirname(__file__))
+
+from dotenv import load_dotenv
+
+load_dotenv(os.path.join(_ROOT, ".env"))
 
 from flask import Flask, request, jsonify
 
