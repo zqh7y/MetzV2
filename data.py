@@ -3,7 +3,7 @@ import hashlib
 import json
 import os
 from datetime import datetime, timezone
-from functions.models import InPersonMeeting, OnlineMeeting
+from utils.models import InPersonMeeting, OnlineMeeting
 
 # ── Global meetings store (all meetings, keyed by id) ──────────────────────────
 # Starts empty — meetings only exist once a real user creates them.
@@ -47,7 +47,7 @@ def load_data():
 def get_all_meetings(status=None):
     """Return meetings as model objects, optionally filtered by status
     ("approved" or "pending")."""
-    from functions.models import meeting_from_dict
+    from utils.models import meeting_from_dict
     meetings = [meeting_from_dict(d) for d in MEETINGS_DB.values()]
     if status:
         meetings = [m for m in meetings if m.status == status]

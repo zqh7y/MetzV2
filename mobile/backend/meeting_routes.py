@@ -8,7 +8,7 @@ from data import (
     get_user, get_all_meetings, add_meeting, toggle_join_meeting,
     user_pass, delete_meeting, get_joined_users_preview, MEETINGS_DB,
 )
-from functions.models import (
+from utils.models import (
     InPersonMeeting, OnlineMeeting, AVAILABLE_TAGS,
     validate_meeting_data, sanitize_html,
 )

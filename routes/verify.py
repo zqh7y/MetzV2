@@ -1,6 +1,6 @@
 from flask import request, render_template, session, redirect, url_for
 from data import register_user
-from functions.email_utils import generate_verification_code, send_verification_email
+from utils.email_utils import generate_verification_code, send_verification_email
 
 
 def verify_route():
