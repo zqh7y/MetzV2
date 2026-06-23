@@ -1,4 +1,9 @@
+import os
 from datetime import timedelta
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from flask import Flask, session, redirect, url_for, request, jsonify
 from data import search_users, touch_last_online, is_admin, get_all_meetings
 from routes.login import login_route
@@ -12,7 +17,7 @@ from routes.verify import verify_route, resend_verification_route
 from routes.admin import pending_route, approve_route, decline_route
 
 app = Flask(__name__)
-app.secret_key = "supersecretkey123"  # Required for session
+app.secret_key = os.environ["FLASK_SECRET_KEY"]  # Required for session
 
 # Keep users logged in across browser restarts.
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)

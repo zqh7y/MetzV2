@@ -2,11 +2,12 @@
 guard, and the common meeting -> JSON shape. Kept separate so each route
 module only imports what it needs."""
 
+import os
 from flask import request, jsonify
 
 from data import is_admin, is_trusted, get_joined_users_preview, shorten_address
 
-FIREBASE_API_KEY = "AIzaSyCpYNaczgJeArlmH8qMVLcfMNm15a1jBiI"  # same project as the web app
+FIREBASE_API_KEY = os.environ["FIREBASE_API_KEY"]  # same project as the web app
 
 # In-memory store for signups awaiting email verification, keyed by email.
 # (No server-side session/cookies here — the mobile client is stateless

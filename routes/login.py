@@ -1,11 +1,10 @@
+import os
 from flask import request, render_template, session, redirect, url_for
 import requests
 from data import register_user
 from utils.auth_errors import friendly_auth_error
 
-API_KEY = (
-    "AIzaSyCpYNaczgJeArlmH8qMVLcfMNm15a1jBiI"  # Replace with env variable in production
-)
+API_KEY = os.environ["FIREBASE_API_KEY"]
 
 
 def login_route():
