@@ -2,12 +2,14 @@ import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Linking } from "react-native";
 import TrustBadge from "./TrustBadge";
 import TagChip from "./TagChip";
+import AnimatedPressable from "./AnimatedPressable";
+import { FONTS } from "../styles/fonts";
 
 export default function MeetingCard({ meeting, onPress, onJoin, onDelete }) {
   const isOnline = meeting.type === "OnlineMeeting";
 
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.85}>
+    <AnimatedPressable style={styles.card} onPress={onPress} scaleTo={0.98}>
       <View style={[styles.accent, { backgroundColor: isOnline ? "#764ba2" : "#667eea" }]} />
       <View style={styles.body}>
         <View style={styles.topRow}>
@@ -62,7 +64,7 @@ export default function MeetingCard({ meeting, onPress, onJoin, onDelete }) {
           ) : null}
         </View>
       </View>
-    </TouchableOpacity>
+    </AnimatedPressable>
   );
 }
 
@@ -86,7 +88,7 @@ const styles = StyleSheet.create({
   badgeInPerson: { backgroundColor: "#e8f4fd", color: "#2980b9" },
   badgeOnline: { backgroundColor: "#f0ebff", color: "#764ba2" },
   time: { fontSize: 11, color: "#999" },
-  title: { fontSize: 16, fontWeight: "700", color: "#2c3e50", marginBottom: 4 },
+  title: { fontSize: 16, fontFamily: FONTS.heading, color: "#2c3e50", marginBottom: 4 },
   creatorRow: { flexDirection: "row", alignItems: "center", marginBottom: 4 },
   creator: { fontSize: 12, color: "#777" },
   tagsRow: { flexDirection: "row", flexWrap: "wrap", marginBottom: 4 },
@@ -94,10 +96,10 @@ const styles = StyleSheet.create({
   link: { fontSize: 13, fontWeight: "700", color: "#3498db", marginBottom: 6 },
   address: { fontSize: 12, color: "#888", marginBottom: 6 },
   footerRow: { flexDirection: "row", alignItems: "center", marginTop: 4 },
-  joinedCount: { fontSize: 12, color: "#888", fontWeight: "600" },
+  joinedCount: { fontSize: 12, color: "#888", fontFamily: FONTS.accentMedium },
   joinBtn: { borderRadius: 16, paddingHorizontal: 14, paddingVertical: 6, backgroundColor: "#eef0ff" },
   joinBtnActive: { backgroundColor: "#667eea" },
-  joinBtnText: { fontSize: 12, fontWeight: "700", color: "#667eea" },
+  joinBtnText: { fontSize: 12, fontFamily: FONTS.accent, color: "#667eea" },
   joinBtnTextActive: { color: "#fff" },
   deleteBtn: { marginLeft: 8, padding: 6 },
   deleteBtnText: { color: "#e74c3c", fontWeight: "700" },
