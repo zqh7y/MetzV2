@@ -1,6 +1,6 @@
 from flask import render_template, request, session, redirect, url_for
 from data import get_all_meetings, sort_meetings_by_distance, register_user, get_user, is_admin, is_trusted, get_joined_users_preview, shorten_address
-from functions.models import AVAILABLE_TAGS
+from utils.models import AVAILABLE_TAGS
 
 
 def home_route():

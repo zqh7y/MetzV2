@@ -1,8 +1,8 @@
 from flask import request, render_template, redirect, url_for, session
 import requests
 from data import register_user
-from functions.auth_errors import friendly_auth_error
-from functions.email_utils import generate_verification_code, send_verification_email
+from utils.auth_errors import friendly_auth_error
+from utils.email_utils import generate_verification_code, send_verification_email
 
 API_KEY = "AIzaSyCpYNaczgJeArlmH8qMVLcfMNm15a1jBiI"
 

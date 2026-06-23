@@ -1,17 +1,17 @@
 from datetime import timedelta
 from flask import Flask, session, redirect, url_for, request, jsonify
 from data import search_users, touch_last_online, is_admin, get_all_meetings
-from screens.login import login_route
-from screens.signup import signup_route
-from screens.home import home_route
-from screens.create import create_route
-from screens.swipe import swipe_route
-from screens.joined import joined_route, pass_route, join_route, delete_route
-from screens.profile import profile_route, user_profile_route, toggle_trust_route
-from screens.verify import verify_route, resend_verification_route
-from screens.admin import pending_route, approve_route, decline_route
+from routes.login import login_route
+from routes.signup import signup_route
+from routes.home import home_route
+from routes.create import create_route
+from routes.swipe import swipe_route
+from routes.joined import joined_route, pass_route, join_route, delete_route
+from routes.profile import profile_route, user_profile_route, toggle_trust_route
+from routes.verify import verify_route, resend_verification_route
+from routes.admin import pending_route, approve_route, decline_route
 
-app = Flask(__name__, static_folder="styles")
+app = Flask(__name__)
 app.secret_key = "supersecretkey123"  # Required for session
 
 # Keep users logged in across browser restarts.

@@ -6,8 +6,8 @@ import requests
 from flask import Blueprint, request, jsonify
 
 from data import register_user
-from functions.auth_errors import friendly_auth_error
-from functions.email_utils import generate_verification_code, send_verification_email
+from utils.auth_errors import friendly_auth_error
+from utils.email_utils import generate_verification_code, send_verification_email
 
 from helpers import FIREBASE_API_KEY, PENDING_SIGNUPS
 

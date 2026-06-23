@@ -1,6 +1,6 @@
 from flask import request, render_template, session, redirect, url_for
 from data import add_meeting, is_trusted
-from functions.models import InPersonMeeting, OnlineMeeting, validate_meeting_data, sanitize_html, AVAILABLE_TAGS
+from utils.models import InPersonMeeting, OnlineMeeting, validate_meeting_data, sanitize_html, AVAILABLE_TAGS
 
 
 def parse_coord(value):

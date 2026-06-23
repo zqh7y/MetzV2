@@ -57,7 +57,7 @@ for user accounts.
 - **Persistent storage** — meetings, users, and joins are saved to
   `app_data.json` so data survives server restarts.
 - **React Native mobile app** (in [`mobile/`](mobile/)) — an Expo app that
-  talks to a JSON API sharing the exact same `data.py`/`functions/models.py`
+  talks to a JSON API sharing the exact same `data.py`/`utils/models.py`
   logic as the web app, so meetings, trust/moderation, tags, and
   account-status tiers stay in sync across both. See
   [`mobile/README.md`](mobile/README.md) for details.
@@ -73,7 +73,7 @@ meetupApp/
 ├── firebase_config.py      # Firebase Admin SDK initialization
 ├── app_data.json           # Persisted meetings/users (auto-generated)
 │
-├── screens/                # One module per "screen", each exposing a *_route()
+├── routes/                  # One module per route group, each exposing a *_route()
 │   ├── login.py
 │   ├── signup.py
 │   ├── verify.py           # Email verification (4-digit code)
@@ -84,15 +84,15 @@ meetupApp/
 │   ├── profile.py          # Own profile, other users' profiles, trust toggle
 │   └── admin.py            # Pending-meeting review (approve/decline)
 │
-├── functions/
+├── utils/
 │   ├── models.py           # Meeting / InPersonMeeting / OnlineMeeting classes,
 │   │                       # AVAILABLE_TAGS, meeting status (approved/pending)
 │   ├── auth_errors.py      # Firebase error code → friendly message mapping
 │   └── email_utils.py      # Verification code generation + email sending
 │
-├── templates/              # Jinja2 HTML templates (one per screen + base.html)
+├── templates/              # Jinja2 HTML templates (one per route + base.html)
 │   └── pending.html         # Admin pending-meeting review page
-├── styles/
+├── static/                  # Flask's static folder
 │   ├── style.css           # All app styling
 │   ├── home.js              # Map logic, clustering, info panel, geolocation
 │   ├── swipe.js             # Swipe deck interactions
@@ -101,7 +101,7 @@ meetupApp/
 │   └── uploads/             # User-uploaded meeting cover images
 │
 ├── mobile/                  # React Native (Expo) app + JSON API backend
-│   ├── backend/             # Flask API reusing data.py/functions/ as-is
+│   ├── backend/             # Flask API reusing data.py/utils/ as-is
 │   └── app/                 # Expo app (Login, Home, Create, Joined, Profile...)
 │
 └── .gitignore
@@ -114,11 +114,11 @@ meetupApp/
 ### Flask app entry point
 
 The whole app is wired up in [`app.py`](app.py) — each route just delegates
-to a `*_route()` function in `screens/`, keeping `app.py` as a clean routing
+to a `*_route()` function in `routes/`, keeping `app.py` as a clean routing
 table:
 
 ```python
-app = Flask(__name__, static_folder="styles")
+app = Flask(__name__)
 app.secret_key = "supersecretkey123"
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
 
@@ -147,7 +147,7 @@ def swipe():
 
 Signup and login talk directly to the **Firebase Identity Toolkit REST API**.
 Raw Firebase error codes (like `EMAIL_EXISTS` or `INVALID_PASSWORD`) are
-translated into friendly messages with [`functions/auth_errors.py`](functions/auth_errors.py):
+translated into friendly messages with [`utils/auth_errors.py`](utils/auth_errors.py):
 
 ```python
 _FRIENDLY_MESSAGES = {
@@ -192,7 +192,7 @@ handy for local development.
 
 Meetings come in two flavors, both inheriting from a shared `Meeting` base
 class. Each subclass overrides `get_display_text()` and `to_dict()` to add
-its own fields ([`functions/models.py`](functions/models.py)):
+its own fields ([`utils/models.py`](utils/models.py)):
 
 ```python
 class Meeting:
@@ -221,8 +221,8 @@ class OnlineMeeting(Meeting):
 ### Two-stage input validation
 
 Meeting creation is validated **twice**: once client-side in
-[`styles/validation.js`](styles/validation.js) for instant feedback, and
-again server-side in [`functions/models.py`](functions/models.py) so the
+[`static/validation.js`](static/validation.js) for instant feedback, and
+again server-side in [`utils/models.py`](utils/models.py) so the
 server never trusts the browser:
 
 ```python
