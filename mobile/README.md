@@ -2,14 +2,16 @@
 
 A React Native (Expo) port of the Metz web app, talking to a JSON API that
 shares the exact same business logic as the Flask web app — same `data.py`,
-same `functions/models.py`, same Firebase project. There is no second
+same `utils/models.py`, same Firebase project. There is no second
 implementation of meetings, trust/moderation, tags, or account-status tiers;
 the route modules in `mobile/backend/` just expose the existing logic as
-JSON instead of HTML.
+JSON instead of HTML. The UI mirrors the web app's look (same gradients,
+cards, and a shared Poppins/Inter/Space Grotesk font system) rather than
+being a from-scratch design.
 
 ```
 mobile/
-├── backend/        Flask JSON API (reuses ../../data.py, ../../functions/)
+├── backend/        Flask JSON API (reuses ../../data.py, ../../utils/)
 │   ├── admin_routes.py     pending-meeting review (approve/decline)
 │   ├── auth_routes.py      signup / verify / login
 │   ├── helpers.py          shared current_uid()/require_admin()/serializer
@@ -17,15 +19,18 @@ mobile/
 │   ├── profile_routes.py   own profile, other users, trust toggle, search
 │   └── server.py           entry point — registers all blueprints, run this
 └── app/             React Native (Expo) app
-    ├── App.js
+    ├── App.js              navigation tree, font loading, custom tab bar wiring
     └── src/
         ├── api.js              fetch wrapper for every endpoint
         ├── config.js           API_BASE_URL — change this per device/emulator
         ├── context/AuthContext.js
-        ├── components/         MeetingCard, TrustBadge, TagChip
-        └── screens/            Login, Signup, Verify, Home, Discover,
-                                 Create, Joined, Profile, AdminPending,
-                                 MeetingDetail
+        ├── styles/fonts.js      Poppins/Inter/Space Grotesk font name constants
+        ├── components/          AuthLayout, AuthField, AuthButton, MeetingCard,
+        │                        CustomTabBar, MapMarker, AnimatedPressable,
+        │                        TrustBadge, TagChip
+        └── screens/             Login, Signup, Verify, Home, Discover,
+                                  Create, Joined, Profile, UserProfile,
+                                  AdminPending, MeetingDetail
 ```
 
 ## Running the backend
@@ -68,15 +73,41 @@ enter it manually as `exp://<your-computer's-LAN-IP>:8081`).
 - Physical device on the same WiFi (e.g. Expo Go) → your computer's LAN IP,
   e.g. `http://10.0.0.7:5051`
 
+### Getting the map to render (Android)
+
+Since Expo SDK 51, **Expo Go can't load `react-native-maps`** — it needs
+native code that Expo Go doesn't bundle. The map screens will look blank
+until you build a **development client** once:
+
+```bash
+cd mobile/app
+npx expo install expo-dev-client
+npx eas-cli login          # one-time, free Expo account
+npx eas-cli init           # links this project to your Expo account
+npx eas-cli build --profile development --platform android
+```
+
+The build runs in Expo's cloud (~10–15 min) and gives you a link/QR code to
+install an APK on your phone. After that one-time install, keep using
+`npx expo start` as normal — the dev client hot-reloads JS just like Expo Go
+did, but with `react-native-maps` actually working.
+
 ## What's implemented
 
 - Email/password signup with the same 4-digit email verification flow as the
   web app (code `1234` always works locally, same as web)
-- Home feed with map pins + searchable list, trust badges, tags
+- Home feed: full-screen map with custom emoji marker pins (matching the
+  web's `.meeting-marker-circle` look) + a floating searchable list panel
 - Create meeting (in-person via map tap, or online via link), tag picker
-- Discover (join/pass), Joined meetings (leave), Profile with the same
-  account-status tier checklist as the web app
+- Discover: tap-to-join/pass on a **Meetings** tab, plus a **People** tab to
+  search other users by username/email/ID and open their profile
+- Joined meetings (leave), Profile and other users' UserProfile screens with
+  the same account-status tier checklist, stats, and "member since"/"last
+  online" activity rows as the web app
 - Admin: pending-meeting review (approve/decline), trust toggle endpoint
+- Custom floating bottom tab bar (not the default React Navigation one),
+  press animations on buttons/cards, and the shared Poppins/Inter/Space
+  Grotesk font system
 
 ## Known gaps vs. the web app (follow-ups, not done yet)
 

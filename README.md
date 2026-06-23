@@ -59,8 +59,16 @@ for user accounts.
 - **React Native mobile app** (in [`mobile/`](mobile/)) — an Expo app that
   talks to a JSON API sharing the exact same `data.py`/`utils/models.py`
   logic as the web app, so meetings, trust/moderation, tags, and
-  account-status tiers stay in sync across both. See
-  [`mobile/README.md`](mobile/README.md) for details.
+  account-status tiers stay in sync across both. The mobile UI mirrors the
+  web app's design (same gradients, cards, and a custom floating bottom tab
+  bar) and adds a people-search tab to Discover for finding other users by
+  username/email/ID. See [`mobile/README.md`](mobile/README.md) for details,
+  including how to get the interactive map working via an EAS development
+  build (Expo Go alone can't render `react-native-maps`).
+- **Shared three-font system** — Poppins for headings/brand, Inter for body
+  text, and Space Grotesk for buttons/stats/numbers, applied consistently
+  across both the web app ([`static/style.css`](static/style.css)) and the
+  mobile app ([`mobile/app/src/styles/fonts.js`](mobile/app/src/styles/fonts.js)).
 
 ---
 
@@ -72,6 +80,7 @@ meetupApp/
 ├── data.py                 # In-memory + JSON-backed data layer (users, meetings)
 ├── firebase_config.py      # Firebase Admin SDK initialization
 ├── app_data.json           # Persisted meetings/users (auto-generated)
+├── .env.example             # Template for required environment variables
 │
 ├── routes/                  # One module per route group, each exposing a *_route()
 │   ├── login.py
@@ -103,6 +112,10 @@ meetupApp/
 ├── mobile/                  # React Native (Expo) app + JSON API backend
 │   ├── backend/             # Flask API reusing data.py/utils/ as-is
 │   └── app/                 # Expo app (Login, Home, Create, Joined, Profile...)
+│       └── src/
+│           ├── components/  # Shared UI: AuthLayout, MeetingCard, CustomTabBar, MapMarker...
+│           ├── screens/     # One screen per app/src/screens/*.js, mirrors web routes
+│           └── styles/      # fonts.js — Poppins/Inter/Space Grotesk font names
 │
 └── .gitignore
 ```
@@ -118,8 +131,10 @@ to a `*_route()` function in `routes/`, keeping `app.py` as a clean routing
 table:
 
 ```python
+load_dotenv()
+
 app = Flask(__name__)
-app.secret_key = "supersecretkey123"
+app.secret_key = os.environ["FLASK_SECRET_KEY"]
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
 
 @app.route("/login", methods=["GET", "POST"])
@@ -295,21 +310,24 @@ enough for a school assignment while still surviving server restarts.
 
 ## 🚀 Running locally
 
-1. **Install dependencies** (Flask, requests, firebase-admin):
+1. **Install dependencies** (Flask, requests, firebase-admin, python-dotenv):
    ```bash
-   pip install -r requirements.txt   # or install flask, requests, firebase-admin manually
+   pip install -r requirements.txt
    ```
 
 2. **Add your Firebase service account key** as `metz-firebase.json` in the
    project root (this file is git-ignored for security — you'll need your
    own from the Firebase console).
 
-3. *(Optional)* set up email sending by exporting:
+3. **Create a `.env` file** from the template and fill it in:
    ```bash
-   export GMAIL_ADDRESS="your-email@gmail.com"
-   export GMAIL_APP_PASSWORD="your-app-password"
+   cp .env.example .env
    ```
-   Without these, verification codes are printed to the console instead of emailed.
+   - `FLASK_SECRET_KEY` — any long random string (used to sign session cookies).
+   - `FIREBASE_API_KEY` — your Firebase project's Web API key.
+   - `GMAIL_ADDRESS` / `GMAIL_APP_PASSWORD` — *(optional)* for sending real
+     verification emails. Without these, verification codes are printed to
+     the console instead.
 
 4. **Run the app**:
    ```bash
@@ -340,8 +358,10 @@ enough for a school assignment while still surviving server restarts.
 
 ## 📚 Notes
 
-- This is a **school project** — the Flask secret key, in-memory database,
-  and admin email list are intentionally simple and **not production-ready**.
+- This is a **school project** — the in-memory database and admin email list
+  are intentionally simple and **not production-ready**. Secrets (Flask
+  session key, Firebase Web API key) live in a gitignored `.env` file rather
+  than in source — see [`.env.example`](.env.example) for what's needed.
 - A development shortcut: during signup verification, the code **`1234`**
   is always accepted in addition to the real generated code, so the flow can
   be tested without email access.
