@@ -44,6 +44,7 @@ export default function AdminPendingScreen() {
       <FlatList
         data={meetings}
         keyExtractor={(m) => String(m.id)}
+        showsVerticalScrollIndicator={false}
         renderItem={({ item }) => (
           <View style={styles.card}>
             <Text style={styles.title}>{item.title}</Text>

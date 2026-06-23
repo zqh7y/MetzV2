@@ -8,13 +8,27 @@
     "splash": {
       "backgroundColor": "#667eea"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "android": {
       "package": "com.metz.app",
-      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"]
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
     },
     "ios": {
       "bundleIdentifier": "com.metz.app"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "1cdc7ba7-3838-4174-8376-80bebcf16925"
+      }
+    },
+    "owner": "justariel",
+    "plugins": [
+      "expo-font"
+    ]
   }
 }

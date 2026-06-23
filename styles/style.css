@@ -5,10 +5,56 @@
     padding: 0;
 }
 
+html {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+*::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+}
+
 body {
-    font-family: 'Segoe UI', Arial, sans-serif;
+    font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
     background-color: #f0f2f5;
     color: #333;
+    animation: pageFadeIn 0.35s ease;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+/* Three-font system, mirrored in the mobile app's src/styles/fonts.js:
+   Poppins for headings/brand, Inter for body text, Space Grotesk for
+   stats/numbers/buttons. */
+h1, h2, h3, h4,
+.auth-brand-name, .auth-brand-logo,
+.profile-name, .account-status-name,
+.card-title, .meeting-card-title {
+    font-family: 'Poppins', 'Segoe UI', Arial, sans-serif;
+}
+
+.btn-primary, .btn-swipe, .join-btn, .stat-number,
+.join-btn-count, button[class*="btn"] {
+    font-family: 'Space Grotesk', 'Segoe UI', Arial, sans-serif;
+}
+
+@keyframes pageFadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+}
+
+/* Generic press feedback for any button/link-styled control across the app */
+button, .btn-primary, .btn-swipe, .join-btn, .delete-btn, .action-btn, .no-more-btn,
+a[class*="btn"] {
+    transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease, background-color 0.2s ease;
+}
+button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete-btn:active,
+.action-btn:active, .no-more-btn:active, a[class*="btn"]:active {
+    transform: scale(0.96);
 }
 
 /* --- Animated mixed-color background for login/signup --- */
@@ -128,7 +174,7 @@ body {
 }
 
 .auth-page .container .btn-primary:active {
-    transform: translateY(0);
+    transform: scale(0.96);
 }
 
 /* --- Auth / form pages (login, signup, create) --- */
@@ -295,7 +341,7 @@ body {
 }
 
 .container .btn-primary:active {
-    transform: translateY(0);
+    transform: scale(0.96);
 }
 
 .container .btn-green {

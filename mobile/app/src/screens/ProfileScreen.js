@@ -1,20 +1,45 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../context/AuthContext";
 import TrustBadge from "../components/TrustBadge";
+import { FONTS } from "../styles/fonts";
 
 export default function ProfileScreen({ navigation }) {
+  const insets = useSafeAreaInsets();
   const { profile, refreshProfile, signOut } = useAuth();
   const [loading, setLoading] = useState(!profile);
+  const [error, setError] = useState(false);
 
-  useEffect(() => {
-    refreshProfile().finally(() => setLoading(false));
+  const load = useCallback(() => {
+    setError(false);
+    refreshProfile()
+      .then((p) => setError(!p))
+      .finally(() => setLoading(false));
   }, []);
 
-  if (loading || !profile) {
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
+
+  if (loading) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color="#667eea" />
+      </View>
+    );
+  }
+
+  if (error || !profile) {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.errorText}>Couldn't load your profile.</Text>
+        <TouchableOpacity style={styles.retryBtn} onPress={load}>
+          <Text style={styles.retryBtnText}>Retry</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -23,8 +48,8 @@ export default function ProfileScreen({ navigation }) {
   const currentIndex = status.all_tiers.findIndex((t) => t.id === status.current.id);
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.hero}>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
+      <View style={[styles.hero, { paddingTop: insets.top + 32 }]}>
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{profile.uid.slice(0, 2)}</Text>
         </View>
@@ -132,19 +157,19 @@ const styles = StyleSheet.create({
   centered: { flex: 1, alignItems: "center", justifyContent: "center" },
   hero: { backgroundColor: "#667eea", paddingVertical: 32, alignItems: "center" },
   avatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: "rgba(255,255,255,0.25)", alignItems: "center", justifyContent: "center", marginBottom: 10 },
-  avatarText: { color: "#fff", fontWeight: "800", fontSize: 16 },
+  avatarText: { color: "#fff", fontFamily: FONTS.heading, fontSize: 16 },
   nameRow: { flexDirection: "row", alignItems: "center" },
-  name: { color: "#fff", fontSize: 20, fontWeight: "800" },
+  name: { color: "#fff", fontSize: 20, fontFamily: FONTS.heading },
   email: { color: "rgba(255,255,255,0.7)", fontSize: 12, marginTop: 2 },
   statsRow: { flexDirection: "row", backgroundColor: "#fff", margin: 16, marginBottom: 0, borderRadius: 16, padding: 16, justifyContent: "space-around" },
   stat: { alignItems: "center" },
-  statNumber: { fontSize: 22, fontWeight: "800", color: "#2c3e50" },
-  statLabel: { fontSize: 10, fontWeight: "700", color: "#aaa", textTransform: "uppercase", marginTop: 2 },
+  statNumber: { fontSize: 22, fontFamily: FONTS.accent, color: "#2c3e50" },
+  statLabel: { fontSize: 10, fontFamily: FONTS.bodySemi, color: "#aaa", textTransform: "uppercase", marginTop: 2 },
   statusCard: { backgroundColor: "#fff", margin: 16, borderRadius: 18, padding: 18 },
   statusHeader: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 14 },
   statusEmoji: { width: 46, height: 46, borderRadius: 14, backgroundColor: "#667eea", alignItems: "center", justifyContent: "center" },
-  statusLabel: { fontSize: 10, fontWeight: "700", color: "#aaa", textTransform: "uppercase" },
-  statusName: { fontSize: 17, fontWeight: "800", color: "#2c3e50" },
+  statusLabel: { fontSize: 10, fontFamily: FONTS.bodySemi, color: "#aaa", textTransform: "uppercase" },
+  statusName: { fontSize: 17, fontFamily: FONTS.heading, color: "#2c3e50" },
   statusBlurb: { fontSize: 11, color: "#999" },
   nextSection: { borderTopWidth: 1, borderTopColor: "#f0f1f3", paddingTop: 12 },
   nextLabel: { fontSize: 12, fontWeight: "700", color: "#888", marginBottom: 8 },
@@ -163,11 +188,14 @@ const styles = StyleSheet.create({
   tierPillUnlocked: { color: "#667eea", backgroundColor: "rgba(102,126,234,0.12)" },
   actions: { padding: 16, gap: 10 },
   actionBtn: { backgroundColor: "#fff", borderRadius: 14, paddingVertical: 14, paddingHorizontal: 18 },
-  actionBtnText: { fontWeight: "700", color: "#2c3e50", fontSize: 14 },
+  actionBtnText: { fontFamily: FONTS.accentMedium, color: "#2c3e50", fontSize: 14 },
   urgentBtn: { backgroundColor: "#ff6262", flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  urgentBtnText: { fontWeight: "700", color: "#fff", fontSize: 14 },
+  urgentBtnText: { fontFamily: FONTS.accentMedium, color: "#fff", fontSize: 14 },
   pendingBadge: { backgroundColor: "#fff", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
-  pendingBadgeText: { color: "#ff6262", fontWeight: "800", fontSize: 12 },
+  pendingBadgeText: { color: "#ff6262", fontFamily: FONTS.accent, fontSize: 12 },
   logoutBtn: {},
-  logoutBtnText: { fontWeight: "700", color: "#e74c3c", fontSize: 14 },
+  logoutBtnText: { fontFamily: FONTS.accentMedium, color: "#e74c3c", fontSize: 14 },
+  errorText: { color: "#888", fontSize: 14, marginBottom: 14 },
+  retryBtn: { backgroundColor: "#667eea", borderRadius: 20, paddingVertical: 10, paddingHorizontal: 24 },
+  retryBtnText: { color: "#fff", fontFamily: FONTS.accentMedium },
 });

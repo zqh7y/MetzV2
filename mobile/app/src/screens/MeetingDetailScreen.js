@@ -4,6 +4,7 @@ import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
 import TrustBadge from "../components/TrustBadge";
 import TagChip from "../components/TagChip";
+import { FONTS } from "../styles/fonts";
 
 export default function MeetingDetailScreen({ route, navigation }) {
   const { meeting } = route.params;
@@ -17,7 +18,7 @@ export default function MeetingDetailScreen({ route, navigation }) {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: 18 }}>
+    <ScrollView style={styles.container} contentContainerStyle={{ padding: 18 }} showsVerticalScrollIndicator={false}>
       <Text style={styles.badge}>{isOnline ? "🌐 Online" : "📍 In-Person"}</Text>
       <Text style={styles.title}>{meeting.title}</Text>
 
@@ -57,7 +58,7 @@ export default function MeetingDetailScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
   badge: { fontSize: 11, fontWeight: "700", color: "#764ba2", backgroundColor: "#f0ebff", alignSelf: "flex-start", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3, marginBottom: 8 },
-  title: { fontSize: 22, fontWeight: "800", color: "#2c3e50", marginBottom: 6 },
+  title: { fontSize: 22, fontFamily: FONTS.heading, color: "#2c3e50", marginBottom: 6 },
   row: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
   creator: { fontSize: 13, color: "#777" },
   tagsRow: { flexDirection: "row", flexWrap: "wrap", marginBottom: 10 },
