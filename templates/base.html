@@ -54,6 +54,29 @@
             }
         }
 
+        // ── Live attendee-count updates via the standalone socket_server.py ──
+        // Connects to the WebSocket server, subscribes to every meeting card
+        // currently on the page, and patches the count/avatars in place
+        // whenever someone (on any device) joins or leaves that meeting.
+        (function () {
+            var ws = new WebSocket('ws://' + window.location.hostname + ':8765');
+
+            ws.onopen = function () {
+                document.querySelectorAll('.join-btn[data-meeting-id]').forEach(function (btn) {
+                    ws.send(JSON.stringify({ action: 'subscribe', meeting_id: btn.dataset.meetingId }));
+                });
+            };
+
+            ws.onmessage = function (event) {
+                var data = JSON.parse(event.data);
+                var btn = document.querySelector('.join-btn[data-meeting-id="' + data.meeting_id + '"]');
+                if (!btn) return;
+                var countEl = btn.querySelector('.join-btn-count');
+                if (countEl) countEl.textContent = data.count;
+                updateJoinedAvatars(btn, data);
+            };
+        })();
+
         function deleteMeeting(meetingId, cardEl) {
             if (!confirm('Delete this meeting?')) return;
             fetch('/delete/' + meetingId, { method: 'POST' })

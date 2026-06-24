@@ -1,6 +1,19 @@
 from datetime import datetime
+import requests
 from flask import render_template, session, redirect, url_for, jsonify
 from data import get_user, get_all_meetings, user_pass, toggle_join_meeting, delete_meeting, is_admin, is_trusted, get_joined_users_preview, shorten_address, MEETINGS_DB
+
+BROADCAST_URL = "http://127.0.0.1:8766/broadcast"
+
+
+def _notify_socket_server(meeting_id, payload):
+    """Tell the standalone socket_server.py about a join/leave so it can
+    push a live update to everyone else viewing this meeting. Best-effort:
+    if the socket server isn't running, joining a meeting must still work."""
+    try:
+        requests.post(BROADCAST_URL, json={"meeting_id": meeting_id, **payload}, timeout=0.5)
+    except requests.exceptions.RequestException:
+        pass
 
 
 def _parse_time(time_str):
@@ -61,6 +74,7 @@ def join_route(meeting_id):
         return jsonify({"error": "not found"}), 404
     joined_uids = MEETINGS_DB[meeting_id].get("joined_uids", [])
     result["joined_preview"] = get_joined_users_preview(joined_uids)
+    _notify_socket_server(meeting_id, {"count": result["count"], "joined_preview": result["joined_preview"]})
     return jsonify(result)
 
 
