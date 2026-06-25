@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}Developer Dashboard{% endblock %}
+
+{% block content %}
+<div class="likes-page">
+
+    <div class="likes-header">
+        <h2>🛠️ Developer Dashboard</h2>
+        <p>{{ users | length }} users · {{ meetings | length }} meetings</p>
+    </div>
+
+    <div class="dashboard-section">
+        <h3 class="dashboard-section-title">Users</h3>
+        <div class="dashboard-table-wrap">
+            <table class="dashboard-table">
+                <thead>
+                    <tr>
+                        <th>UID</th>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Admin</th>
+                        <th>Trusted</th>
+                        <th>Banned</th>
+                        <th>Joined</th>
+                        <th>Last Online</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr id="user-row-{{ user.uid }}">
+                        <td>{{ user.uid }}</td>
+                        <td>{{ user.username }}</td>
+                        <td>{{ user.email }}</td>
+                        <td>{{ '✅' if user.is_admin else '—' }}</td>
+                        <td>{{ '★' if user.is_trusted else '—' }}</td>
+                        <td>{{ '🚫' if user.is_banned else '—' }}</td>
+                        <td>{{ user.joined_at }}</td>
+                        <td>{{ user.last_online }}</td>
+                        <td>
+                            {% if not user.is_admin %}
+                            <button class="dashboard-action-btn" onclick="toggleBan('{{ user.uid }}')">
+                                {{ 'Unban' if user.is_banned else 'Ban' }}
+                            </button>
+                            <button class="dashboard-action-btn dashboard-action-danger" onclick="deleteUser('{{ user.uid }}')">Delete</button>
+                            {% else %}
+                            —
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="9">No users yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="dashboard-section">
+        <h3 class="dashboard-section-title">Meetings</h3>
+        <div class="dashboard-table-wrap">
+            <table class="dashboard-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Title</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Creator</th>
+                        <th>Joined</th>
+                        <th>Time</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for meeting in meetings %}
+                    <tr id="meeting-row-{{ meeting.id }}">
+                        <td>{{ meeting.id }}</td>
+                        <td>{{ meeting.title }}</td>
+                        <td>{{ '🌐 Online' if meeting.link else '📍 In-Person' }}</td>
+                        <td>{{ meeting.status }}</td>
+                        <td>{{ meeting.creator_username }}</td>
+                        <td>{{ meeting.joined_uids | length }}</td>
+                        <td>{{ meeting.time }}</td>
+                        <td>
+                            <button class="dashboard-action-btn dashboard-action-danger" onclick="deleteMeeting({{ meeting.id }})">Delete</button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="8">No meetings yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {% set active_page = 'profile' %}
+    {% include 'nav.html' %}
+</div>
+
+<script>
+function toggleBan(uid) {
+    fetch('/admin/ban/' + uid, { method: 'POST' })
+        .then(function (r) { return r.json(); })
+        .then(function () { window.location.reload(); });
+}
+
+function deleteUser(uid) {
+    if (!confirm('Delete this user? This cannot be undone.')) return;
+    fetch('/admin/delete_user/' + uid, { method: 'POST' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.error) { alert('Not allowed.'); return; }
+            var row = document.getElementById('user-row-' + uid);
+            if (row) row.remove();
+        });
+}
+
+function deleteMeeting(meetingId) {
+    if (!confirm('Delete this meeting? This cannot be undone.')) return;
+    fetch('/delete/' + meetingId, { method: 'POST' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.error) { alert('Not allowed.'); return; }
+            var row = document.getElementById('meeting-row-' + meetingId);
+            if (row) row.remove();
+        });
+}
+</script>
+{% endblock %}

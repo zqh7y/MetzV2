@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from flask import Flask, session, redirect, url_for, request, jsonify
-from data import search_users, touch_last_online, is_admin, get_all_meetings
+from data import search_users, touch_last_online, is_admin, get_all_meetings, is_banned
 from routes.login import login_route
 from routes.signup import signup_route
 from routes.home import home_route
@@ -14,7 +14,7 @@ from routes.swipe import swipe_route
 from routes.joined import joined_route, pass_route, join_route, delete_route
 from routes.profile import profile_route, user_profile_route, toggle_trust_route
 from routes.verify import verify_route, resend_verification_route
-from routes.admin import pending_route, approve_route, decline_route
+from routes.admin import pending_route, approve_route, decline_route, dashboard_route, ban_route, delete_user_route
 
 app = Flask(__name__)
 app.secret_key = os.environ["FLASK_SECRET_KEY"]  # Required for session
@@ -26,7 +26,11 @@ app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
 @app.before_request
 def update_last_online():
     if "user" in session:
-        touch_last_online(session["user"].get("uid", ""))
+        uid = session["user"].get("uid", "")
+        if is_banned(uid):
+            session.pop("user", None)
+            return redirect(url_for("login"))
+        touch_last_online(uid)
 
 
 @app.context_processor
@@ -113,6 +117,21 @@ def admin_pending():
     return pending_route()
 
 
+@app.route("/admin/dashboard")
+def admin_dashboard():
+    return dashboard_route()
+
+
+@app.route("/admin/ban/<uid>", methods=["POST"])
+def admin_ban(uid):
+    return ban_route(uid)
+
+
+@app.route("/admin/delete_user/<uid>", methods=["POST"])
+def admin_delete_user(uid):
+    return delete_user_route(uid)
+
+
 @app.route("/admin/approve/<int:meeting_id>", methods=["POST"])
 def admin_approve(meeting_id):
     return approve_route(meeting_id)
@@ -138,4 +157,4 @@ def logout():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5050)
+    app.run(debug=True, port=5050, host="0.0.0.0")

@@ -2745,3 +2745,72 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     color: #888;
     margin: 8px 0 0;
 }
+
+/* Developer dashboard tables */
+.dashboard-section {
+    padding: 0 16px 20px;
+}
+
+.dashboard-section-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #2c3e50;
+    margin-bottom: 10px;
+}
+
+.dashboard-table-wrap {
+    overflow-x: auto;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.dashboard-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.dashboard-table th,
+.dashboard-table td {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+}
+
+.dashboard-table th {
+    color: #888;
+    font-weight: 600;
+    background: #fafafa;
+}
+
+.dashboard-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.dashboard-action-btn {
+    border: none;
+    border-radius: 8px;
+    background: rgba(102,126,234,0.12);
+    color: #667eea;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 6px 10px;
+    cursor: pointer;
+    margin-right: 6px;
+    transition: background 0.2s;
+}
+
+.dashboard-action-btn:hover {
+    background: rgba(102,126,234,0.22);
+}
+
+.dashboard-action-danger {
+    background: rgba(231,76,60,0.12);
+    color: #e74c3c;
+}
+
+.dashboard-action-danger:hover {
+    background: rgba(231,76,60,0.22);
+}

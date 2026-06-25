@@ -2,8 +2,12 @@ import math
 import hashlib
 import json
 import os
+import pymysql
 from datetime import datetime, timezone
+from cryptography.fernet import Fernet
 from utils.models import InPersonMeeting, OnlineMeeting
+
+_fernet = Fernet(os.environ["DATA_ENCRYPTION_KEY"].encode())
 
 # ── Global meetings store (all meetings, keyed by id) ──────────────────────────
 # Starts empty — meetings only exist once a real user creates them.
@@ -17,31 +21,138 @@ USERS_DB = {}
 ADMIN_EMAILS = {"123@gmail.com", "1234@gmail.com", "test@gmail.com", "ytevil68@gmail.com"}
 
 
-# ── Persistence: keep meetings/users/joins on disk between runs ────────────────
-DATA_FILE = os.path.join(os.path.dirname(__file__), "app_data.json")
+# ── Persistence: MySQL database, with each row's JSON content AES-encrypted ────
+_LEGACY_JSON_FILE = os.path.join(os.path.dirname(__file__), "app_data.json")
+_LEGACY_DB_FILE = os.path.join(os.path.dirname(__file__), "app_data.db")
+
+
+def _get_connection():
+    conn = pymysql.connect(
+        host=os.environ.get("MYSQL_HOST", "127.0.0.1"),
+        port=int(os.environ.get("MYSQL_PORT", 3306)),
+        user=os.environ.get("MYSQL_USER", "root"),
+        password=os.environ.get("MYSQL_PASSWORD", ""),
+        database=os.environ.get("MYSQL_DATABASE", "metz_app"),
+        autocommit=True,
+    )
+    with conn.cursor() as cur:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS meetings (
+                id INT PRIMARY KEY,
+                data LONGBLOB NOT NULL
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                uid VARCHAR(64) PRIMARY KEY,
+                data LONGBLOB NOT NULL
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS meta (
+                `key` VARCHAR(64) PRIMARY KEY,
+                value VARCHAR(255) NOT NULL
+            )
+        """)
+    return conn
 
 
 def save_data():
-    """Write meetings, users, and the meeting id counter to disk."""
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump({
-            "meetings": MEETINGS_DB,
-            "users": USERS_DB,
-            "next_meeting_id": _next_meeting_id,
-        }, f)
+    """Write meetings, users, and the meeting id counter to the MySQL database.
+    Each row's JSON content is AES-encrypted before being stored.
+    Uses upserts (not delete-then-insert) so concurrent requests can't race
+    into a duplicate-key error, then cleans up rows no longer present."""
+    conn = _get_connection()
+    with conn.cursor() as cur:
+        if MEETINGS_DB:
+            cur.executemany(
+                "INSERT INTO meetings (id, data) VALUES (%s, %s) "
+                "ON DUPLICATE KEY UPDATE data = VALUES(data)",
+                [(mid, _fernet.encrypt(json.dumps(m).encode("utf-8"))) for mid, m in MEETINGS_DB.items()],
+            )
+            cur.execute(
+                f"DELETE FROM meetings WHERE id NOT IN ({','.join(['%s'] * len(MEETINGS_DB))})",
+                list(MEETINGS_DB.keys()),
+            )
+        else:
+            cur.execute("DELETE FROM meetings")
+
+        if USERS_DB:
+            cur.executemany(
+                "INSERT INTO users (uid, data) VALUES (%s, %s) "
+                "ON DUPLICATE KEY UPDATE data = VALUES(data)",
+                [(uid, _fernet.encrypt(json.dumps(u).encode("utf-8"))) for uid, u in USERS_DB.items()],
+            )
+            cur.execute(
+                f"DELETE FROM users WHERE uid NOT IN ({','.join(['%s'] * len(USERS_DB))})",
+                list(USERS_DB.keys()),
+            )
+        else:
+            cur.execute("DELETE FROM users")
+
+        cur.execute(
+            "INSERT INTO meta (`key`, value) VALUES ('next_meeting_id', %s) "
+            "ON DUPLICATE KEY UPDATE value = VALUES(value)",
+            (str(_next_meeting_id),),
+        )
+    conn.close()
+
+
+def _migrate_legacy_data():
+    """One-time migration from the old encrypted app_data.json/app_data.db files into MySQL."""
+    if os.path.exists(_LEGACY_JSON_FILE):
+        with open(_LEGACY_JSON_FILE, "rb") as f:
+            raw = f.read()
+        try:
+            return json.loads(_fernet.decrypt(raw).decode("utf-8"))
+        except Exception:
+            return json.loads(raw.decode("utf-8"))
+    if os.path.exists(_LEGACY_DB_FILE):
+        import sqlite3
+        sconn = sqlite3.connect(_LEGACY_DB_FILE)
+        meetings = {
+            str(mid): json.loads(_fernet.decrypt(data).decode("utf-8"))
+            for mid, data in sconn.execute("SELECT id, data FROM meetings")
+        }
+        users = {
+            uid: json.loads(_fernet.decrypt(data).decode("utf-8"))
+            for uid, data in sconn.execute("SELECT uid, data FROM users")
+        }
+        row = sconn.execute("SELECT value FROM meta WHERE key = 'next_meeting_id'").fetchone()
+        sconn.close()
+        return {"meetings": meetings, "users": users, "next_meeting_id": int(row[0]) if row else 1}
+    return None
 
 
 def load_data():
-    """Load meetings, users, and the meeting id counter from disk, if present."""
+    """Load meetings, users, and the meeting id counter from the MySQL database.
+    If the database is empty but an old app_data.json/app_data.db file exists,
+    migrate it once."""
     global _next_meeting_id
-    if not os.path.exists(DATA_FILE):
-        return
-    with open(DATA_FILE, "r", encoding="utf-8") as f:
-        saved = json.load(f)
-    for mid, m in saved.get("meetings", {}).items():
-        MEETINGS_DB[int(mid)] = m
-    USERS_DB.update(saved.get("users", {}))
-    _next_meeting_id = saved.get("next_meeting_id", _next_meeting_id)
+
+    conn = _get_connection()
+    with conn.cursor() as cur:
+        cur.execute("SELECT id, data FROM meetings")
+        rows = cur.fetchall()
+        for mid, data in rows:
+            MEETINGS_DB[mid] = json.loads(_fernet.decrypt(data).decode("utf-8"))
+        cur.execute("SELECT uid, data FROM users")
+        for uid, data in cur.fetchall():
+            USERS_DB[uid] = json.loads(_fernet.decrypt(data).decode("utf-8"))
+        cur.execute("SELECT value FROM meta WHERE `key` = 'next_meeting_id'")
+        row = cur.fetchone()
+        if row:
+            _next_meeting_id = int(row[0])
+    conn.close()
+
+    if not MEETINGS_DB and not USERS_DB:
+        legacy = _migrate_legacy_data()
+        if legacy:
+            for mid, m in legacy.get("meetings", {}).items():
+                MEETINGS_DB[int(mid)] = m
+            USERS_DB.update(legacy.get("users", {}))
+            _next_meeting_id = legacy.get("next_meeting_id", _next_meeting_id)
+            save_data()
 
 
 def get_all_meetings(status=None):
@@ -275,9 +386,44 @@ def set_trusted(uid, trusted, admin_uid):
     return True
 
 
+def is_banned(uid):
+    user = USERS_DB.get(uid)
+    return bool(user and user.get("is_banned"))
+
+
+def set_banned(uid, banned, admin_uid):
+    """Ban/unban a user. Only an admin may do this; admins can't be banned."""
+    if not is_admin(admin_uid):
+        return False
+    user = USERS_DB.get(uid)
+    if not user or user.get("is_admin"):
+        return False
+    user["is_banned"] = bool(banned)
+    save_data()
+    return True
+
+
+def delete_user(uid, admin_uid):
+    """Delete a user account and their created meetings. Only an admin may
+    do this; admins can't delete themselves or other admins."""
+    if not is_admin(admin_uid):
+        return False
+    user = USERS_DB.get(uid)
+    if not user or user.get("is_admin"):
+        return False
+    for mid in list(user.get("created_meeting_ids", [])):
+        delete_meeting(mid, admin_uid)
+    for m in MEETINGS_DB.values():
+        if uid in m.get("joined_uids", []):
+            m["joined_uids"].remove(uid)
+    del USERS_DB[uid]
+    save_data()
+    return True
+
+
 def generate_user_id(email):
     """Create a short deterministic display ID from an email, e.g. 'ART4821'."""
-    num = int(hashlib.md5(email.encode()).hexdigest(), 16) % 10000
+    num = int(hashlib.sha256(email.encode()).hexdigest(), 16) % 10000
     prefix = email.split("@")[0][:3].upper()
     return f"{prefix}{num:04d}"
 
@@ -299,7 +445,7 @@ def get_joined_users_preview(joined_uids, limit=4):
 
 def generate_user_color(uid):
     """Create a deterministic, vibrant HSL color string from a user's uid."""
-    hue = int(hashlib.md5(uid.encode()).hexdigest(), 16) % 360
+    hue = int(hashlib.sha256(uid.encode()).hexdigest(), 16) % 360
     return f"hsl({hue}, 65%, 55%)"
 
 
