@@ -1,7 +1,7 @@
 import os
 from flask import request, render_template, session, redirect, url_for
 import requests
-from data import register_user
+from data import register_user, is_banned
 from utils.auth_errors import friendly_auth_error
 
 API_KEY = os.environ["FIREBASE_API_KEY"]
@@ -20,6 +20,8 @@ def login_route():
 
         if "idToken" in data:
             uid = register_user(email)
+            if is_banned(uid):
+                return render_template("login.html", message="This account has been banned.")
             session.permanent = True
             session["user"] = {"email": email, "idToken": data["idToken"], "uid": uid}
             return redirect(url_for("home"))

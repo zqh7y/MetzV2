@@ -5,3 +5,5 @@ flask_session/
 metz-firebase.json
 .env
 .claude/
+app_data.db
+mysql_data/
