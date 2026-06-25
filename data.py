@@ -423,6 +423,7 @@ def delete_user(uid, admin_uid):
 
 def generate_user_id(email):
     """Create a short deterministic display ID from an email, e.g. 'ART4821'."""
+    email = email.strip().lower()
     num = int(hashlib.sha256(email.encode()).hexdigest(), 16) % 10000
     prefix = email.split("@")[0][:3].upper()
     return f"{prefix}{num:04d}"
