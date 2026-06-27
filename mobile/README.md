@@ -45,7 +45,9 @@ python mobile/backend/server.py
 This starts on **port 5051** (the existing web app stays on 5050 — both can
 run at the same time, they share the same in-memory `data.py` state only if
 run in the *same* process, so for now treat them as two views into the same
-`app_data.json` file, not the same live memory).
+**encrypted MySQL database** — not the same live memory — since `data.py`
+persists every change to MySQL (Fernet/AES-encrypted blobs) rather than to a
+flat file.
 
 ## Running the app
 
@@ -119,6 +121,12 @@ did, but with `react-native-maps` actually working.
 - The API trusts `X-User-Id` the same way the web app trusts its session
   cookie (no Firebase token signature verification). Fine for this project's
   current security model, but worth hardening before any real deployment.
-- `app_data.json` is still a flat file — convert to a real database before
-  shipping a mobile client that might hit the API concurrently from
-  multiple devices.
+- No **admin dashboard** equivalent yet — `mobile/backend/admin_routes.py`
+  only exposes pending-meeting approve/decline and trust toggle. The web
+  app's `/admin/dashboard` (ban/unban and delete users, see
+  [`../routes/admin.py`](../routes/admin.py)) hasn't been ported to a mobile
+  screen or API route.
+- No live attendee-count updates on mobile — the web app pushes updates over
+  a standalone WebSocket server ([`../socket_server.py`](../socket_server.py)),
+  which the mobile app doesn't connect to yet; counts only refresh when a
+  screen re-fetches.
