@@ -127,7 +127,12 @@
         <div class="meetings-list" id="meetings-list">
             {% for meeting in meetings %}
             {% set is_online = meeting.__class__.__name__ == 'OnlineMeeting' %}
-            <div class="meeting-card" data-meeting-id="{{ meeting.id }}">
+            <div class="meeting-card{% if is_online %} is-online{% endif %}" data-meeting-id="{{ meeting.id }}">
+                {% if not is_online and meeting.lat and meeting.lng %}
+                <!-- Mounted lazily by home.js when it scrolls near the viewport -->
+                <div class="card-map" data-lat="{{ meeting.lat }}" data-lng="{{ meeting.lng }}"></div>
+                {% endif %}
+                <div class="card-main">
                 <div class="meeting-card-accent accent-{{ loop.index0 % 5 }}"></div>
                 <div class="meeting-card-body">
                     <div class="meeting-card-top">
@@ -183,6 +188,7 @@
                     </div>
                 </div>
                 <div class="meeting-card-chevron">›</div>
+                </div><!-- /.card-main -->
             </div>
             {% endfor %}
             {% if not meetings %}

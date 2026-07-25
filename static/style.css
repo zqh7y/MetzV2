@@ -1,3 +1,85 @@
+/* ═══ Design tokens ══════════════════════════════════════════════════════
+   One place for colour, so the whole app can follow the system light/dark
+   setting. The five decorative card gradients (.card-color-*, .accent-*)
+   deliberately stay hard-coded — they are a fixed palette, not theming. */
+:root {
+    color-scheme: light;
+
+    /* Functional accent (buttons, active states, links, map pins) */
+    --accent: #0d9c8a;
+    --accent-strong: #0a7d6e;
+    --accent-deep: #075f55;
+    --accent-on: #ffffff;
+    --accent-soft: rgba(13, 156, 138, 0.12);
+    --accent-soft-2: rgba(13, 156, 138, 0.22);
+    --accent-glow: rgba(13, 156, 138, 0.38);
+
+    /* Surfaces */
+    --bg: #eef1f5;
+    --surface: #ffffff;
+    --surface-2: #f5f6f8;
+    --surface-3: #eef0f5;
+    --border: #e4e8ee;
+
+    /* Text */
+    --text: #2c3e50;
+    --text-2: #6b7480;
+    --text-3: #98a1ad;
+
+    /* Chrome */
+    --nav-bg: #1c1c2e;
+    --shadow-1: 0 2px 10px rgba(16, 20, 40, 0.07);
+    --shadow-2: 0 8px 28px rgba(16, 20, 40, 0.12);
+    --shadow-3: 0 18px 48px rgba(16, 20, 40, 0.22);
+
+    /* Compact density scale */
+    --gap-1: 6px;
+    --gap-2: 10px;
+    --gap-3: 14px;
+    --radius: 14px;
+    --radius-lg: 18px;
+
+    /* Springy easing, used for anything that moves */
+    --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --ease-out: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* System preference — unless the page explicitly asks for light */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        color-scheme: dark;
+        --bg: #0f1218;
+        --surface: #171b23;
+        --surface-2: #1e232d;
+        --surface-3: #262c38;
+        --border: #2b313d;
+        --text: #e8ecf2;
+        --text-2: #a3adba;
+        --text-3: #737d8b;
+        --nav-bg: #0b0e14;
+        --shadow-1: 0 2px 10px rgba(0, 0, 0, 0.4);
+        --shadow-2: 0 8px 28px rgba(0, 0, 0, 0.5);
+        --shadow-3: 0 18px 48px rgba(0, 0, 0, 0.6);
+    }
+}
+
+/* Explicit override, for a future in-app theme toggle */
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0f1218;
+    --surface: #171b23;
+    --surface-2: #1e232d;
+    --surface-3: #262c38;
+    --border: #2b313d;
+    --text: #e8ecf2;
+    --text-2: #a3adba;
+    --text-3: #737d8b;
+    --nav-bg: #0b0e14;
+    --shadow-1: 0 2px 10px rgba(0, 0, 0, 0.4);
+    --shadow-2: 0 8px 28px rgba(0, 0, 0, 0.5);
+    --shadow-3: 0 18px 48px rgba(0, 0, 0, 0.6);
+}
+
 /* --- Global reset & base --- */
 * {
     box-sizing: border-box;
@@ -20,8 +102,8 @@ body::-webkit-scrollbar,
 
 body {
     font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
-    background-color: #f0f2f5;
-    color: #333;
+    background-color: var(--bg);
+    color: var(--text);
     animation: pageFadeIn 0.35s ease;
     scrollbar-width: none;
     -ms-overflow-style: none;
@@ -65,7 +147,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     align-items: center;
     justify-content: center;
     padding: 24px;
-    background: linear-gradient(-45deg, #667eea, #764ba2, #f093fb, #f5576c, #4facfe, #43e97b, #38f9d7, #fee140);
+    background: linear-gradient(-45deg, var(--accent), var(--accent-strong), #f093fb, #f5576c, #4facfe, #43e97b, #38f9d7, #fee140);
     background-size: 400% 400%;
     animation: gradientFlow 20s ease infinite;
 }
@@ -107,14 +189,14 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     width: 52px;
     height: 52px;
     border-radius: 16px;
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
     color: #fff;
     font-size: 24px;
     font-weight: 800;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 8px 20px var(--accent-glow);
     margin-bottom: 10px;
 }
 
@@ -123,14 +205,14 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     font-weight: 800;
     letter-spacing: 1.5px;
     text-transform: uppercase;
-    color: #2c3e50;
+    color: var(--text);
 }
 
 .auth-page .container h2 {
     margin-bottom: 6px;
     font-size: 26px;
     font-weight: 800;
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -138,7 +220,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 
 .auth-subtitle {
     text-align: center;
-    color: #888;
+    color: var(--text-2);
     font-size: 13.5px;
     margin-bottom: 26px;
 }
@@ -153,21 +235,21 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 
 .auth-page .container input[type="email"]:focus,
 .auth-page .container input[type="password"]:focus {
-    border-color: #667eea;
-    background: #fff;
+    border-color: var(--accent);
+    background: var(--surface);
     box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.14);
 }
 
 .auth-page .container .btn-primary {
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
     border-radius: 10px;
     letter-spacing: 0.3px;
-    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.35);
+    box-shadow: 0 8px 20px var(--accent-glow);
     transition: transform 0.15s, box-shadow 0.2s, filter 0.2s;
 }
 
 .auth-page .container .btn-primary:hover {
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
     filter: brightness(1.08);
     transform: translateY(-2px);
     box-shadow: 0 12px 26px rgba(102, 126, 234, 0.45);
@@ -181,7 +263,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .container {
     max-width: 440px;
     margin: 60px auto;
-    background: #fff;
+    background: var(--surface);
     border-radius: 12px;
     padding: 36px 32px;
     box-shadow: 0 4px 24px rgba(0,0,0,0.10);
@@ -191,7 +273,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     text-align: center;
     margin-bottom: 24px;
     font-size: 24px;
-    color: #2c3e50;
+    color: var(--text);
 }
 
 .container .error-msg {
@@ -265,7 +347,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     text-align: center;
     font-size: 28px;
     font-weight: 800;
-    color: #2c3e50;
+    color: var(--text);
     border: 2px solid #e0e0e0;
     border-radius: 12px;
     background: #f9f9fb;
@@ -274,10 +356,10 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 
 .code-input:focus {
     outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 4px rgba(102,126,234,0.15);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px var(--accent-soft);
     transform: translateY(-2px);
-    background: #fff;
+    background: var(--surface);
 }
 
 .container .form-group {
@@ -289,7 +371,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .container .form-group label {
     font-size: 13px;
     font-weight: 600;
-    color: #555;
+    color: var(--text-2);
     margin-bottom: 6px;
 }
 
@@ -302,7 +384,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     width: 100%;
     padding: 11px 14px;
     font-size: 15px;
-    border: 1.5px solid #dce1e7;
+    border: 1.5px solid var(--border);
     border-radius: 8px;
     background: #fafbfc;
     transition: border-color 0.2s;
@@ -313,7 +395,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .container select:focus,
 .container textarea:focus {
     border-color: #3498db;
-    background: #fff;
+    background: var(--surface);
 }
 
 .container textarea {
@@ -369,7 +451,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     left: 0;
     right: 0;
     height: 6px;
-    background: linear-gradient(90deg, #667eea, #764ba2, #43e97b, #38f9d7);
+    background: linear-gradient(90deg, var(--accent), var(--accent-strong), #43e97b, #38f9d7);
 }
 
 .create-header {
@@ -400,7 +482,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 
 .create-subtitle {
     font-size: 13px;
-    color: #888;
+    color: var(--text-2);
 }
 
 /* --- Meeting type toggle --- */
@@ -416,10 +498,10 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     justify-content: center;
     gap: 6px;
     padding: 12px 0;
-    border: 1.5px solid #dce1e7;
+    border: 1.5px solid var(--border);
     border-radius: 8px;
     background: #fafbfc;
-    color: #888;
+    color: var(--text-2);
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
@@ -429,10 +511,10 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .type-toggle-btn svg { flex-shrink: 0; }
 
 .type-toggle-btn.active {
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
     border-color: transparent;
     color: #fff;
-    box-shadow: 0 4px 14px rgba(102,126,234,0.35);
+    box-shadow: 0 4px 14px var(--accent-glow);
 }
 
 /* --- Map icon (emoji) picker --- */
@@ -449,7 +531,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     align-items: center;
     justify-content: center;
     font-size: 20px;
-    border: 1.5px solid #dce1e7;
+    border: 1.5px solid var(--border);
     border-radius: 8px;
     background: #fafbfc;
     cursor: pointer;
@@ -457,9 +539,9 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 }
 
 .emoji-option.active {
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
     border-color: transparent;
-    box-shadow: 0 4px 14px rgba(102,126,234,0.35);
+    box-shadow: 0 4px 14px var(--accent-glow);
 }
 
 /* --- Interest tag picker (create form) --- */
@@ -473,26 +555,26 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     padding: 7px 13px;
     font-size: 13px;
     font-weight: 600;
-    border: 1.5px solid #dce1e7;
+    border: 1.5px solid var(--border);
     border-radius: 16px;
     background: #fafbfc;
-    color: #666;
+    color: var(--text-2);
     cursor: pointer;
     transition: all 0.2s;
 }
 
 .tag-option.active {
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
     border-color: transparent;
     color: #fff;
-    box-shadow: 0 4px 14px rgba(102,126,234,0.35);
+    box-shadow: 0 4px 14px var(--accent-glow);
 }
 
 .container .footer-link {
     text-align: center;
     margin-top: 18px;
     font-size: 14px;
-    color: #777;
+    color: var(--text-2);
 }
 
 .container .footer-link a {
@@ -511,7 +593,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     flex-direction: column;
     height: 100vh;
     width: 100vw;
-    background-color: #f0f2f5;
+    background-color: var(--bg);
 }
 
 .map-container {
@@ -520,7 +602,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     margin: 16px 16px 20px 16px;
     border-radius: 20px;
     overflow: hidden;
-    box-shadow: 0 10px 32px rgba(102,126,234,0.28), 0 4px 20px rgba(0,0,0,0.15);
+    box-shadow: 0 10px 32px var(--accent-soft-2), 0 4px 20px rgba(0,0,0,0.15);
     display: flex;
     background-color: #1e2a4a;
     border: 1px solid rgba(255,255,255,0.5);
@@ -577,7 +659,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .map-info-panel {
     width: 0;
     overflow: hidden;
-    background: #fff;
+    background: var(--surface);
     transition: width 0.38s cubic-bezier(0.4,0,0.2,1);
     display: flex;
     flex-direction: column;
@@ -606,8 +688,8 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     position: sticky;
     top: 0;
     z-index: 6;
-    background: #fff;
-    color: #2c3e50;
+    background: var(--surface);
+    color: var(--text);
     font-size: 15px;
     font-weight: 800;
     line-height: 1.3;
@@ -649,7 +731,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     align-items: flex-start;
     gap: 8px;
     padding: 20px 16px 14px;
-    background: #fff;
+    background: var(--surface);
     border-bottom: 1px solid #f0f0f0;
     transition: opacity 0.12s linear;
 }
@@ -669,7 +751,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .info-hero-title {
     position: relative;
     z-index: 1;
-    color: #2c3e50;
+    color: var(--text);
     font-size: 17px;
     font-weight: 800;
     line-height: 1.25;
@@ -678,13 +760,13 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 
 .info-body {
     position: relative;
-    background: #fff;
+    background: var(--surface);
     padding: 18px 16px 16px;
 }
 
 .info-desc {
     font-size: 12.5px;
-    color: #777;
+    color: var(--text-2);
     line-height: 1.5;
     margin-bottom: 14px;
 }
@@ -703,7 +785,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     align-items: center;
     gap: 10px;
     font-size: 12.5px;
-    color: #555;
+    color: var(--text-2);
     font-weight: 600;
 }
 
@@ -712,7 +794,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     width: 28px;
     height: 28px;
     border-radius: 50%;
-    background: rgba(102,126,234,0.10);
+    background: var(--accent-soft);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -757,7 +839,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .info-route-result {
     font-size: 12px;
     font-weight: 600;
-    color: #555;
+    color: var(--text-2);
 }
 
 .info-actions {
@@ -772,24 +854,24 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     padding: 10px 14px;
     border-radius: 14px;
     font-size: 13px;
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
     color: #fff;
-    box-shadow: 0 4px 14px rgba(102,126,234,0.35);
+    box-shadow: 0 4px 14px var(--accent-glow);
 }
 
 .info-join-btn:hover {
-    box-shadow: 0 6px 18px rgba(102,126,234,0.5);
+    box-shadow: 0 6px 18px var(--accent-glow);
     transform: translateY(-1px);
 }
 
 .info-join-btn.joined {
-    background: rgba(102,126,234,0.12);
-    color: #667eea;
+    background: var(--accent-soft);
+    color: var(--accent);
     box-shadow: none;
 }
 
 .info-join-btn.joined .join-btn-count {
-    background: rgba(102,126,234,0.15);
+    background: var(--accent-soft);
 }
 
 .info-actions .delete-btn {
@@ -806,27 +888,27 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     width: 36px;
     height: 36px;
     padding: 0;
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
     border: none;
     border-radius: 50%;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 14px rgba(102,126,234,0.5);
+    box-shadow: 0 4px 14px var(--accent-glow);
     z-index: 1000;
     color: #fff;
     transition: box-shadow 0.2s, transform 0.15s;
 }
 
-#locate-btn:hover { box-shadow: 0 6px 18px rgba(102,126,234,0.65); transform: scale(1.08); }
+#locate-btn:hover { box-shadow: 0 6px 18px var(--accent-glow); transform: scale(1.08); }
 
 /* ── User location popup ─────────────────────────────────────────────────── */
 .user-location-popup {
     font-family: 'Segoe UI', Arial, sans-serif;
     font-size: 13px;
     font-weight: 700;
-    color: #667eea;
+    color: var(--accent);
     white-space: nowrap;
 }
 
@@ -899,8 +981,8 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     width: 34px;
     height: 34px;
     border-radius: 50%;
-    background: #fff;
-    border: 2px solid #667eea;
+    background: var(--surface);
+    border: 2px solid var(--accent);
     box-shadow: 0 2px 8px rgba(0,0,0,0.25);
     display: flex;
     align-items: center;
@@ -916,7 +998,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     left: 50%;
     transform: translateX(-50%);
     border: 5px solid transparent;
-    border-top-color: #667eea;
+    border-top-color: var(--accent);
 }
 
 /* ── Clustered markers: one big number when zoomed out ───────────────────── */
@@ -929,14 +1011,14 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     width: 100%;
     height: 100%;
     border-radius: 50%;
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
     color: #fff;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 800;
     font-size: 14px;
-    box-shadow: 0 3px 10px rgba(102,126,234,0.5), 0 0 0 4px rgba(102,126,234,0.18);
+    box-shadow: 0 3px 10px var(--accent-glow), 0 0 0 4px var(--accent-soft);
     border: 2px solid rgba(255,255,255,0.6);
 }
 
@@ -959,7 +1041,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .bottom-panel {
     height: 70%;
     width: 100%;
-    background-color: white;
+    background-color: var(--surface);
     padding: 20px;
     box-sizing: border-box;
     overflow-y: auto;
@@ -978,14 +1060,14 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .panel-title {
     font-size: 17px;
     font-weight: 800;
-    color: #2c3e50;
+    color: var(--text);
 }
 
 .create-btn-small {
     display: flex;
     align-items: center;
     gap: 5px;
-    background: #2ecc71;
+    background: var(--accent);
     color: #fff;
     border: none;
     border-radius: 20px;
@@ -996,7 +1078,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     transition: background 0.2s, transform 0.15s;
 }
 .create-btn-small:hover {
-    background: #27ae60;
+    background: var(--accent-strong);
     transform: scale(1.04);
 }
 
@@ -1012,24 +1094,24 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     padding: 6px 12px;
     font-size: 12px;
     font-weight: 700;
-    border: 1.5px solid #e8eaed;
+    border: 1.5px solid var(--border);
     border-radius: 14px;
-    background: #f8f9fa;
-    color: #666;
+    background: var(--surface-2);
+    color: var(--text-2);
     cursor: pointer;
     transition: all 0.2s;
     white-space: nowrap;
 }
 
 .filter-chip.active {
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
     border-color: transparent;
     color: #fff;
 }
 
 .filter-chip-divider {
     width: 1px;
-    background: #e8eaed;
+    background: var(--surface-3);
     margin: 2px 2px;
 }
 
@@ -1075,9 +1157,9 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .trust-toggle-btn {
     padding: 8px 16px;
     border-radius: 20px;
-    border: 1.5px solid #dce1e7;
+    border: 1.5px solid var(--border);
     background: #fafbfc;
-    color: #666;
+    color: var(--text-2);
     font-size: 13px;
     font-weight: 700;
     cursor: pointer;
@@ -1105,7 +1187,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     cursor: pointer;
     transition: transform 0.15s;
 }
-.pending-approve-btn { background: #2ecc71; color: #fff; }
+.pending-approve-btn { background: var(--accent); color: #fff; }
 .pending-decline-btn { background: #e74c3c; color: #fff; }
 .pending-approve-btn:hover, .pending-decline-btn:hover { transform: scale(1.03); }
 
@@ -1123,7 +1205,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     padding: 2px 7px;
     border-radius: 9px;
     background: #f0ebff;
-    color: #764ba2;
+    color: var(--accent-strong);
     white-space: nowrap;
 }
 
@@ -1133,16 +1215,16 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     width: 100%;
     padding: 10px 14px;
     font-size: 14px;
-    border: 1.5px solid #e8eaed;
+    border: 1.5px solid var(--border);
     border-radius: 10px;
     box-sizing: border-box;
-    background: #f8f9fa;
+    background: var(--surface-2);
     outline: none;
     transition: border-color 0.2s;
 }
 .search-container input[type="text"]:focus {
     border-color: #3498db;
-    background: #fff;
+    background: var(--surface);
 }
 
 /* ── Meeting cards ────────────────────────────────────────────────────────── */
@@ -1153,20 +1235,23 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 }
 
 .meeting-card {
-    background: #fff;
-    border-radius: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
     display: flex;
-    align-items: stretch;
+    flex-direction: column;
     overflow: hidden;
-    box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+    box-shadow: var(--shadow-1);
     cursor: pointer;
-    transition: transform 0.15s, box-shadow 0.15s;
+    transition: transform 0.28s var(--spring), box-shadow 0.28s var(--ease-out);
     -webkit-tap-highlight-color: transparent;
 }
 
+.meeting-card:active { transform: scale(0.985); }
+
 .meeting-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 18px rgba(0,0,0,0.11);
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-2);
 }
 
 .meeting-card:active { transform: scale(0.98); }
@@ -1212,7 +1297,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 }
 .badge-type-online {
     background: #f0ebff;
-    color: #764ba2;
+    color: var(--accent-strong);
 }
 
 .meeting-card-time {
@@ -1236,7 +1321,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .meeting-card-title {
     font-size: 14px;
     font-weight: 700;
-    color: #2c3e50;
+    color: var(--text);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1246,7 +1331,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 
 .meeting-card-address {
     font-size: 11px;
-    color: #aaa;
+    color: var(--text-3);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1255,7 +1340,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 
 .meeting-card-desc {
     font-size: 12px;
-    color: #888;
+    color: var(--text-2);
     margin-bottom: 5px;
     white-space: nowrap;
     overflow: hidden;
@@ -1287,12 +1372,12 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 }
 
 .custom-popup .leaflet-popup-tip {
-    background: #fff;
+    background: var(--surface);
 }
 
 .meeting-popup {
     font-family: 'Segoe UI', Arial, sans-serif;
-    background: #fff;
+    background: var(--surface);
 }
 
 .popup-header {
@@ -1323,21 +1408,21 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .popup-title {
     font-size: 16px;
     font-weight: 700;
-    color: #2c3e50;
+    color: var(--text);
     padding: 14px 16px 6px;
     line-height: 1.3;
 }
 
 .popup-desc {
     font-size: 13px;
-    color: #666;
+    color: var(--text-2);
     padding: 0 16px 12px;
     line-height: 1.5;
 }
 
 .popup-details {
-    background: #f8f9fa;
-    border-top: 1px solid #eee;
+    background: var(--surface-2);
+    border-top: 1px solid var(--border);
     padding: 10px 16px 12px;
     display: flex;
     flex-direction: column;
@@ -1349,7 +1434,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     align-items: center;
     gap: 8px;
     font-size: 13px;
-    color: #444;
+    color: var(--text);
 }
 
 .popup-icon {
@@ -1463,18 +1548,18 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     width: 52px;
     height: 52px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 18px rgba(102,126,234,0.55);
+    box-shadow: 0 4px 18px var(--accent-glow);
     color: #fff;
     transition: transform 0.15s, box-shadow 0.15s;
 }
 
 .nav-create:hover .nav-create-btn {
     transform: scale(1.1);
-    box-shadow: 0 6px 24px rgba(102,126,234,0.7);
+    box-shadow: 0 6px 24px var(--accent-glow);
 }
 
 .nav-create .nav-label {
@@ -1499,7 +1584,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-    background: #f0f2f5;
+    background: var(--bg);
 }
 
 .swipe-header {
@@ -1510,12 +1595,12 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .swipe-header h2 {
     font-size: 22px;
     font-weight: 700;
-    color: #2c3e50;
+    color: var(--text);
 }
 
 .swipe-header p {
     font-size: 13px;
-    color: #999;
+    color: var(--text-3);
     margin-top: 4px;
 }
 
@@ -1719,14 +1804,14 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .btn-swipe:hover { transform: scale(1.1); box-shadow: 0 6px 20px rgba(0,0,0,0.2); }
 .btn-swipe:active { transform: scale(0.95); }
 
-.btn-pass { background: #fff; color: #e74c3c; }
-.btn-like { background: #fff; color: #2ecc71; }
+.btn-pass { background: var(--surface); color: #e74c3c; }
+.btn-like { background: var(--surface); color: var(--accent); }
 
 /* ── No more cards state ──────────────────────────────────────────────────── */
 .no-more-cards {
     text-align: center;
     padding: 40px 20px;
-    color: #555;
+    color: var(--text-2);
 }
 
 .no-more-icon {
@@ -1738,27 +1823,27 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     font-size: 20px;
     font-weight: 700;
     margin-bottom: 8px;
-    color: #2c3e50;
+    color: var(--text);
 }
 
-.no-more-cards p { color: #888; margin-bottom: 20px; }
+.no-more-cards p { color: var(--text-2); margin-bottom: 20px; }
 
 .no-more-btn {
     display: inline-block;
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
     color: #fff;
     padding: 12px 28px;
     border-radius: 24px;
     text-decoration: none;
     font-weight: 700;
     font-size: 15px;
-    box-shadow: 0 4px 14px rgba(102,126,234,0.4);
+    box-shadow: 0 4px 14px var(--accent-glow);
 }
 
 /* ── Likes Page ───────────────────────────────────────────────────────────── */
 .likes-page {
     min-height: 100vh;
-    background: #f0f2f5;
+    background: var(--bg);
     display: flex;
     flex-direction: column;
 }
@@ -1771,12 +1856,12 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .likes-header h2 {
     font-size: 22px;
     font-weight: 700;
-    color: #2c3e50;
+    color: var(--text);
 }
 
 .likes-header p {
     font-size: 13px;
-    color: #999;
+    color: var(--text-3);
     margin-top: 4px;
 }
 
@@ -1788,7 +1873,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     gap: 18px;
     margin: 4px 16px 16px;
     padding: 14px 10px;
-    background: #fff;
+    background: var(--surface);
     border-radius: 16px;
     box-shadow: 0 2px 12px rgba(0,0,0,0.06);
 }
@@ -1804,12 +1889,12 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .likes-stat-number {
     font-size: 19px;
     font-weight: 800;
-    color: #2c3e50;
+    color: var(--text);
 }
 
 .likes-stat-label {
     font-size: 11px;
-    color: #999;
+    color: var(--text-3);
     font-weight: 600;
 }
 
@@ -1824,7 +1909,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.6px;
-    color: #999;
+    color: var(--text-3);
     padding: 4px 4px 0;
     margin-top: 4px;
 }
@@ -1839,7 +1924,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 }
 
 .like-card {
-    background: #fff;
+    background: var(--surface);
     border-radius: 16px;
     overflow: hidden;
     display: flex;
@@ -1886,7 +1971,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 
 .like-card-footer .join-btn-count {
     font-size: 12px;
-    color: #888;
+    color: var(--text-2);
     font-weight: 600;
 }
 
@@ -1902,13 +1987,13 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .like-card-title {
     font-size: 16px;
     font-weight: 700;
-    color: #2c3e50;
+    color: var(--text);
     margin-bottom: 4px;
 }
 
 .like-card-desc {
     font-size: 13px;
-    color: #777;
+    color: var(--text-2);
     line-height: 1.4;
     margin-bottom: 10px;
     display: -webkit-box;
@@ -1922,7 +2007,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     align-items: center;
     gap: 12px;
     font-size: 13px;
-    color: #555;
+    color: var(--text-2);
 }
 
 .like-join-btn {
@@ -1957,16 +2042,16 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .likes-empty h3 {
     font-size: 20px;
     font-weight: 700;
-    color: #2c3e50;
+    color: var(--text);
     margin-bottom: 8px;
 }
 
-.likes-empty p { color: #888; margin-bottom: 20px; }
+.likes-empty p { color: var(--text-2); margin-bottom: 20px; }
 
 /* ── Profile Page ─────────────────────────────────────────────────────────── */
 .profile-page {
     min-height: 100vh;
-    background: #f0f2f5;
+    background: var(--bg);
     display: flex;
     flex-direction: column;
 }
@@ -1995,7 +2080,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .profile-hero::before {
     width: 220px;
     height: 220px;
-    background: #667eea;
+    background: var(--accent);
     top: -90px;
     left: -60px;
 }
@@ -2003,7 +2088,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .profile-hero::after {
     width: 240px;
     height: 240px;
-    background: #764ba2;
+    background: var(--accent-strong);
     bottom: -120px;
     right: -70px;
 }
@@ -2037,7 +2122,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 
 /* ── Activity rows (member since / last online) ─────────────────────────── */
 .profile-activity {
-    background: #fff;
+    background: var(--surface);
     margin: 16px 16px 0;
     border-radius: 18px;
     padding: 6px 18px;
@@ -2062,7 +2147,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     width: 38px;
     height: 38px;
     border-radius: 12px;
-    background: rgba(102,126,234,0.10);
+    background: var(--accent-soft);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2078,7 +2163,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .activity-label {
     font-size: 11px;
     font-weight: 700;
-    color: #aaa;
+    color: var(--text-3);
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
@@ -2086,14 +2171,14 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .activity-value {
     font-size: 14px;
     font-weight: 600;
-    color: #2c3e50;
+    color: var(--text);
 }
 
 .profile-avatar {
     width: 84px;
     height: 84px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
     color: #fff;
     font-size: 36px;
     font-weight: 800;
@@ -2101,7 +2186,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     align-items: center;
     justify-content: center;
     margin-bottom: 14px;
-    box-shadow: 0 0 0 6px rgba(102,126,234,0.18), 0 8px 28px rgba(102,126,234,0.55);
+    box-shadow: 0 0 0 6px var(--accent-soft), 0 8px 28px var(--accent-glow);
     border: 3px solid rgba(255,255,255,0.25);
 }
 
@@ -2118,7 +2203,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 }
 
 .profile-stats {
-    background: #fff;
+    background: var(--surface);
     margin: 20px 16px 0;
     border-radius: 18px;
     display: flex;
@@ -2151,22 +2236,22 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     margin-bottom: 4px;
 }
 
-.stat-icon-created      { background: rgba(102,126,234,0.12); color: #667eea; }
-.stat-icon-joined       { background: rgba(46,204,113,0.12); color: #2ecc71; }
+.stat-icon-created      { background: var(--accent-soft); color: var(--accent); }
+.stat-icon-joined       { background: rgba(46,204,113,0.12); color: var(--accent); }
 .stat-icon-swiped       { background: rgba(243,156,18,0.12); color: #f39c12; }
 .stat-icon-participants { background: rgba(231,76,60,0.12); color: #e74c3c; font-size: 16px; }
 
 .stat-number {
     font-size: 26px;
     font-weight: 800;
-    color: #2c3e50;
+    color: var(--text);
     line-height: 1;
 }
 
 .stat-label {
     font-size: 11px;
     font-weight: 600;
-    color: #aaa;
+    color: var(--text-3);
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
@@ -2174,7 +2259,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .stat-divider {
     width: 1px;
     height: 40px;
-    background: #eee;
+    background: var(--surface-3);
 }
 
 .profile-actions {
@@ -2189,11 +2274,11 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     align-items: center;
     gap: 12px;
     padding: 16px 20px;
-    background: #fff;
+    background: var(--surface);
     border-radius: 16px;
     font-size: 15px;
     font-weight: 600;
-    color: #2c3e50;
+    color: var(--text);
     text-decoration: none;
     box-shadow: 0 2px 10px rgba(0,0,0,0.07);
     transition: transform 0.15s, box-shadow 0.15s;
@@ -2221,7 +2306,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 
 .action-icon svg { flex-shrink: 0; }
 
-.action-icon-create  { background: rgba(102,126,234,0.12); color: #667eea; }
+.action-icon-create  { background: var(--accent-soft); color: var(--accent); }
 .action-icon-joined  { background: rgba(231,76,60,0.12); color: #e74c3c; }
 .action-icon-logout  { background: rgba(231,76,60,0.12); color: #e74c3c; }
 .action-icon-pending { background: rgba(255,255,255,0.22); color: #fff; font-size: 18px; }
@@ -2254,7 +2339,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 
 .pending-count-badge {
     margin-left: auto;
-    background: #fff;
+    background: var(--surface);
     color: #ff6262;
     font-weight: 800;
     font-size: 12px;
@@ -2265,7 +2350,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 
 /* --- Account status section --- */
 .account-status-card {
-    background: #fff;
+    background: var(--surface);
     margin: 16px 16px 0;
     border-radius: 18px;
     padding: 20px;
@@ -2283,7 +2368,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     width: 48px;
     height: 48px;
     border-radius: 14px;
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2296,34 +2381,34 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    color: #aaa;
+    color: var(--text-3);
 }
 
 .account-status-name {
     font-size: 18px;
     font-weight: 800;
-    color: #2c3e50;
+    color: var(--text);
 }
 
 .account-status-blurb {
     font-size: 12px;
-    color: #999;
+    color: var(--text-3);
     margin-top: 1px;
 }
 
 .account-status-next {
-    border-top: 1px solid #f0f1f3;
+    border-top: 1px solid var(--border);
     padding-top: 14px;
 }
 
 .account-status-next-label {
     font-size: 12px;
     font-weight: 700;
-    color: #888;
+    color: var(--text-2);
     margin-bottom: 10px;
 }
 
-.account-status-next-label strong { color: #667eea; }
+.account-status-next-label strong { color: var(--accent); }
 
 .account-task {
     display: flex;
@@ -2336,7 +2421,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     width: 20px;
     height: 20px;
     border-radius: 50%;
-    border: 2px solid #dce1e7;
+    border: 2px solid var(--border);
     flex-shrink: 0;
     display: flex;
     align-items: center;
@@ -2346,8 +2431,8 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 }
 
 .account-task.done .account-task-check {
-    background: #2ecc71;
-    border-color: #2ecc71;
+    background: var(--accent);
+    border-color: var(--accent);
     color: #fff;
 }
 
@@ -2356,44 +2441,44 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .account-task-label {
     font-size: 13px;
     font-weight: 600;
-    color: #444;
+    color: var(--text);
 }
 
 .account-task.done .account-task-label {
-    color: #2ecc71;
+    color: var(--accent);
 }
 
 .account-task-progress {
     font-size: 11px;
-    color: #aaa;
+    color: var(--text-3);
     margin-top: 2px;
 }
 
 .account-task-bar {
     height: 5px;
     border-radius: 3px;
-    background: #eee;
+    background: var(--surface-3);
     margin-top: 5px;
     overflow: hidden;
 }
 
 .account-task-bar-fill {
     height: 100%;
-    background: linear-gradient(90deg, #667eea, #764ba2);
+    background: linear-gradient(90deg, var(--accent), var(--accent-strong));
     border-radius: 3px;
 }
 
 .account-status-maxed {
     text-align: center;
     font-size: 13px;
-    color: #999;
+    color: var(--text-3);
     padding-top: 4px;
 }
 
 .account-status-tiers-hint {
     margin-top: 14px;
     padding-top: 14px;
-    border-top: 1px solid #f0f1f3;
+    border-top: 1px solid var(--border);
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
@@ -2407,13 +2492,13 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     font-weight: 700;
     padding: 5px 10px;
     border-radius: 14px;
-    background: #f5f6f8;
-    color: #aaa;
+    background: var(--surface-2);
+    color: var(--text-3);
 }
 
 .account-tier-pill.unlocked {
-    background: rgba(102,126,234,0.12);
-    color: #667eea;
+    background: var(--accent-soft);
+    color: var(--accent);
 }
 /* --- Profile avatar ID --- */
 .profile-avatar {
@@ -2444,7 +2529,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     border: none;
     border-radius: 20px;
     background: rgba(255,255,255,0.6);
-    color: #888;
+    color: var(--text-2);
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
@@ -2452,9 +2537,9 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 }
 
 .discover-tab.active {
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
     color: #fff;
-    box-shadow: 0 4px 14px rgba(102,126,234,0.35);
+    box-shadow: 0 4px 14px var(--accent-glow);
 }
 
 /* --- User search panel --- */
@@ -2468,7 +2553,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     display: flex;
     align-items: center;
     gap: 10px;
-    background: #fff;
+    background: var(--surface);
     border-radius: 14px;
     padding: 12px 16px;
     box-shadow: 0 2px 12px rgba(0,0,0,0.08);
@@ -2476,7 +2561,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 }
 
 .user-search-input-wrap svg {
-    color: #aaa;
+    color: var(--text-3);
     flex-shrink: 0;
 }
 
@@ -2486,12 +2571,12 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     font-size: 15px;
     flex: 1;
     background: transparent;
-    color: #333;
+    color: var(--text);
 }
 
 .user-search-hint {
     text-align: center;
-    color: #bbb;
+    color: var(--text-3);
     font-size: 14px;
     padding: 24px 0;
 }
@@ -2500,7 +2585,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     display: flex;
     align-items: center;
     gap: 14px;
-    background: #fff;
+    background: var(--surface);
     border-radius: 14px;
     padding: 14px 16px;
     margin-bottom: 10px;
@@ -2516,7 +2601,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 
 .user-result-chevron {
     margin-left: auto;
-    color: #ccc;
+    color: var(--text-3);
     font-size: 22px;
     flex-shrink: 0;
 }
@@ -2525,7 +2610,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     width: 46px;
     height: 46px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
     color: #fff;
     font-weight: 800;
     font-size: 15px;
@@ -2544,13 +2629,13 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .user-result-name {
     font-size: 15px;
     font-weight: 600;
-    color: #222;
+    color: var(--text);
 }
 
 .user-result-uid {
     font-size: 12px;
     font-weight: 700;
-    color: #667eea;
+    color: var(--accent);
     letter-spacing: 0.5px;
 }
 
@@ -2569,7 +2654,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 
 .meeting-card-creator {
     font-size: 12px;
-    color: #888;
+    color: var(--text-2);
     font-weight: 600;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -2610,7 +2695,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 
 .joined-avatar-more {
     background: #e6e9f5;
-    color: #667eea;
+    color: var(--accent);
     font-size: 9px;
 }
 
@@ -2620,8 +2705,8 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     gap: 6px;
     border: none;
     border-radius: 16px;
-    background: rgba(102,126,234,0.12);
-    color: #667eea;
+    background: var(--accent-soft);
+    color: var(--accent);
     font-size: 12px;
     font-weight: 700;
     padding: 6px 12px;
@@ -2631,11 +2716,11 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 }
 
 .join-btn:hover {
-    background: rgba(102,126,234,0.22);
+    background: var(--accent-soft-2);
 }
 
 .join-btn.joined {
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
     color: #fff;
 }
 
@@ -2669,13 +2754,13 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 
 .card-meta .join-btn.joined {
     background: rgba(255,255,255,0.95);
-    color: #667eea;
+    color: var(--accent);
 }
 
 /* --- Likes card creator --- */
 .like-card-creator {
     font-size: 12px;
-    color: #888;
+    color: var(--text-2);
     font-weight: 600;
     margin: -4px 0 4px;
 }
@@ -2684,7 +2769,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .no-meetings-empty {
     text-align: center;
     padding: 50px 20px;
-    color: #555;
+    color: var(--text-2);
 }
 
 .no-meetings-icon {
@@ -2696,10 +2781,10 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     font-size: 20px;
     font-weight: 700;
     margin-bottom: 8px;
-    color: #2c3e50;
+    color: var(--text);
 }
 
-.no-meetings-empty p { color: #888; margin-bottom: 20px; }
+.no-meetings-empty p { color: var(--text-2); margin-bottom: 20px; }
 
 /* --- Delete meeting button --- */
 .delete-btn {
@@ -2736,13 +2821,13 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     height: 220px;
     border-radius: 10px;
     margin-top: 10px;
-    border: 1.5px solid #dce1e7;
+    border: 1.5px solid var(--border);
     z-index: 1;
 }
 
 .map-hint {
     font-size: 12px;
-    color: #888;
+    color: var(--text-2);
     margin: 8px 0 0;
 }
 
@@ -2754,13 +2839,13 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .dashboard-section-title {
     font-size: 16px;
     font-weight: 700;
-    color: #2c3e50;
+    color: var(--text);
     margin-bottom: 10px;
 }
 
 .dashboard-table-wrap {
     overflow-x: auto;
-    background: #fff;
+    background: var(--surface);
     border-radius: 12px;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
@@ -2776,11 +2861,11 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .dashboard-table td {
     padding: 10px 12px;
     text-align: left;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--border);
 }
 
 .dashboard-table th {
-    color: #888;
+    color: var(--text-2);
     font-weight: 600;
     background: #fafafa;
 }
@@ -2792,8 +2877,8 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .dashboard-action-btn {
     border: none;
     border-radius: 8px;
-    background: rgba(102,126,234,0.12);
-    color: #667eea;
+    background: var(--accent-soft);
+    color: var(--accent);
     font-size: 12px;
     font-weight: 700;
     padding: 6px 10px;
@@ -2803,7 +2888,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 }
 
 .dashboard-action-btn:hover {
-    background: rgba(102,126,234,0.22);
+    background: var(--accent-soft-2);
 }
 
 .dashboard-action-danger {
@@ -2832,13 +2917,13 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .foryou-title {
     font-size: 15px;
     font-weight: 800;
-    color: #2c3e50;
+    color: var(--text);
 }
 
 .foryou-hint {
     font-size: 11px;
     font-weight: 600;
-    color: #8b95a5;
+    color: var(--text-2);
 }
 
 .foryou-row {
@@ -2852,7 +2937,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 
 .foryou-row::-webkit-scrollbar { height: 5px; }
 .foryou-row::-webkit-scrollbar-thumb {
-    background: rgba(102,126,234,0.35);
+    background: var(--accent-glow);
     border-radius: 3px;
 }
 
@@ -2936,15 +3021,15 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .foryou-btn-pass:hover { background: rgba(255,255,255,0.3); }
 
 .foryou-btn-join {
-    background: #fff;
-    color: #2c3e50;
+    background: var(--surface);
+    color: var(--text);
 }
 .foryou-btn-join:hover { background: #f2f4f8; }
 
 /* ── Profile sections: My Meetings + Find People ─────────────────────────── */
 .profile-section {
     margin: 0 16px 18px 16px;
-    background: #fff;
+    background: var(--surface);
     border-radius: 18px;
     padding: 14px;
     box-shadow: 0 4px 16px rgba(0,0,0,0.07);
@@ -2963,13 +3048,13 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     margin: 0;
     font-size: 15px;
     font-weight: 800;
-    color: #2c3e50;
+    color: var(--text);
 }
 
 /* Upcoming / Past switch */
 .segmented {
     display: flex;
-    background: #eef0f5;
+    background: var(--surface-3);
     border-radius: 12px;
     padding: 3px;
 }
@@ -2984,20 +3069,20 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     padding: 6px 12px;
     font-size: 12px;
     font-weight: 700;
-    color: #7a8598;
+    color: var(--text-2);
     cursor: pointer;
     transition: background 0.2s, color 0.2s;
 }
 
 .segmented-btn.active {
-    background: #fff;
-    color: #2c3e50;
+    background: var(--surface);
+    color: var(--text);
     box-shadow: 0 2px 6px rgba(0,0,0,0.1);
 }
 
 .segmented-count {
-    background: rgba(102,126,234,0.16);
-    color: #667eea;
+    background: var(--accent-soft);
+    color: var(--accent);
     border-radius: 10px;
     padding: 1px 6px;
     font-size: 10px;
@@ -3011,7 +3096,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 
 .joined-row {
     display: flex;
-    background: #f7f8fb;
+    background: var(--surface-2);
     border-radius: 14px;
     overflow: hidden;
     position: relative;
@@ -3042,13 +3127,13 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     margin: 0 0 3px 0;
     font-size: 14px;
     font-weight: 800;
-    color: #2c3e50;
+    color: var(--text);
 }
 
 .joined-row-creator {
     font-size: 11px;
     font-weight: 600;
-    color: #7a8598;
+    color: var(--text-2);
     margin-bottom: 6px;
 }
 
@@ -3062,7 +3147,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .joined-row-link {
     font-size: 11px;
     font-weight: 700;
-    color: #667eea;
+    color: var(--accent);
     text-decoration: none;
 }
 .joined-row-link:hover { text-decoration: underline; }
@@ -3070,7 +3155,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .joined-row-count {
     font-size: 11px;
     font-weight: 600;
-    color: #8b95a5;
+    color: var(--text-2);
 }
 
 .joined-row-leave {
@@ -3094,7 +3179,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .profile-empty {
     text-align: center;
     padding: 18px 10px;
-    color: #8b95a5;
+    color: var(--text-2);
 }
 
 .profile-empty-icon {
@@ -3109,7 +3194,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 }
 
 .profile-empty a {
-    color: #667eea;
+    color: var(--accent);
     font-weight: 700;
     text-decoration: none;
 }
@@ -3187,7 +3272,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     width: 360px;
     max-width: calc(100vw - 28px);
     max-height: 58vh;
-    background: #fff;
+    background: var(--surface);
     border-radius: 20px;
     box-shadow: 0 18px 48px rgba(16, 20, 40, 0.24);
     z-index: 4;
@@ -3231,7 +3316,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     z-index: 900;
     display: flex;
     flex-direction: column;
-    background: #fff;
+    background: var(--surface);
     border-radius: 26px 26px 0 0;
     box-shadow: 0 -10px 40px rgba(16, 20, 40, 0.18);
     transform: translateY(72vh);   /* matches the JS "peek" default */
@@ -3295,3 +3380,74 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .maplibregl-ctrl-attrib.maplibregl-compact:focus-within .maplibregl-ctrl-attrib-inner {
     display: block !important;
 }
+
+/* ═══ Meeting card: live map thumbnail ═══════════════════════════════════
+   In-person meetings get a real MapLibre map on top of the card, centred on
+   the meeting with a pin. Only the cards near the viewport are mounted (see
+   home.js) — browsers cap WebGL contexts at roughly 16, so a long list
+   cannot afford one map each. Online meetings have no coordinates and are
+   rendered without a thumbnail, so their cards are simply shorter. */
+.card-map {
+    position: relative;
+    height: 104px;
+    width: 100%;
+    flex-shrink: 0;
+    background: var(--surface-3);
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+}
+
+/* Placeholder shimmer until the map instance is mounted */
+.card-map:not(.is-live)::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(100deg, var(--surface-3) 30%, var(--surface-2) 50%, var(--surface-3) 70%);
+    background-size: 220% 100%;
+    animation: miniShimmer 1.4s linear infinite;
+}
+
+@keyframes miniShimmer {
+    from { background-position: 120% 0; }
+    to   { background-position: -120% 0; }
+}
+
+.card-map .maplibregl-canvas { border-radius: 0; }
+
+/* Pin drawn over the mini map */
+.mini-pin {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 3px solid #fff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.mini-pin::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 30px;
+    height: 30px;
+    margin: -15px 0 0 -15px;
+    border-radius: 50%;
+    background: var(--accent-glow);
+    animation: miniPulse 2.4s ease-out infinite;
+}
+
+@keyframes miniPulse {
+    0%   { transform: scale(0.5); opacity: 0.8; }
+    100% { transform: scale(1.6); opacity: 0; }
+}
+
+/* The original row (accent stripe + body + chevron) now sits under the map */
+.card-main {
+    display: flex;
+    align-items: stretch;
+    min-height: 0;
+}
+
+/* Online meetings keep the plain, shorter card */
+.meeting-card.is-online .card-map { display: none; }

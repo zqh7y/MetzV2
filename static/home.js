@@ -44,7 +44,22 @@ document.addEventListener("DOMContentLoaded", function () {
         el.title = el.getAttribute('data-time');
         el.textContent = formatTimeUntil(el.getAttribute('data-time'));
     });
-    // ─── Map (MapLibre GL + CARTO Voyager vector tiles) ───────────────────
+    // ─── Map (MapLibre GL + CARTO vector tiles) ───────────────────────────
+    // The basemap follows the system theme alongside the rest of the UI: a
+    // light map inside a dark app looks like a bug.
+    var STYLE_LIGHT = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
+    var STYLE_DARK = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+    var darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+    function prefersDark() {
+        var forced = document.documentElement.getAttribute('data-theme');
+        if (forced === 'dark') return true;
+        if (forced === 'light') return false;
+        return darkQuery.matches;
+    }
+
+    function basemapUrl() { return prefersDark() ? STYLE_DARK : STYLE_LIGHT; }
+
     var DEFAULT_CENTER = [35.2137, 31.7683];   // [lng, lat] — MapLibre order
     // Reuse a fontstack the basemap style already ships glyphs for, otherwise
     // labels silently fail to render.
@@ -53,7 +68,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     var map = new maplibregl.Map({
         container: 'map',
-        style: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
+        style: basemapUrl(),
         center: DEFAULT_CENTER,
         zoom: 12.4,
         attributionControl: false,
@@ -320,7 +335,10 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
-    map.on('load', function () {
+    // Sources, layers and pin images. Kept in its own function because
+    // setStyle() (used when the system flips light/dark) throws all of them
+    // away and they have to be reinstalled on the new style.
+    function installMapLayers() {
         map.addSource('meetings', {
             type: 'geojson',
             data: meetingsToGeoJSON(meetings),
@@ -335,12 +353,12 @@ document.addEventListener("DOMContentLoaded", function () {
         map.addLayer({
             id: 'route-glow', type: 'line', source: 'route',
             layout: { 'line-cap': 'round', 'line-join': 'round' },
-            paint: { 'line-color': '#667eea', 'line-width': 14, 'line-opacity': 0.22, 'line-blur': 6 }
+            paint: { 'line-color': '#0d9c8a', 'line-width': 14, 'line-opacity': 0.22, 'line-blur': 6 }
         });
         map.addLayer({
             id: 'route-line', type: 'line', source: 'route',
             layout: { 'line-cap': 'round', 'line-join': 'round' },
-            paint: { 'line-color': '#5b6ee1', 'line-width': 4.5, 'line-opacity': 0.95 }
+            paint: { 'line-color': '#0a8f7e', 'line-width': 4.5, 'line-opacity': 0.95 }
         });
 
         // Clusters: size and colour both step up with the number of meetings
@@ -348,7 +366,7 @@ document.addEventListener("DOMContentLoaded", function () {
             id: 'cluster-glow', type: 'circle', source: 'meetings',
             filter: ['has', 'point_count'],
             paint: {
-                'circle-color': ['step', ['get', 'point_count'], '#667eea', 10, '#7b5fd6', 30, '#f5576c'],
+                'circle-color': ['step', ['get', 'point_count'], '#0d9c8a', 10, '#0a7d6e', 30, '#f5576c'],
                 'circle-radius': ['step', ['get', 'point_count'], 26, 10, 32, 30, 38],
                 'circle-opacity': 0.25,
                 'circle-blur': 0.6
@@ -358,7 +376,7 @@ document.addEventListener("DOMContentLoaded", function () {
             id: 'clusters', type: 'circle', source: 'meetings',
             filter: ['has', 'point_count'],
             paint: {
-                'circle-color': ['step', ['get', 'point_count'], '#667eea', 10, '#7b5fd6', 30, '#f5576c'],
+                'circle-color': ['step', ['get', 'point_count'], '#0d9c8a', 10, '#0a7d6e', 30, '#f5576c'],
                 'circle-radius': ['step', ['get', 'point_count'], 18, 10, 23, 30, 28],
                 'circle-stroke-width': 3,
                 'circle-stroke-color': '#ffffff'
@@ -380,7 +398,7 @@ document.addEventListener("DOMContentLoaded", function () {
             id: 'meeting-pin-halo', type: 'circle', source: 'meetings',
             filter: ['==', ['get', 'id'], -1],
             paint: {
-                'circle-color': '#667eea',
+                'circle-color': '#0d9c8a',
                 'circle-radius': 22,
                 'circle-opacity': 0.28,
                 'circle-blur': 0.5
@@ -413,8 +431,20 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
             });
         }
-        pinImage('#7b8cff', '#6a4bc4', function (img) { map.addImage('pin-inperson', img); ready(); });
-        pinImage('#4facfe', '#00d4c8', function (img) { map.addImage('pin-online', img); ready(); });
+        // Images outlive setStyle(), so re-adding them after a theme swap throws
+        function addPin(name, from, to) {
+            if (map.hasImage(name)) { ready(); return; }
+            pinImage(from, to, function (img) {
+                if (!map.hasImage(name)) map.addImage(name, img);
+                ready();
+            });
+        }
+        addPin('pin-inperson', '#16c2ab', '#0a7d6e');
+        addPin('pin-online', '#4facfe', '#2b6ef5');
+    }
+
+    map.on('load', function () {
+        installMapLayers();
 
         // Tapping a pin opens its details; tapping a cluster zooms into it
         map.on('click', 'meeting-pins', function (e) {
@@ -446,6 +476,23 @@ document.addEventListener("DOMContentLoaded", function () {
         applyFilters();
         locateUser();
     });
+
+    // ─── Follow the system light/dark switch, live ────────────────────────
+    function swapBasemap() {
+        map.setStyle(basemapUrl());
+        map.once('styledata', function () {
+            installMapLayers();
+            applyFilters();
+            setSelectedPin(selectedId);
+        });
+        // The card thumbnails are cheap to rebuild: drop them and let the
+        // observer remount them against the new style as they come into view.
+        Array.from(liveMinis.keys()).forEach(unmountMini);
+    }
+
+    if (darkQuery.addEventListener) darkQuery.addEventListener('change', swapBasemap);
+    else if (darkQuery.addListener) darkQuery.addListener(swapBasemap);
+    window.swapBasemap = swapBasemap;   // used when a theme override is applied
 
     // ─── Meeting list item clicks ─────────────────────────────────────────
     function attachListItemClick(item) {
@@ -540,6 +587,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function renderSortedList(sortedMeetings) {
         var list = document.getElementById('meetings-list');
+        // Tear down the mini maps first — dropping their containers with
+        // innerHTML would strand the WebGL contexts they hold.
+        list.querySelectorAll('.card-map').forEach(unmountMini);
         list.innerHTML = '';
         var ACCENTS = ['accent-0','accent-1','accent-2','accent-3','accent-4'];
         sortedMeetings.forEach(function (meeting, i) {
@@ -557,6 +607,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
             var mediaHtml = '<div class="meeting-card-accent ' + ACCENTS[i % 5] + '"></div>';
 
+            // In-person meetings get a live mini map; online ones have no
+            // coordinates, so their card is simply shorter.
+            var thumbHtml = (!isOnline && meeting.lat && meeting.lng)
+                ? '<div class="card-map" data-lat="' + meeting.lat + '" data-lng="' + meeting.lng + '"></div>'
+                : '';
+
             var trustBadgeHtml = meeting.creator_is_trusted ? '<span class="trust-badge" title="Trusted creator">★</span>' : '';
             var creatorHtml = meeting.creator_username
                 ? '<span class="meeting-card-creator">👤 ' + meeting.creator_username + trustBadgeHtml + '</span>'
@@ -572,10 +628,12 @@ document.addEventListener("DOMContentLoaded", function () {
                 : '';
 
             var card = document.createElement('div');
-            card.className = 'meeting-card';
+            card.className = 'meeting-card' + (isOnline ? ' is-online' : '');
             card.setAttribute('data-meeting-id', meeting.id);
             card.innerHTML =
-                mediaHtml
+                thumbHtml
+              + '<div class="card-main">'
+              + mediaHtml
               + '<div class="meeting-card-body">'
               +   '<div class="meeting-card-top">'
               +     '<span class="meeting-card-type-badge ' + badgeClass + '">' + badge + '</span>'
@@ -596,11 +654,13 @@ document.addEventListener("DOMContentLoaded", function () {
               +     deleteHtml
               +   '</div>'
               + '</div>'
-              + '<div class="meeting-card-chevron">›</div>';
+              + '<div class="meeting-card-chevron">›</div>'
+              + '</div>';
 
             attachListItemClick(card);
             list.appendChild(card);
         });
+        observeCardMaps();
     }
 
     function locateUser() {
@@ -649,6 +709,80 @@ document.addEventListener("DOMContentLoaded", function () {
         window.location.href = '/create';
     });
 
+    // ─── Live mini maps on the meeting cards ──────────────────────────────
+    // Each in-person card shows a real MapLibre map centred on its meeting.
+    // A browser only grants ~16 WebGL contexts per page, so instead of one
+    // map per card we keep at most MINI_LIMIT alive and recycle them as the
+    // list scrolls: mount on approach, evict whatever is furthest away.
+    var MINI_LIMIT = 8;
+    var liveMinis = new Map();   // container element -> maplibregl.Map
+    var miniObserver = null;
+
+    function distanceFromViewport(el) {
+        var r = el.getBoundingClientRect();
+        var mid = r.top + r.height / 2;
+        return Math.abs(mid - window.innerHeight / 2);
+    }
+
+    function unmountMini(el) {
+        var m = liveMinis.get(el);
+        if (!m) return;
+        m.remove();
+        liveMinis.delete(el);
+        el.classList.remove('is-live');
+    }
+
+    function evictFurthestMini(except) {
+        var worst = null, worstDist = -1;
+        liveMinis.forEach(function (_, el) {
+            if (el === except) return;
+            var d = distanceFromViewport(el);
+            if (d > worstDist) { worstDist = d; worst = el; }
+        });
+        if (worst) unmountMini(worst);
+    }
+
+    function mountMini(el) {
+        if (liveMinis.has(el)) return;
+        var lat = parseFloat(el.dataset.lat), lng = parseFloat(el.dataset.lng);
+        if (!lat || !lng) return;
+        while (liveMinis.size >= MINI_LIMIT) evictFurthestMini(el);
+
+        var mini = new maplibregl.Map({
+            container: el,
+            style: basemapUrl(),
+            center: [lng, lat],
+            zoom: 14.2,
+            // Non-interactive: a pannable map inside a scrolling list would
+            // swallow the scroll gesture and make the list feel broken.
+            interactive: false,
+            attributionControl: false
+        });
+
+        var pin = document.createElement('div');
+        pin.className = 'mini-pin';
+        new maplibregl.Marker({ element: pin }).setLngLat([lng, lat]).addTo(mini);
+
+        mini.on('load', function () { el.classList.add('is-live'); });
+        liveMinis.set(el, mini);
+    }
+
+    function observeCardMaps() {
+        if (!miniObserver) {
+            miniObserver = new IntersectionObserver(function (entries) {
+                entries.forEach(function (entry) {
+                    if (entry.isIntersecting) mountMini(entry.target);
+                });
+            }, { root: document.getElementById('sheet-scroll'), rootMargin: '300px 0px' });
+        }
+        document.querySelectorAll('.card-map:not([data-observed])').forEach(function (el) {
+            el.setAttribute('data-observed', '1');
+            miniObserver.observe(el);
+        });
+    }
+
+    observeCardMaps();
+
     // ─── Bottom sheet ─────────────────────────────────────────────────────
     // Three snap points. The map keeps its full height behind the sheet and is
     // told, via padding, which slice of itself is actually visible — so
@@ -678,7 +812,7 @@ document.addEventListener("DOMContentLoaded", function () {
     function setSheetState(state) {
         sheetState = state;
         sheet.dataset.state = state;
-        sheet.style.transition = 'transform 0.35s cubic-bezier(0.32, 0.72, 0, 1)';
+        sheet.style.transition = 'transform 0.46s cubic-bezier(0.34, 1.32, 0.5, 1)';
         sheet.style.transform = 'translateY(' + sheetTop(state) + 'px)';
         syncMapPadding();
     }
