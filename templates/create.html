@@ -3,7 +3,7 @@
 {% block title %}Create Meeting{% endblock %}
 
 {% block extra_head %}
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 {% endblock %}
 
@@ -106,7 +106,7 @@
 {% set active_page = 'create' %}
 {% include 'nav.html' %}
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="{{ url_for('static', filename='validation.js') }}"></script>
 <script>
@@ -185,29 +185,37 @@
     var latInput = document.getElementById('lat');
     var lngInput = document.getElementById('lng');
 
-    var map = L.map('create-map').setView([31.7683, 35.2137], 8);
+    var map = new maplibregl.Map({
+        container: 'create-map',
+        style: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
+        center: [35.2137, 31.7683],   // [lng, lat]
+        zoom: 7,
+        attributionControl: { compact: true }
+    });
     window._createMap = map;
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '© OpenStreetMap'
-    }).addTo(map);
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
 
     var marker = null;
 
     function setMarker(lat, lng) {
         if (marker) {
-            marker.setLatLng([lat, lng]);
+            marker.setLngLat([lng, lat]);
         } else {
-            marker = L.marker([lat, lng]).addTo(map);
+            // Draggable, so a mis-tap can be nudged instead of re-clicked
+            marker = new maplibregl.Marker({ color: '#667eea', draggable: true })
+                .setLngLat([lng, lat])
+                .addTo(map);
+            marker.on('dragend', function () {
+                var p = marker.getLngLat();
+                setMarker(p.lat, p.lng);
+                reverseGeocode(p.lat, p.lng);
+            });
         }
         latInput.value = lat;
         lngInput.value = lng;
     }
 
-    // Click the map: drop a pin and reverse-geocode to fill the address field
-    map.on('click', function (e) {
-        var lat = e.latlng.lat, lng = e.latlng.lng;
-        setMarker(lat, lng);
+    function reverseGeocode(lat, lng) {
         fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lng)
             .then(function (r) { return r.json(); })
             .then(function (data) {
@@ -216,6 +224,13 @@
                 }
             })
             .catch(function () {});
+    }
+
+    // Click the map: drop a pin and reverse-geocode to fill the address field
+    map.on('click', function (e) {
+        var lat = e.lngLat.lat, lng = e.lngLat.lng;
+        setMarker(lat, lng);
+        reverseGeocode(lat, lng);
     });
 
     // Typing an address: forward-geocode to move the pin
@@ -232,7 +247,7 @@
                         var lat = parseFloat(results[0].lat);
                         var lng = parseFloat(results[0].lon);
                         setMarker(lat, lng);
-                        map.setView([lat, lng], 14);
+                        map.flyTo({ center: [lng, lat], zoom: 14 });
                     }
                 })
                 .catch(function () {});

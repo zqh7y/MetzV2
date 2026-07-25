@@ -28,7 +28,8 @@
     },
     "owner": "justariel",
     "plugins": [
-      "expo-font"
+      "expo-font",
+      "@maplibre/maplibre-react-native"
     ]
   }
 }

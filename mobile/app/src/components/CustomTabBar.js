@@ -4,17 +4,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const ICONS = {
   Home: { active: "🏠", inactive: "🏠" },
-  Discover: { active: "🧭", inactive: "🧭" },
   Create: { active: "➕", inactive: "➕" },
-  Joined: { active: "🤝", inactive: "🤝" },
   Profile: { active: "👤", inactive: "👤" },
 };
 
 const LABELS = {
   Home: "Home",
-  Discover: "Discover",
   Create: "Create",
-  Joined: "Joined",
   Profile: "Profile",
 };
 

@@ -26,11 +26,11 @@ mobile/
         ├── context/AuthContext.js
         ├── styles/fonts.js      Poppins/Inter/Space Grotesk font name constants
         ├── components/          AuthLayout, AuthField, AuthButton, MeetingCard,
-        │                        CustomTabBar, MapMarker, AnimatedPressable,
+        │                        CustomTabBar, ForYouCard, AnimatedPressable,
         │                        TrustBadge, TagChip
-        └── screens/             Login, Signup, Verify, Home, Discover,
-                                  Create, Joined, Profile, UserProfile,
-                                  AdminPending, MeetingDetail
+        └── screens/             Login, Signup, Verify, Home, Create,
+                                  Profile, UserProfile, AdminPending,
+                                  MeetingDetail
 ```
 
 ## Running the backend
@@ -77,9 +77,10 @@ enter it manually as `exp://<your-computer's-LAN-IP>:8081`).
 
 ### Getting the map to render (Android)
 
-Since Expo SDK 51, **Expo Go can't load `react-native-maps`** — it needs
-native code that Expo Go doesn't bundle. The map screens will look blank
-until you build a **development client** once:
+The map uses **`@maplibre/maplibre-react-native`**, which ships native code
+that **Expo Go cannot load**. The map screens will look blank until you build
+a **development client** once (this is also why the config plugin
+`@maplibre/maplibre-react-native` is listed in `app.json`):
 
 ```bash
 cd mobile/app
@@ -92,20 +93,26 @@ npx eas-cli build --profile development --platform android
 The build runs in Expo's cloud (~10–15 min) and gives you a link/QR code to
 install an APK on your phone. After that one-time install, keep using
 `npx expo start` as normal — the dev client hot-reloads JS just like Expo Go
-did, but with `react-native-maps` actually working.
+did, but with the native map actually working.
+
+**Rebuild the dev client after this change.** Swapping `react-native-maps`
+for MapLibre changed the native dependencies, so an older dev client build
+will crash on the Home screen until you rebuild it.
 
 ## What's implemented
 
 - Email/password signup with the same 4-digit email verification flow as the
   web app (code `1234` always works locally, same as web)
-- Home feed: full-screen map with custom emoji marker pins (matching the
-  web's `.meeting-marker-circle` look) + a floating searchable list panel
+- Home: a full-screen MapLibre vector map (CARTO Voyager basemap, same as the
+  web app) with clustered meeting pins, under a draggable bottom sheet with
+  three snap points (peek / half / full) holding the search box, the
+  **For You** shelf (Pass / Join on unseen meetings) and the nearby list
 - Create meeting (in-person via map tap, or online via link), tag picker
-- Discover: tap-to-join/pass on a **Meetings** tab, plus a **People** tab to
-  search other users by username/email/ID and open their profile
-- Joined meetings (leave), Profile and other users' UserProfile screens with
-  the same account-status tier checklist, stats, and "member since"/"last
-  online" activity rows as the web app
+- Profile: stats, account-status tier checklist, **My Meetings**
+  (Upcoming / Past, with leave) and **Find People** search — the last two
+  replace the old standalone Joined and Discover tabs
+- Other users' UserProfile screens with the same stats and "member
+  since"/"last online" activity rows as the web app
 - Admin: pending-meeting review (approve/decline), trust toggle endpoint
 - Custom floating bottom tab bar (not the default React Navigation one),
   press animations on buttons/cards, and the shared Poppins/Inter/Space
@@ -113,10 +120,11 @@ did, but with `react-native-maps` actually working.
 
 ## Known gaps vs. the web app (follow-ups, not done yet)
 
-- No marker **clustering** on the mobile map yet (web app has it via
-  leaflet.markercluster) — `react-native-maps` markers render individually.
-  `react-native-map-clustering` is the natural next step.
-- Discover screen uses tap-to-join/pass instead of true swipe gestures.
+- Meeting pins are drawn as coloured circles rather than the web's teardrop
+  SVG pin — MapLibre native icons need a bundled image asset, which this app
+  doesn't have an asset pipeline for yet.
+- Tapping a pin opens the MeetingDetail screen instead of the web's floating
+  details card, which is the more native pattern here.
 - No image upload / profile picture picker.
 - The API trusts `X-User-Id` the same way the web app trusts its session
   cookie (no Firebase token signature verification). Fine for this project's

@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from flask import render_template, session, redirect, url_for, abort
-from data import get_user, generate_user_color, is_admin, is_trusted, set_trusted, get_account_status
+from data import (get_user, generate_user_color, is_admin, is_trusted, set_trusted,
+                  get_account_status, get_all_meetings, get_joined_users_preview, shorten_address)
 
 
 def _format_timestamp(iso_str):
@@ -33,6 +34,36 @@ def _format_timestamp(iso_str):
     return f"{relative} ({dt.strftime('%b %d, %Y')})"
 
 
+def _parse_time(time_str):
+    try:
+        return datetime.strptime(time_str, "%Y-%m-%d %H:%M")
+    except (ValueError, TypeError):
+        return None
+
+
+def _joined_meetings(uid, user):
+    """Split the meetings a user joined into upcoming and past, newest first.
+    Powers the "My Meetings" block that replaced the standalone /joined page."""
+    joined_ids = user["joined_meeting_ids"] if user else []
+    all_meetings = {m.id: m for m in get_all_meetings()}
+    joined = [all_meetings[mid] for mid in joined_ids if mid in all_meetings]
+
+    parsed_times = {m.id: _parse_time(m.time) for m in joined}
+    now = datetime.now()
+    joined.sort(key=lambda m: parsed_times[m.id] or datetime.max)
+
+    upcoming = [m for m in joined if parsed_times[m.id] and parsed_times[m.id] >= now]
+    past = [m for m in joined if not parsed_times[m.id] or parsed_times[m.id] < now]
+
+    return {
+        "upcoming": upcoming,
+        "past": past,
+        "trusted_map": {m.creator_uid: is_trusted(m.creator_uid) for m in joined if m.creator_uid},
+        "joined_previews": {m.id: get_joined_users_preview(m.joined_uids) for m in joined},
+        "short_locations": {m.id: shorten_address(getattr(m, "location", None)) for m in joined},
+    }
+
+
 def profile_route():
     if "user" not in session:
         return redirect(url_for("login"))
@@ -51,11 +82,14 @@ def profile_route():
         meetings_created = meetings_joined = meetings_swiped = 0
         profile_picture = None
 
+    joined = _joined_meetings(uid, user)
+
     return render_template(
         "profile.html",
         username=username,
         email=email,
         uid=uid,
+        **joined,
         profile_picture=profile_picture,
         profile_color=generate_user_color(uid),
         meetings_created=meetings_created,

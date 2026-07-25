@@ -2,13 +2,14 @@ import React, { useEffect, useState } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert,
 } from "react-native";
-import MapView, { Marker } from "react-native-maps";
+import { Map, Camera, Marker } from "@maplibre/maplibre-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../api";
 import AnimatedPressable from "../components/AnimatedPressable";
 import { FONTS } from "../styles/fonts";
 
-const CENTER = { latitude: 31.7683, longitude: 35.2137, latitudeDelta: 0.4, longitudeDelta: 0.4 };
+const MAP_STYLE = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";
+const CENTER = [35.2137, 31.7683]; // [lng, lat] — MapLibre order
 const EMOJIS = ["📍", "🎉", "☕", "🍕", "🎮", "🎵", "📚", "⚽", "🧘", "🎨", "💻", "🌐", "🎬", "🚴", "🏕️", "🍻"];
 
 export default function CreateScreen({ navigation }) {
@@ -107,13 +108,20 @@ export default function CreateScreen({ navigation }) {
             <Text style={styles.label}>Location name</Text>
             <TextInput style={styles.input} value={locationName} onChangeText={setLocationName} placeholder="e.g. Tel Aviv Park" placeholderTextColor="#9aa3ad" />
             <Text style={styles.hint}>Tap the map to drop a pin</Text>
-            <MapView
+            <Map
               style={styles.map}
-              initialRegion={CENTER}
-              onPress={(e) => setPin(e.nativeEvent.coordinate)}
+              mapStyle={MAP_STYLE}
+              logo={false}
+              attribution
+              onPress={(e) => {
+                // MapLibre reports coordinates as [lng, lat]
+                const [lng, lat] = e.nativeEvent.lngLat;
+                setPin({ latitude: lat, longitude: lng });
+              }}
             >
-              {pin ? <Marker coordinate={pin} /> : null}
-            </MapView>
+              <Camera initialViewState={{ center: CENTER, zoom: 6.5 }} />
+              {pin ? <Marker lngLat={[pin.longitude, pin.latitude]} /> : null}
+            </Map>
           </>
         ) : (
           <>

@@ -2814,3 +2814,484 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .dashboard-action-danger:hover {
     background: rgba(231,76,60,0.22);
 }
+
+/* ── "For You" shelf on Home ─────────────────────────────────────────────── */
+/* Took over from the swipe deck: same suggestions, scrolled sideways. */
+.foryou-shelf {
+    flex-shrink: 0;
+    margin: 0 16px 14px 16px;
+}
+
+.foryou-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.foryou-title {
+    font-size: 15px;
+    font-weight: 800;
+    color: #2c3e50;
+}
+
+.foryou-hint {
+    font-size: 11px;
+    font-weight: 600;
+    color: #8b95a5;
+}
+
+.foryou-row {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding: 2px 2px 8px 2px;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+}
+
+.foryou-row::-webkit-scrollbar { height: 5px; }
+.foryou-row::-webkit-scrollbar-thumb {
+    background: rgba(102,126,234,0.35);
+    border-radius: 3px;
+}
+
+.foryou-card {
+    flex: 0 0 205px;
+    scroll-snap-align: start;
+    border-radius: 16px;
+    padding: 12px;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.16);
+}
+
+.foryou-card-badge {
+    align-self: flex-start;
+    background: rgba(255,255,255,0.22);
+    border-radius: 20px;
+    padding: 3px 9px;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.foryou-card-title {
+    margin: 8px 0 2px 0;
+    font-size: 15px;
+    font-weight: 800;
+    line-height: 1.25;
+}
+
+.foryou-card-time,
+.foryou-card-place,
+.foryou-card-creator {
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.9);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.foryou-card-desc {
+    margin: 7px 0;
+    font-size: 12px;
+    line-height: 1.35;
+    color: rgba(255,255,255,0.92);
+    /* Keep every card the same height regardless of description length */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    flex: 1;
+}
+
+.foryou-card-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.foryou-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    border: none;
+    border-radius: 12px;
+    padding: 8px 0;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.15s, background 0.2s;
+}
+.foryou-btn:hover { transform: translateY(-1px); }
+
+.foryou-btn-pass {
+    background: rgba(255,255,255,0.2);
+    color: #fff;
+}
+.foryou-btn-pass:hover { background: rgba(255,255,255,0.3); }
+
+.foryou-btn-join {
+    background: #fff;
+    color: #2c3e50;
+}
+.foryou-btn-join:hover { background: #f2f4f8; }
+
+/* ── Profile sections: My Meetings + Find People ─────────────────────────── */
+.profile-section {
+    margin: 0 16px 18px 16px;
+    background: #fff;
+    border-radius: 18px;
+    padding: 14px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.07);
+}
+
+.profile-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.profile-section-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 800;
+    color: #2c3e50;
+}
+
+/* Upcoming / Past switch */
+.segmented {
+    display: flex;
+    background: #eef0f5;
+    border-radius: 12px;
+    padding: 3px;
+}
+
+.segmented-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    border: none;
+    background: transparent;
+    border-radius: 10px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #7a8598;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+
+.segmented-btn.active {
+    background: #fff;
+    color: #2c3e50;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.segmented-count {
+    background: rgba(102,126,234,0.16);
+    color: #667eea;
+    border-radius: 10px;
+    padding: 1px 6px;
+    font-size: 10px;
+}
+
+.joined-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.joined-row {
+    display: flex;
+    background: #f7f8fb;
+    border-radius: 14px;
+    overflow: hidden;
+    position: relative;
+}
+
+.joined-row.is-past { opacity: 0.62; }
+
+.joined-row-accent {
+    width: 5px;
+    flex-shrink: 0;
+}
+
+.joined-row-body {
+    flex: 1;
+    min-width: 0;
+    padding: 10px 34px 10px 11px;
+}
+
+.joined-row-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 5px;
+}
+
+.joined-row-title {
+    margin: 0 0 3px 0;
+    font-size: 14px;
+    font-weight: 800;
+    color: #2c3e50;
+}
+
+.joined-row-creator {
+    font-size: 11px;
+    font-weight: 600;
+    color: #7a8598;
+    margin-bottom: 6px;
+}
+
+.joined-row-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.joined-row-link {
+    font-size: 11px;
+    font-weight: 700;
+    color: #667eea;
+    text-decoration: none;
+}
+.joined-row-link:hover { text-decoration: underline; }
+
+.joined-row-count {
+    font-size: 11px;
+    font-weight: 600;
+    color: #8b95a5;
+}
+
+.joined-row-leave {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 50%;
+    background: rgba(231,76,60,0.1);
+    color: #e74c3c;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.joined-row-leave:hover { background: rgba(231,76,60,0.22); }
+
+.profile-empty {
+    text-align: center;
+    padding: 18px 10px;
+    color: #8b95a5;
+}
+
+.profile-empty-icon {
+    font-size: 26px;
+    display: block;
+    margin-bottom: 6px;
+}
+
+.profile-empty p {
+    margin: 0;
+    font-size: 13px;
+}
+
+.profile-empty a {
+    color: #667eea;
+    font-weight: 700;
+    text-decoration: none;
+}
+.profile-empty a:hover { text-decoration: underline; }
+
+/* ═══ Full-screen map + bottom sheet (MapLibre GL) ═══════════════════════ */
+
+.home-container {
+    position: relative;
+    height: 100vh;
+    height: 100dvh;
+    width: 100%;
+    overflow: hidden;
+    padding-bottom: 0;      /* the sheet handles its own clearance */
+    background: #eef1f5;
+}
+
+#map {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+}
+
+/* MapLibre's own canvas keeps the rounded app look out of the way */
+.maplibregl-canvas:focus { outline: none; }
+
+/* ── Floating map chrome ─────────────────────────────────────────────────── */
+.map-title-pill {
+    position: fixed;
+    top: 14px;
+    left: 14px;
+    z-index: 3;
+    background: rgba(28, 28, 46, 0.72);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: #fff;
+    box-shadow: 0 6px 20px rgba(16, 20, 40, 0.28);
+}
+
+#locate-btn {
+    position: fixed;
+    top: 14px;
+    right: 14px;
+    z-index: 3;
+    width: 40px;
+    height: 40px;
+}
+
+/* Push MapLibre's controls clear of the pill and the locate button */
+.maplibregl-ctrl-top-right { margin-top: 62px; margin-right: 4px; }
+.maplibregl-ctrl-top-left  { margin-top: 56px; margin-left: 4px; }
+
+.maplibregl-ctrl-group {
+    border-radius: 14px !important;
+    overflow: hidden;
+    box-shadow: 0 6px 20px rgba(16, 20, 40, 0.18) !important;
+    border: 1px solid rgba(255, 255, 255, 0.6) !important;
+}
+
+.maplibregl-ctrl-group button { width: 36px !important; height: 36px !important; }
+
+.maplibregl-ctrl-attrib.maplibregl-compact {
+    border-radius: 12px !important;
+    box-shadow: 0 4px 14px rgba(16, 20, 40, 0.14);
+}
+
+/* ── Meeting details card floating over the map ──────────────────────────── */
+.map-info-panel {
+    position: fixed;
+    top: 68px;
+    right: 14px;
+    width: 360px;
+    max-width: calc(100vw - 28px);
+    max-height: 58vh;
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 18px 48px rgba(16, 20, 40, 0.24);
+    z-index: 4;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
+    pointer-events: none;
+    transition: opacity 0.28s ease, transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+    width: 360px;           /* overrides the old sliding-panel width:0 */
+}
+
+.map-info-panel.open {
+    width: 360px;
+    max-width: calc(100vw - 28px);
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+}
+
+@media (max-width: 620px) {
+    .map-info-panel,
+    .map-info-panel.open {
+        left: 12px;
+        right: 12px;
+        width: auto;
+        max-width: none;
+        max-height: 46vh;
+    }
+}
+
+/* ── Bottom sheet ────────────────────────────────────────────────────────── */
+.sheet {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 100vh;
+    height: 100dvh;
+    z-index: 900;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-radius: 26px 26px 0 0;
+    box-shadow: 0 -10px 40px rgba(16, 20, 40, 0.18);
+    transform: translateY(72vh);   /* matches the JS "peek" default */
+    will-change: transform;
+}
+
+.sheet-grabber {
+    flex-shrink: 0;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    touch-action: none;      /* let the pointer handlers own vertical drags */
+    -webkit-tap-highlight-color: transparent;
+}
+
+.sheet-grabber:active { cursor: grabbing; }
+
+.sheet-handle {
+    width: 42px;
+    height: 5px;
+    border-radius: 3px;
+    background: #d3d8e2;
+    transition: background 0.2s, width 0.2s;
+}
+
+.sheet-grabber:hover .sheet-handle { background: #b7bfcd; width: 52px; }
+
+.sheet-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    padding: 0 20px;
+    /* Clear the floating HOME / CREATE / PROFILE bar so the last meeting
+       card is never hidden behind it. */
+    padding-bottom: 120px;
+}
+
+/* The shelf spans the sheet's own padding instead of the old page margins */
+.sheet-scroll .foryou-shelf { margin: 0 0 14px 0; }
+
+.sheet-scroll .meetings-list { padding-bottom: 4px; }
+
+/* Attribution collapses to a small (i) badge and expands on hover/tap, so it
+   stays out of the way without dropping the required OSM/CARTO credit. */
+.maplibregl-ctrl-attrib.maplibregl-compact {
+    min-height: 26px;
+    background: rgba(255, 255, 255, 0.92);
+}
+
+/* !important because maplibre-gl.css loads after this file and its
+   .maplibregl-compact-show rule has the same specificity. */
+.maplibregl-ctrl-attrib.maplibregl-compact .maplibregl-ctrl-attrib-inner {
+    display: none !important;
+}
+
+.maplibregl-ctrl-attrib.maplibregl-compact:hover .maplibregl-ctrl-attrib-inner,
+.maplibregl-ctrl-attrib.maplibregl-compact:focus-within .maplibregl-ctrl-attrib-inner {
+    display: block !important;
+}

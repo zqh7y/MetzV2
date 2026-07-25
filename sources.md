@@ -66,6 +66,7 @@ socket_server.py это websocket который работает в ручну�
 Два порта разделяют внешнюю и внутреннюю коммуникацию.
 
 > 📄 `socket_server.py:25-26`:
+>
 > ```python
 > WS_PORT = 8765          # сюда подключаются браузеры (сам вебсокет)
 > BROADCAST_HTTP_PORT = 8766  # сюда Flask стучится, чтобы запустить рассылку
@@ -79,6 +80,7 @@ socket_server.py это websocket который работает в ручну�
 По RFC 6455: клиент отправляет HTTP upgrade-запрос с заголовком Sec-WebSocket-Key, сервер вычисляет SHA1 от (key + фиксированный GUID) и возвращает Sec-WebSocket-Accept с кодом ответа 101 (200).
 
 > 📄 `socket_server.py:57-64`:
+>
 > ```python
 > accept = base64.b64encode(
 >     hashlib.sha1((key + WS_HANDSHAKE_GUID).encode()).digest()
@@ -126,6 +128,7 @@ server request "5" => "0x81"
 Глобальный словарь rooms сопоставляет meeting_id с набором подключённых sockets; браузер отправляет {"action":"subscribe","meeting_id":X} при входе на страницу и регистрируется в соответствующей комнате.
 
 > 📄 `socket_server.py:31-32, 120-122`:
+>
 > ```python
 > rooms = {}  # meeting_id -> set of raw client sockets subscribed to that meeting
 > def register(conn, meeting_id):
@@ -149,6 +152,7 @@ server request "5" => "0x81"
 4- Сервер проходит по списку (Б, В, Г) и каждому отправляет этот же листочек:
 
 > 📄 `socket_server.py:131-143` — функция `broadcast(meeting_id, payload)`:
+>
 > ```python
 > with rooms_lock:
 >     subscribers = list(rooms.get(meeting_id, ()))
@@ -164,6 +168,7 @@ server request "5" => "0x81"
 Перехватывается OSError и вызывается unregister(conn), которая удаляет его из комнаты - автоматически очищает мёртвые подключения.
 
 > 📄 `socket_server.py:140-143`:
+>
 > ```python
 > try:
 >     conn.sendall(frame)
@@ -175,15 +180,18 @@ server request "5" => "0x81"
 Отправляет внутренний HTTP POST-запрос на http://127.0.0.1:8766/broadcast с JSON. содержащим meeting_id и количество участников.
 
 > 📄 `routes/joined.py:9-14` (функция `_notify_socket_server`):
+>
 > ```python
 > requests.post(BROADCAST_URL, json={"meeting_id": meeting_id, **payload}, timeout=0.5)
 > ```
+>
 > Принимается сервером в `socket_server.py:182-204` (`handle_broadcast_request`)
 
 **23. Почему использован timeout 0.5 секунды при запросе broadcast от Flask?**
 Чтобы если socket-сервер не работает, операция присоединения к встрече всё равно завершилась успешно (best-effort), а не зависла в ожидании ответа.
 
 > 📄 `routes/joined.py:13-16`:
+>
 > ```python
 > try:
 >     requests.post(BROADCAST_URL, json={"meeting_id": meeting_id, **payload}, timeout=0.5)
@@ -214,6 +222,7 @@ Polling требует, чтобы клиент снова и снова отп�
 2- также обновляет поле last_online.
 
 > 📄 `app.py:26-33`:
+>
 > ```python
 > @app.before_request
 > def update_last_online():
@@ -229,6 +238,7 @@ Polling требует, чтобы клиент снова и снова отп�
 Внедряет переменную nav_pending_count во все templates, чтобы администраторы видели количество встреч, ожидающих одобрения, на каждой странице.
 
 > 📄 `app.py:36-42`:
+>
 > ```python
 > @app.context_processor
 > def inject_nav_notifications():
@@ -258,6 +268,7 @@ return render_template("home.html", meetings=meetings) # целая страни
 GET не должен вызывать изменение состояния на сервере (idempotent), POST подходит для операций, изменяющих данные (стандарт REST).
 
 > 📄 `app.py:85` и `app.py:90`:
+>
 > ```python
 > @app.route("/pass/<int:meeting_id>", methods=["POST"])
 > @app.route("/join/<int:meeting_id>", methods=["POST"])
@@ -314,6 +325,7 @@ MySQL - распространённый, бесплатный реляцион�
 выбран вместо SQLite, потому что поддерживает доступ из нескольких процессов (Flask + socket-сервер).
 
 > 📄 `data.py:30-37` (`_get_connection`):
+>
 > ```python
 > conn = pymysql.connect(
 >     host=os.environ.get("MYSQL_HOST", "127.0.0.1"),
@@ -338,6 +350,7 @@ data LONGBLOB NOT NULL -- весь мероприятие как зашифро�
 )
 
 > 📄 `data.py:40-44`:
+>
 > ```python
 > cur.execute("""
 >     CREATE TABLE IF NOT EXISTS meetings (
@@ -360,6 +373,7 @@ data LONGBLOB NOT NULL -- весь мероприятие как зашифро�
 meta хранит общие числа/настройки приложения (например, "какой ID выдать следующему мероприятию"), которые не относятся ни к конкретному пользователю, ни к конкретному мероприятию.
 
 > 📄 `data.py:52-56`:
+>
 > ```python
 > cur.execute("""
 >     CREATE TABLE IF NOT EXISTS meta (
@@ -373,6 +387,7 @@ meta хранит общие числа/настройки приложения 
 DELETE FROM meetings WHERE id NOT IN (...) - синхронизирует состояние памяти с базой данных при каждом save_data().
 
 > 📄 `data.py:73-76`:
+>
 > ```python
 > cur.execute(
 >     f"DELETE FROM meetings WHERE id NOT IN ({','.join(['%s'] * len(MEETINGS_DB))})",
@@ -428,6 +443,7 @@ def **init**(self, ..., link):
 Геометрическая формула, вычисляющая расстояние между двумя точками на сфере (широта/долгота) - distance = 2R·atan2(√a,√(1-a)).
 
 > 📄 `data.py:529-534`:
+>
 > ```python
 > def haversine_distance(lat1, lng1, lat2, lng2):
 >     a = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlng / 2) ** 2
@@ -438,6 +454,7 @@ def **init**(self, ..., link):
 Помечаются как бесконечное расстояние (Infinity) и поэтому опускаются в конец списка результатов при сортировке.
 
 > 📄 `data.py:538-540`:
+>
 > ```python
 > def distance_key(meeting):
 >     if meeting.lat is None or meeting.lng is None:
@@ -455,6 +472,7 @@ def **init**(self, ..., link):
 Fernet из библиотеки cryptography - симметричное шифрование на основе AES (128-бит CBC) с HMAC для проверки целостности.
 
 > 📄 `data.py:7, 10`:
+>
 > ```python
 > from cryptography.fernet import Fernet
 > _fernet = Fernet(os.environ["DATA_ENCRYPTION_KEY"].encode())
@@ -496,6 +514,7 @@ session["user"] = {"email": email, "idToken": data["idToken"], "uid": uid}
 SHA256 - однонаправленный (необратимый) хеш, генерирующий детерминированное число из email для построения короткого уникального идентификатора.
 
 > 📄 `data.py:424-429` (`generate_user_id`):
+>
 > ```python
 > def generate_user_id(email):
 >     email = email.strip().lower()
@@ -521,6 +540,7 @@ SHA256 сильнее и современнее; MD5 считается ском
 Cross-Site Scripting - внедрение вредоносного HTML/JS; код фильтрует с помощью html.escape() весь текст, вводимый пользователем (title, description) перед сохранением и отображением.
 
 > 📄 `utils/models.py:108-112` (`sanitize_html`):
+>
 > ```python
 > def sanitize_html(text):
 >     return html.escape(text.strip())
@@ -549,6 +569,7 @@ FLASK_SECRET_KEY — это секретный пароль сервера, ко
 Заранее заданный в коде список email-адресов (ADMIN_EMAILS); каждый пользователь, зарегистрировавшийся с одним из этих email, автоматически получает is_admin=True.
 
 > 📄 `data.py:21, 466`:
+>
 > ```python
 > ADMIN_EMAILS = {"123@gmail.com", "1234@gmail.com", "test@gmail.com", "ytevil68@gmail.com"}
 > "is_admin": email.lower() in ADMIN_EMAILS,
@@ -612,6 +633,7 @@ Flask-Session меняет это: теперь данные сессии хра
 После успешного signup в Firebase создаётся случайный 4-значный код, отправляется по email (Gmail SMTP) и сохраняется в session до тех пор, пока пользователь не введёт его на /verify.
 
 > 📄 `routes/verify.py:12-14`:
+>
 > ```python
 > entered = "".join(request.form.get(f"digit{i}", "") for i in range(4))
 > if entered == pending["code"] or entered == "1234":
@@ -655,3 +677,47 @@ admin - это постоянная управленческая роль (мо�
 
 **4. Проблема: новые пользователи создавали мероприятия, которые сразу появлялись для всех, включая спам/неподобающий контент.**
 Не было модерации — любой зарегистрированный мог сразу опубликовать что угодно. Решение: добавил систему статусов "pending/approved" — мероприятия от обычных пользователей сначала идут на проверку администратору, а доверенные (trusted) пользователи публикуют сразу.
+
+---
+
+## Базовые понятия (короткие определения)
+
+**103. Что такое thread (поток)?**
+Параллельная "линия выполнения" внутри программы — позволяет делать несколько вещей одновременно, не дожидаясь, пока закончится предыдущая задача. ВЫБРАНО ВМЕСТО async await
+
+> 📄 `socket_server.py:179` — `threading.Thread(target=handle_client, args=(conn, addr), daemon=True).start()` — отдельный thread на каждого подключённого клиента, чтобы сервер мог обслуживать много браузеров сразу.
+
+**104. Что такое socket (сокет)?**
+"Точка подключения" между двумя программами по сети (IP-адрес + порт) — через неё идёт обмен данными между процессами.
+
+> 📄 `socket_server.py:172, 174` — `server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)` / `server.bind(("0.0.0.0", WS_PORT))` — создаёт TCP-сокет, слушающий порт 8765.
+
+**105. Что такое шифрование (הצפנה)?**
+Превращение читаемых данных в "нечитаемый мусор" с помощью ключа, чтобы их не смогли прочитать без этого самого ключа.
+пример к этому
+{
+"uid": "ART4821",
+"email": "art@example.com",
+"username": "art",
+"is_admin": False,
+"is_banned": False,
+...
+}
+
+> 📄 `data.py:7, 10, 71`:
+>
+> ```python
+> from cryptography.fernet import Fernet
+> _fernet = Fernet(os.environ["DATA_ENCRYPTION_KEY"].encode())
+> _fernet.encrypt(json.dumps(m).encode("utf-8"))
+> ```
+
+**106. TCP vs UDP?**
+TCP — надёжный, гарантирует доставку и порядок пакетов, но немного медленнее. UDP — быстрый и лёгкий, но может терять пакеты без предупреждения (подходит для видео/игр, не для точных данных типа счётчика участников).
+
+> 📄 `socket_server.py:172` — `socket.SOCK_STREAM` (это и есть TCP; для UDP было бы `SOCK_DGRAM`)
+
+**107. Что такое polling?**
+Когда клиент сам повторно "спрашивает" сервер "есть что-то новое?" через регулярные интервалы — в отличие от WebSocket, где сервер сам "толкает" данные клиенту без вопроса. Polling менее эффективен (лишние запросы и задержка), поэтому в проекте выбрали WebSocket.
+
+> 📄 `templates/base.html` — клиент не делает повторных HTTP-запросов для проверки счётчика; вместо этого держит открытый `ws = new WebSocket(...)` и получает обновления через `ws.onmessage`.

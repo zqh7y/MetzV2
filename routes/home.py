@@ -2,6 +2,10 @@ from flask import render_template, request, session, redirect, url_for
 from data import get_all_meetings, sort_meetings_by_distance, register_user, get_user, is_admin, is_trusted, get_joined_users_preview, shorten_address
 from utils.models import AVAILABLE_TAGS
 
+# How many suggestions the "For You" shelf holds before the user has to scroll
+# the full list below it.
+FOR_YOU_LIMIT = 12
+
 
 def home_route():
     if "user" not in session:
@@ -27,6 +31,14 @@ def home_route():
         pass
 
     uid = session["user"].get("uid", "")
+
+    # "For You" shelf: everything the user hasn't joined or passed on yet.
+    # Same candidates the old swipe deck used (joining also marks a meeting as
+    # swiped), minus the user's own meetings — no point suggesting those.
+    user = get_user(uid)
+    swiped_ids = user["swiped_ids"] if user else []
+    for_you = [m for m in meetings if m.id not in swiped_ids and m.creator_uid != uid][:FOR_YOU_LIMIT]
+
     joined_previews = {m.id: get_joined_users_preview(m.joined_uids) for m in meetings}
     short_locations = {m.id: shorten_address(getattr(m, "location", None)) for m in meetings}
     trusted_map = {m.creator_uid: is_trusted(m.creator_uid) for m in meetings if m.creator_uid}
@@ -44,7 +56,7 @@ def home_route():
 
     return render_template(
         "home.html", email=username, meetings=meetings, meetings_json=meetings_json,
-        uid=uid, is_admin=is_admin(uid), joined_previews=joined_previews,
+        for_you=for_you, uid=uid, is_admin=is_admin(uid), joined_previews=joined_previews,
         current_user_avatar=current_user_avatar, short_locations=short_locations,
         available_tags=AVAILABLE_TAGS, trusted_map=trusted_map, pending_notice=pending_notice,
     )

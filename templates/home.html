@@ -3,56 +3,58 @@
 {% block title %}Home - Meetings{% endblock %}
 
 {% block extra_head %}
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
 {% endblock %}
 
 {% block content %}
 <div class="home-container">
 
-    <!-- Map section -->
-    <div class="map-container">
-        <!-- Left: map -->
-        <div class="map-wrapper" id="map-wrapper">
-            <div id="map"></div>
-            <!-- Floating title pill -->
-            <div class="map-title-pill">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
-                     stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
-                    <path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 1 1 18 0z"/>
-                    <circle cx="12" cy="10" r="3"/>
-                </svg>
-                Explore Nearby
-            </div>
-            <!-- Icon-only locate button -->
-            <button id="locate-btn" title="Find my location">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
-                     stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
-                    <circle cx="12" cy="12" r="3"/>
-                    <path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
-                </svg>
-            </button>
-        </div>
+    <!-- Full-bleed map: it fills the viewport and everything else floats on top -->
+    <div id="map"></div>
 
-        <!-- Right: info panel (slides in on marker click) -->
-        <div class="map-info-panel" id="map-info-panel">
-            <button class="info-panel-close" id="info-panel-close" title="Close">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
-                     stroke-linecap="round" width="16" height="16">
-                    <line x1="18" y1="6" x2="6" y2="18"/>
-                    <line x1="6" y1="6" x2="18" y2="18"/>
-                </svg>
-            </button>
-            <div id="info-panel-content"></div>
-        </div>
+    <!-- Floating title pill -->
+    <div class="map-title-pill">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+             stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+            <path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 1 1 18 0z"/>
+            <circle cx="12" cy="10" r="3"/>
+        </svg>
+        Explore Nearby
     </div>
 
-    <!-- Bottom white panel -->
-    <div class="bottom-panel">
+    <!-- Icon-only locate button -->
+    <button id="locate-btn" title="Find my location">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+             stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+        </svg>
+    </button>
+
+    <!-- Meeting details — floats over the map when a pin is tapped -->
+    <div class="map-info-panel" id="map-info-panel">
+        <button class="info-panel-close" id="info-panel-close" title="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                 stroke-linecap="round" width="16" height="16">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+        </button>
+        <div id="info-panel-content"></div>
+    </div>
+
+    <!-- Bottom sheet: drag the grabber to peek / half / full. The map stays
+         full-screen behind it, so the sheet is the only thing that moves. -->
+    <div class="sheet" id="sheet" data-state="peek">
+        <div class="sheet-grabber" id="sheet-grabber" title="Drag or tap to resize">
+            <span class="sheet-handle"></span>
+        </div>
+
+        <div class="sheet-scroll" id="sheet-scroll">
         {% if pending_notice %}
         <div class="pending-banner">⏳ Your meeting was submitted and is waiting for admin approval.</div>
         {% endif %}
+
         <!-- Top bar: title + compact create button -->
         <div class="panel-topbar">
             <span class="panel-title">Nearby Meetings</span>
@@ -78,6 +80,49 @@
             <button type="button" class="filter-chip" data-filter-tag="{{ t }}" onclick="toggleTagFilter(this, '{{ t }}')">{{ t }}</button>
             {% endfor %}
         </div>
+
+    <!-- "For You" shelf — meetings you haven't joined or passed on yet.
+         Replaces the old swipe deck: same picks, scrolled sideways instead. -->
+    {% if for_you %}
+    <div class="foryou-shelf" id="foryou-shelf">
+        <div class="foryou-head">
+            <span class="foryou-title">✨ For You</span>
+            <span class="foryou-hint">Not seen yet · <span id="foryou-count">{{ for_you|length }}</span> left</span>
+        </div>
+        <div class="foryou-row" id="foryou-row">
+            {% for meeting in for_you %}
+            {% set is_online = meeting.__class__.__name__ == 'OnlineMeeting' %}
+            <div class="foryou-card card-color-{{ loop.index0 % 5 }}" id="foryou-card-{{ meeting.id }}">
+                <div class="foryou-card-badge">{{ '🌐 Online' if is_online else '📍 In-Person' }}</div>
+                <h4 class="foryou-card-title">{{ meeting.title }}</h4>
+                <div class="foryou-card-time" data-time="{{ meeting.time }}">{{ meeting.time }}</div>
+                {% if meeting.location %}
+                <div class="foryou-card-place">📍 {{ short_locations.get(meeting.id) }}</div>
+                {% elif meeting.link %}
+                <div class="foryou-card-place">🔗 Online</div>
+                {% endif %}
+                <p class="foryou-card-desc">{{ meeting.description }}</p>
+                {% if meeting.creator_username %}
+                <div class="foryou-card-creator">👤 {{ meeting.creator_username }}{% if trusted_map.get(meeting.creator_uid) %}<span class="trust-badge" title="Trusted creator">★</span>{% endif %}</div>
+                {% endif %}
+                <div class="foryou-card-actions">
+                    <button class="foryou-btn foryou-btn-pass" title="Not interested" onclick="passMeeting({{ meeting.id }})">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        Pass
+                    </button>
+                    <!-- Deliberately not .join-btn[data-meeting-id]: the live-count
+                         WebSocket in base.html targets that selector, and the same
+                         meeting already has a real join button in the list below. -->
+                    <button class="foryou-btn foryou-btn-join" onclick="joinFromShelf({{ meeting.id }})">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M20 6L9 17l-5-5"/></svg>
+                        Join
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
 
         <div class="meetings-list" id="meetings-list">
             {% for meeting in meetings %}
@@ -149,7 +194,8 @@
             </div>
             {% endif %}
         </div>
-    </div>
+        </div><!-- /.sheet-scroll -->
+    </div><!-- /.sheet -->
 </div>
 
 <script>
@@ -160,11 +206,51 @@
     var CURRENT_USER_AVATAR = {{ current_user_avatar | tojson }};
 </script>
 
+<script>
+    // ── "For You" shelf ──────────────────────────────────────────────
+    // Both actions retire the card: /join and /pass each mark the meeting
+    // as swiped, so it would not come back on the next page load anyway.
+    function retireShelfCard(id) {
+        var card = document.getElementById('foryou-card-' + id);
+        if (!card) return;
+        card.style.transition = 'opacity 0.25s, transform 0.25s';
+        card.style.opacity = '0';
+        card.style.transform = 'scale(0.9)';
+        setTimeout(function () {
+            card.remove();
+            var row = document.getElementById('foryou-row');
+            var left = row ? row.children.length : 0;
+            document.getElementById('foryou-count').textContent = left;
+            if (!left) document.getElementById('foryou-shelf').remove();
+        }, 250);
+    }
+
+    function passMeeting(id) {
+        fetch('/pass/' + id, { method: 'POST' }).then(function () { retireShelfCard(id); });
+    }
+
+    function joinFromShelf(id) {
+        fetch('/join/' + id, { method: 'POST' })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.error) return;
+                // Keep the matching card in the list below in sync.
+                var listBtn = document.querySelector('.meeting-card .join-btn[data-meeting-id="' + id + '"]');
+                if (listBtn) {
+                    listBtn.classList.toggle('joined', data.joined);
+                    var textEl = listBtn.querySelector('.join-btn-text');
+                    if (textEl) textEl.textContent = data.joined ? 'Joined' : 'Join';
+                    updateJoinedAvatars(listBtn, data);
+                }
+                retireShelfCard(id);
+            });
+    }
+</script>
+
 {% set active_page = 'home' %}
 {% include 'nav.html' %}
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script src="{{ url_for('static', filename='validation.js') }}"></script>
 <script src="{{ url_for('static', filename='time-utils.js') }}"></script>
 <script src="{{ url_for('static', filename='home.js') }}"></script>

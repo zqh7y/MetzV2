@@ -1,10 +1,19 @@
-import React, { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
 import TrustBadge from "../components/TrustBadge";
+import MeetingCard from "../components/MeetingCard";
 import { FONTS } from "../styles/fonts";
+
+/** "2026-07-25 14:30" -> Date, or null if the server sent something odd. */
+function parseTime(value) {
+  if (!value) return null;
+  const parsed = new Date(String(value).replace(" ", "T"));
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
 
 export default function ProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -12,11 +21,21 @@ export default function ProfileScreen({ navigation }) {
   const [loading, setLoading] = useState(!profile);
   const [error, setError] = useState(false);
 
+  // My Meetings — what the standalone Joined tab used to show
+  const [joined, setJoined] = useState([]);
+  const [joinedTab, setJoinedTab] = useState("upcoming");
+
+  // Find People — what the Discover "People" tab used to show
+  const [query, setQuery] = useState("");
+  const [users, setUsers] = useState([]);
+  const [searching, setSearching] = useState(false);
+
   const load = useCallback(() => {
     setError(false);
     refreshProfile()
       .then((p) => setError(!p))
       .finally(() => setLoading(false));
+    api.getJoined().then(setJoined).catch(() => setJoined([]));
   }, []);
 
   useFocusEffect(
@@ -24,6 +43,34 @@ export default function ProfileScreen({ navigation }) {
       load();
     }, [load])
   );
+
+  useEffect(() => {
+    if (!query.trim()) {
+      setUsers([]);
+      return;
+    }
+    setSearching(true);
+    const t = setTimeout(() => {
+      api.searchUsers(query).then(setUsers).catch(() => setUsers([])).finally(() => setSearching(false));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  const { upcoming, past } = useMemo(() => {
+    const withTime = joined.map((m) => ({ meeting: m, at: parseTime(m.time) }));
+    withTime.sort((a, b) => (a.at?.getTime() ?? Infinity) - (b.at?.getTime() ?? Infinity));
+    const now = Date.now();
+    return {
+      upcoming: withTime.filter((x) => x.at && x.at.getTime() >= now).map((x) => x.meeting),
+      past: withTime.filter((x) => !x.at || x.at.getTime() < now).map((x) => x.meeting),
+    };
+  }, [joined]);
+
+  async function handleLeave(meeting) {
+    setJoined((prev) => prev.filter((m) => m.id !== meeting.id));
+    await api.joinMeeting(meeting.id);   // same endpoint toggles off
+    refreshProfile();
+  }
 
   if (loading) {
     return (
@@ -63,7 +110,7 @@ export default function ProfileScreen({ navigation }) {
       <View style={styles.statsRow}>
         <Stat number={profile.meetings_created} label="Created" />
         <Stat number={profile.meetings_joined} label="Joined" />
-        <Stat number={profile.meetings_swiped} label="Swiped" />
+        <Stat number={profile.meetings_swiped} label="Seen" />
         <Stat number={status.stats.participants} label="Signed Up" />
       </View>
 
@@ -112,6 +159,88 @@ export default function ProfileScreen({ navigation }) {
         </View>
       </View>
 
+      {/* My Meetings — the old Joined tab, folded in here */}
+      <View style={styles.section}>
+        <View style={styles.sectionHead}>
+          <Text style={styles.sectionTitle}>🤝 My Meetings</Text>
+          <View style={styles.segmented}>
+            <TouchableOpacity
+              style={[styles.segBtn, joinedTab === "upcoming" && styles.segBtnActive]}
+              onPress={() => setJoinedTab("upcoming")}
+            >
+              <Text style={[styles.segText, joinedTab === "upcoming" && styles.segTextActive]}>
+                Upcoming {upcoming.length}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.segBtn, joinedTab === "past" && styles.segBtnActive]}
+              onPress={() => setJoinedTab("past")}
+            >
+              <Text style={[styles.segText, joinedTab === "past" && styles.segTextActive]}>
+                Past {past.length}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {(joinedTab === "upcoming" ? upcoming : past).length ? (
+          (joinedTab === "upcoming" ? upcoming : past).map((m) => (
+            <View key={m.id} style={joinedTab === "past" ? styles.pastCard : null}>
+              <MeetingCard
+                meeting={m}
+                onPress={() => navigation.navigate("MeetingDetail", { meeting: m })}
+                onJoin={() => handleLeave(m)}
+              />
+            </View>
+          ))
+        ) : (
+          <Text style={styles.sectionEmpty}>
+            {joinedTab === "upcoming"
+              ? "Nothing coming up — check the For You picks on Home."
+              : "No past meetings yet."}
+          </Text>
+        )}
+      </View>
+
+      {/* Find People — the old Discover "People" tab */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>🔍 Find People</Text>
+        <TextInput
+          style={styles.search}
+          placeholder="Search by username, email, or ID…"
+          placeholderTextColor="#9aa3ad"
+          value={query}
+          onChangeText={setQuery}
+          autoCapitalize="none"
+        />
+        {searching ? (
+          <ActivityIndicator color="#667eea" style={{ marginTop: 12 }} />
+        ) : users.length ? (
+          users.map((u) => (
+            <TouchableOpacity
+              key={u.uid}
+              style={styles.userRow}
+              activeOpacity={0.7}
+              onPress={() => navigation.navigate("UserProfile", { uid: u.uid })}
+            >
+              <View style={[styles.userAvatar, { backgroundColor: u.color || "#667eea" }]}>
+                <Text style={styles.userAvatarText}>{u.username.slice(0, 2).toUpperCase()}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <View style={styles.userNameRow}>
+                  <Text style={styles.userName}>{u.username}</Text>
+                  {(u.is_trusted || u.is_admin) ? <TrustBadge /> : null}
+                </View>
+                <Text style={styles.userUid}>{u.uid}</Text>
+              </View>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
+          ))
+        ) : (
+          <Text style={styles.sectionEmpty}>{query.trim() ? "No users found" : "Type to find users"}</Text>
+        )}
+      </View>
+
       <View style={styles.actions}>
         {profile.is_admin && (
           <TouchableOpacity
@@ -129,10 +258,6 @@ export default function ProfileScreen({ navigation }) {
 
         <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate("Create")}>
           <Text style={styles.actionBtnText}>+ Create a Meeting</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate("Joined")}>
-          <Text style={styles.actionBtnText}>My Joined Meetings</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={[styles.actionBtn, styles.logoutBtn]} onPress={signOut}>
@@ -186,6 +311,30 @@ const styles = StyleSheet.create({
   tierPills: { flexDirection: "row", flexWrap: "wrap", gap: 6, borderTopWidth: 1, borderTopColor: "#f0f1f3", paddingTop: 12, marginTop: 4 },
   tierPill: { fontSize: 10, fontWeight: "700", color: "#aaa", backgroundColor: "#f5f6f8", borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4 },
   tierPillUnlocked: { color: "#667eea", backgroundColor: "rgba(102,126,234,0.12)" },
+  section: { backgroundColor: "#fff", marginHorizontal: 16, marginTop: 16, borderRadius: 18, padding: 16 },
+  sectionHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 },
+  sectionTitle: { fontSize: 15, fontFamily: FONTS.heading, color: "#2c3e50", marginBottom: 10 },
+  sectionEmpty: { color: "#8b95a5", fontSize: 13, textAlign: "center", paddingVertical: 14 },
+  segmented: { flexDirection: "row", backgroundColor: "#eef0f5", borderRadius: 12, padding: 3 },
+  segBtn: { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6 },
+  segBtnActive: { backgroundColor: "#fff", shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 4, elevation: 1 },
+  segText: { fontSize: 12, fontFamily: FONTS.bodySemi, color: "#7a8598" },
+  segTextActive: { color: "#2c3e50" },
+  pastCard: { opacity: 0.62 },
+  search: {
+    backgroundColor: "#f5f6f8", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11,
+    fontSize: 15, marginBottom: 12,
+  },
+  userRow: {
+    flexDirection: "row", alignItems: "center", backgroundColor: "#f7f8fb", borderRadius: 14,
+    padding: 12, marginBottom: 10, gap: 12,
+  },
+  userAvatar: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center" },
+  userAvatarText: { color: "#fff", fontWeight: "800", fontSize: 13 },
+  userNameRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  userName: { fontWeight: "700", color: "#2c3e50", fontSize: 14 },
+  userUid: { fontSize: 11, color: "#aaa", marginTop: 2 },
+  chevron: { fontSize: 20, color: "#ccc" },
   actions: { padding: 16, gap: 10 },
   actionBtn: { backgroundColor: "#fff", borderRadius: 14, paddingVertical: 14, paddingHorizontal: 18 },
   actionBtnText: { fontFamily: FONTS.accentMedium, color: "#2c3e50", fontSize: 14 },

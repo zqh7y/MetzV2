@@ -10,8 +10,7 @@ from routes.login import login_route
 from routes.signup import signup_route
 from routes.home import home_route
 from routes.create import create_route
-from routes.swipe import swipe_route
-from routes.joined import joined_route, pass_route, join_route, delete_route
+from routes.meeting_actions import pass_route, join_route, delete_route
 from routes.profile import profile_route, user_profile_route, toggle_trust_route
 from routes.verify import verify_route, resend_verification_route
 from routes.admin import pending_route, approve_route, decline_route, dashboard_route, ban_route, delete_user_route
@@ -70,16 +69,6 @@ def home():
 @app.route("/create", methods=["GET", "POST"])
 def create():
     return create_route()
-
-
-@app.route("/swipe")
-def swipe():
-    return swipe_route()
-
-
-@app.route("/joined")
-def joined():
-    return joined_route()
 
 
 @app.route("/pass/<int:meeting_id>", methods=["POST"])

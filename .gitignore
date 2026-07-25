@@ -7,3 +7,15 @@ metz-firebase.json
 .claude/
 app_data.db
 mysql_data/
+
+# Local runtime artifacts — regenerated on every run, not source
+*.log
+app_data.db-x-*.bin
+
+# Local notes / generated documents
+cmd.md
+sources.docx
+~$*.docx
+
+# Node
+node_modules/

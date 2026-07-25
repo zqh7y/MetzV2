@@ -16,9 +16,7 @@ import LoginScreen from "./src/screens/LoginScreen";
 import SignupScreen from "./src/screens/SignupScreen";
 import VerifyScreen from "./src/screens/VerifyScreen";
 import HomeScreen from "./src/screens/HomeScreen";
-import DiscoverScreen from "./src/screens/DiscoverScreen";
 import CreateScreen from "./src/screens/CreateScreen";
-import JoinedScreen from "./src/screens/JoinedScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
 import AdminPendingScreen from "./src/screens/AdminPendingScreen";
 import MeetingDetailScreen from "./src/screens/MeetingDetailScreen";
@@ -45,10 +43,9 @@ function MainTabs() {
       tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={{ headerShown: false }}
     >
+      {/* Discover and Joined folded into Home and Profile respectively */}
       <Tabs.Screen name="Home" component={HomeScreen} />
-      <Tabs.Screen name="Discover" component={DiscoverScreen} />
       <Tabs.Screen name="Create" component={CreateScreen} />
-      <Tabs.Screen name="Joined" component={JoinedScreen} />
       <Tabs.Screen name="Profile" component={ProfileScreen} />
     </Tabs.Navigator>
   );

@@ -40,36 +40,39 @@ document.addEventListener("DOMContentLoaded", function () {
     var meetings = MEETINGS_DATA || [];
 
     // Format the server-rendered "time" labels into relative countdowns
-    document.querySelectorAll('.meeting-card-time[data-time]').forEach(function (el) {
+    document.querySelectorAll('.meeting-card-time[data-time], .foryou-card-time[data-time]').forEach(function (el) {
         el.title = el.getAttribute('data-time');
         el.textContent = formatTimeUntil(el.getAttribute('data-time'));
     });
-    var map = L.map('map').setView([31.7683, 35.2137], 13);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '© OpenStreetMap'
-    }).addTo(map);
-    setTimeout(function () { map.invalidateSize(); }, 100);
+    // ─── Map (MapLibre GL + CARTO Voyager vector tiles) ───────────────────
+    var DEFAULT_CENTER = [35.2137, 31.7683];   // [lng, lat] — MapLibre order
+    // Reuse a fontstack the basemap style already ships glyphs for, otherwise
+    // labels silently fail to render.
+    var LABEL_FONT = ['Montserrat Medium', 'Open Sans Bold', 'Noto Sans Regular',
+                      'HanWangHeiLight Regular', 'NanumBarunGothic Regular'];
 
-    // Cluster nearby meeting pins into one numbered circle when zoomed out
-    var markerCluster = L.markerClusterGroup({
-        maxClusterRadius: 60,
-        spiderfyOnMaxZoom: true,
-        showCoverageOnHover: false,
-        iconCreateFunction: function (cluster) {
-            var count = cluster.getChildCount();
-            var size = count < 10 ? 38 : count < 50 ? 46 : 54;
-            return L.divIcon({
-                html: '<div class="meeting-cluster-circle">' + count + '</div>',
-                className: 'meeting-cluster-icon',
-                iconSize: [size, size]
-            });
-        }
+    var map = new maplibregl.Map({
+        container: 'map',
+        style: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
+        center: DEFAULT_CENTER,
+        zoom: 12.4,
+        attributionControl: false,
+        dragRotate: true,
+        maxPitch: 60
     });
-    map.addLayer(markerCluster);
 
-    var markers = [];
-    var markerById = {};
+    window._map = map;   // handy for debugging from the console
+    map.on('error', function (e) {
+        console.error('[map]', (e && e.error && e.error.message) || e);
+    });
+
+    // The basemap style already carries its own OSM/CARTO attribution — adding
+    // customAttribution here would just print it twice.
+    map.addControl(new maplibregl.AttributionControl({ compact: true }), 'top-left');
+    map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
+
+    var markerById = {};   // meeting id -> {lat, lng}, for flying to a card's pin
+    var selectedId = null;
 
     // ─── Info panel (right 50% of map container) ─────────────────────────
     var infoPanel = document.getElementById('map-info-panel');
@@ -89,13 +92,15 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     // ─── Navigation route to a meeting ────────────────────────────────────
-    var routeLayer = null;
+    var EMPTY_FC = { type: 'FeatureCollection', features: [] };
+
+    function setRouteData(data) {
+        var src = map.getSource('route');
+        if (src) src.setData(data);
+    }
 
     function clearRoute() {
-        if (routeLayer) {
-            map.removeLayer(routeLayer);
-            routeLayer = null;
-        }
+        setRouteData(EMPTY_FC);
     }
 
     function showRoute(meeting) {
@@ -121,9 +126,12 @@ document.addEventListener("DOMContentLoaded", function () {
                     return;
                 }
                 var route = data.routes[0];
-                var coords = route.geometry.coordinates.map(function (c) { return [c[1], c[0]]; });
-                routeLayer = L.polyline(coords, { color: '#667eea', weight: 5, opacity: 0.85 }).addTo(map);
-                map.fitBounds(routeLayer.getBounds(), { padding: [40, 40] });
+                // OSRM already returns GeoJSON [lng, lat] pairs — feed them straight in.
+                setRouteData({ type: 'Feature', properties: {}, geometry: route.geometry });
+
+                var bounds = new maplibregl.LngLatBounds();
+                route.geometry.coordinates.forEach(function (c) { bounds.extend(c); });
+                map.fitBounds(bounds, { padding: 60, duration: 900 });
 
                 var km = (route.distance / 1000).toFixed(1);
                 var mins = Math.round(route.duration / 60);
@@ -211,13 +219,17 @@ document.addEventListener("DOMContentLoaded", function () {
         infoPanel.classList.add('open');
         infoPanelContent.scrollTop = 0;
 
-        // After the panel slides in, resize the map and pan the marker to left-centre
-        setTimeout(function () {
-            map.invalidateSize();
-            if (meeting.lat && meeting.lng) {
-                map.panTo([meeting.lat, meeting.lng]);
-            }
-        }, 420);
+        // Highlight the pin and lean the camera in on it. Map padding (set by
+        // the sheet) keeps the pin in the part of the map still visible.
+        setSelectedPin(meeting.id);
+        if (meeting.lat && meeting.lng) {
+            map.easeTo({
+                center: [meeting.lng, meeting.lat],
+                zoom: Math.max(map.getZoom(), 15),
+                pitch: 45,
+                duration: 700
+            });
+        }
     }
 
     // ─── Auto-navigation for in-person meetings ────────────────────────────
@@ -254,39 +266,186 @@ document.addEventListener("DOMContentLoaded", function () {
     function hideInfoPanel() {
         infoPanel.classList.remove('open');
         clearRoute();
-        setTimeout(function () { map.invalidateSize(); }, 420);
+        setSelectedPin(null);
+        map.easeTo({ pitch: 0, duration: 500 });
     }
 
     document.getElementById('info-panel-close').addEventListener('click', hideInfoPanel);
-    // Click anywhere on the map background closes the panel
-    map.on('click', hideInfoPanel);
 
-    // ─── Markers ─────────────────────────────────────────────────────────
-    function meetingIcon(meeting) {
-        return L.divIcon({
-            className: 'meeting-marker',
-            html: '<div class="meeting-marker-circle">' + (meeting.emoji || '📍') + '</div>',
-            iconSize: [34, 34],
-            iconAnchor: [17, 34],
-            popupAnchor: [0, -34]
-        });
+    // ─── Meeting pins ─────────────────────────────────────────────────────
+    // Meetings live in one clustered GeoJSON source; filtering just swaps the
+    // data, and MapLibre re-clusters and re-renders on the GPU.
+    function meetingsToGeoJSON(list) {
+        return {
+            type: 'FeatureCollection',
+            features: list.filter(function (m) { return m.lat && m.lng; }).map(function (m) {
+                return {
+                    type: 'Feature',
+                    properties: {
+                        id: m.id,
+                        title: m.title,
+                        kind: m.type === 'OnlineMeeting' ? 'online' : 'inperson'
+                    },
+                    geometry: { type: 'Point', coordinates: [m.lng, m.lat] }
+                };
+            })
+        };
     }
 
-    function addMeetingMarker(meeting) {
-        if (!meeting.lat || !meeting.lng) return;
-        var marker = L.marker([meeting.lat, meeting.lng], { icon: meetingIcon(meeting) });
-        marker.on('click', function (e) {
-            L.DomEvent.stopPropagation(e); // don't trigger map click (close)
+    meetings.forEach(function (m) {
+        if (m.lat && m.lng) markerById[m.id] = { lat: m.lat, lng: m.lng };
+    });
+
+    /** Draw a teardrop pin as an SVG data URI so it can be used as a map icon. */
+    function pinImage(from, to, cb) {
+        var svg =
+            '<svg xmlns="http://www.w3.org/2000/svg" width="66" height="86" viewBox="0 0 33 43">'
+          +   '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">'
+          +     '<stop offset="0" stop-color="' + from + '"/><stop offset="1" stop-color="' + to + '"/>'
+          +   '</linearGradient></defs>'
+          +   '<ellipse cx="16.5" cy="40" rx="5.5" ry="2" fill="rgba(20,25,50,0.22)"/>'
+          +   '<path d="M16.5 1.5C9.6 1.5 4 7.1 4 14c0 8.8 11 22.5 12 23.6.3.3.8.3 1.1 0C18 36.5 29 22.8 29 14c0-6.9-5.6-12.5-12.5-12.5z" '
+          +         'fill="url(#g)" stroke="#ffffff" stroke-width="2.4"/>'
+          +   '<circle cx="16.5" cy="14" r="5" fill="#ffffff"/>'
+          + '</svg>';
+        var img = new Image(66, 86);
+        img.onload = function () { cb(img); };
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    }
+
+    function setSelectedPin(id) {
+        selectedId = id;
+        if (map.getLayer('meeting-pin-halo')) {
+            map.setFilter('meeting-pin-halo', ['==', ['get', 'id'], id === null ? -1 : id]);
+        }
+    }
+
+    map.on('load', function () {
+        map.addSource('meetings', {
+            type: 'geojson',
+            data: meetingsToGeoJSON(meetings),
+            cluster: true,
+            clusterRadius: 55,
+            clusterMaxZoom: 14
+        });
+
+        map.addSource('route', { type: 'geojson', data: EMPTY_FC });
+
+        // Route: a soft wide glow under a solid line reads better over busy tiles
+        map.addLayer({
+            id: 'route-glow', type: 'line', source: 'route',
+            layout: { 'line-cap': 'round', 'line-join': 'round' },
+            paint: { 'line-color': '#667eea', 'line-width': 14, 'line-opacity': 0.22, 'line-blur': 6 }
+        });
+        map.addLayer({
+            id: 'route-line', type: 'line', source: 'route',
+            layout: { 'line-cap': 'round', 'line-join': 'round' },
+            paint: { 'line-color': '#5b6ee1', 'line-width': 4.5, 'line-opacity': 0.95 }
+        });
+
+        // Clusters: size and colour both step up with the number of meetings
+        map.addLayer({
+            id: 'cluster-glow', type: 'circle', source: 'meetings',
+            filter: ['has', 'point_count'],
+            paint: {
+                'circle-color': ['step', ['get', 'point_count'], '#667eea', 10, '#7b5fd6', 30, '#f5576c'],
+                'circle-radius': ['step', ['get', 'point_count'], 26, 10, 32, 30, 38],
+                'circle-opacity': 0.25,
+                'circle-blur': 0.6
+            }
+        });
+        map.addLayer({
+            id: 'clusters', type: 'circle', source: 'meetings',
+            filter: ['has', 'point_count'],
+            paint: {
+                'circle-color': ['step', ['get', 'point_count'], '#667eea', 10, '#7b5fd6', 30, '#f5576c'],
+                'circle-radius': ['step', ['get', 'point_count'], 18, 10, 23, 30, 28],
+                'circle-stroke-width': 3,
+                'circle-stroke-color': '#ffffff'
+            }
+        });
+        map.addLayer({
+            id: 'cluster-count', type: 'symbol', source: 'meetings',
+            filter: ['has', 'point_count'],
+            layout: {
+                'text-field': ['get', 'point_count_abbreviated'],
+                'text-font': LABEL_FONT,
+                'text-size': 13
+            },
+            paint: { 'text-color': '#ffffff' }
+        });
+
+        // Halo behind the pin the user currently has open
+        map.addLayer({
+            id: 'meeting-pin-halo', type: 'circle', source: 'meetings',
+            filter: ['==', ['get', 'id'], -1],
+            paint: {
+                'circle-color': '#667eea',
+                'circle-radius': 22,
+                'circle-opacity': 0.28,
+                'circle-blur': 0.5
+            }
+        });
+
+        var pending = 2;
+        function ready() {
+            if (--pending) return;
+            map.addLayer({
+                id: 'meeting-pins', type: 'symbol', source: 'meetings',
+                filter: ['!', ['has', 'point_count']],
+                layout: {
+                    'icon-image': ['case', ['==', ['get', 'kind'], 'online'], 'pin-online', 'pin-inperson'],
+                    'icon-size': 0.5,
+                    'icon-anchor': 'bottom',
+                    'icon-allow-overlap': true,
+                    'text-field': ['get', 'title'],
+                    'text-font': LABEL_FONT,
+                    'text-size': 11.5,
+                    'text-anchor': 'top',
+                    'text-offset': [0, 0.4],
+                    'text-max-width': 9,
+                    'text-optional': true
+                },
+                paint: {
+                    'text-color': '#3c4663',
+                    'text-halo-color': 'rgba(255,255,255,0.92)',
+                    'text-halo-width': 1.6
+                }
+            });
+        }
+        pinImage('#7b8cff', '#6a4bc4', function (img) { map.addImage('pin-inperson', img); ready(); });
+        pinImage('#4facfe', '#00d4c8', function (img) { map.addImage('pin-online', img); ready(); });
+
+        // Tapping a pin opens its details; tapping a cluster zooms into it
+        map.on('click', 'meeting-pins', function (e) {
+            var id = e.features[0].properties.id;
+            var meeting = meetings.find(function (m) { return m.id === id; });
+            if (!meeting) return;
             showInfoPanel(meeting);
             maybeAutoNavigate(meeting);
         });
-        marker.meeting = meeting;
-        markers.push(marker);
-        markerById[meeting.id] = marker;
-        markerCluster.addLayer(marker);
-    }
 
-    meetings.forEach(addMeetingMarker);
+        map.on('click', 'clusters', function (e) {
+            var clusterId = e.features[0].properties.cluster_id;
+            map.getSource('meetings').getClusterExpansionZoom(clusterId).then(function (zoom) {
+                map.easeTo({ center: e.features[0].geometry.coordinates, zoom: zoom + 0.2 });
+            });
+        });
+
+        // A tap on empty map (no pin, no cluster) closes the details panel
+        map.on('click', function (e) {
+            var layers = ['meeting-pins', 'clusters'].filter(function (l) { return map.getLayer(l); });
+            if (!map.queryRenderedFeatures(e.point, { layers: layers }).length) hideInfoPanel();
+        });
+
+        ['meeting-pins', 'clusters'].forEach(function (layer) {
+            map.on('mouseenter', layer, function () { map.getCanvas().style.cursor = 'pointer'; });
+            map.on('mouseleave', layer, function () { map.getCanvas().style.cursor = ''; });
+        });
+
+        applyFilters();
+        locateUser();
+    });
 
     // ─── Meeting list item clicks ─────────────────────────────────────────
     function attachListItemClick(item) {
@@ -295,7 +454,9 @@ document.addEventListener("DOMContentLoaded", function () {
             var meeting = meetings.find(function (m) { return m.id === id; });
             if (!meeting) return;
             if (meeting.lat && meeting.lng) {
-                map.setView([meeting.lat, meeting.lng], 16);
+                // Drop the sheet to peek first, otherwise it covers the pin
+                setSheetState('peek');
+                map.flyTo({ center: [meeting.lng, meeting.lat], zoom: 16, duration: 900 });
             }
             showInfoPanel(meeting);
             maybeAutoNavigate(meeting);
@@ -351,12 +512,8 @@ document.addEventListener("DOMContentLoaded", function () {
     function applyFilters() {
         var filtered = getFilteredMeetings();
 
-        markers.forEach(function (marker) {
-            var show = filtered.some(function (m) { return m.id === marker.meeting.id; });
-            var has = markerCluster.hasLayer(marker);
-            if (show && !has) markerCluster.addLayer(marker);
-            if (!show && has) markerCluster.removeLayer(marker);
-        });
+        var src = map.getSource('meetings');
+        if (src) src.setData(meetingsToGeoJSON(filtered));
 
         renderSortedList(filtered);
 
@@ -446,7 +603,12 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    function locateUser() { map.locate({ setView: true, maxZoom: 16 }); }
+    function locateUser() {
+        if (!navigator.geolocation) { onLocationError(); return; }
+        navigator.geolocation.getCurrentPosition(function (pos) {
+            onLocationFound(pos.coords.latitude, pos.coords.longitude);
+        }, onLocationError, { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 });
+    }
 
     // ─── Custom "Me" marker (pulsing pfp circle) ───────────────────────────
     var meAvatarHtml;
@@ -458,33 +620,109 @@ document.addEventListener("DOMContentLoaded", function () {
         meAvatarHtml = '<div class="me-marker-dot"></div>';
     }
 
-    var meIcon = L.divIcon({
-        className: 'me-marker',
-        html: '<div class="me-marker-pulse"></div>' + meAvatarHtml,
-        iconSize: [30, 30],
-        iconAnchor: [15, 15]
-    });
-
-    map.on('locationfound', function (e) {
-        userLatLng = e.latlng;
-        if (userMarker) userMarker.setLatLng(e.latlng);
-        else userMarker = L.marker(e.latlng, { icon: meIcon, zIndexOffset: 1000 }).addTo(map);
-        map.setView(e.latlng, 16);
-        renderSortedList(sortMeetingsByDistance(meetings, e.latlng.lat, e.latlng.lng));
-    });
-
-    map.on('locationerror', function () {
-        if (!userMarker) {
-            userMarker = L.marker([31.7683, 35.2137], { icon: meIcon, zIndexOffset: 1000 }).addTo(map);
+    function placeMeMarker(lat, lng) {
+        if (userMarker) {
+            userMarker.setLngLat([lng, lat]);
+            return;
         }
-        if (!userLatLng) userLatLng = L.latLng(31.7683, 35.2137);
-        map.setView([31.7683, 35.2137], 13);
-    });
+        var el = document.createElement('div');
+        el.className = 'me-marker';
+        el.innerHTML = '<div class="me-marker-pulse"></div>' + meAvatarHtml;
+        userMarker = new maplibregl.Marker({ element: el }).setLngLat([lng, lat]).addTo(map);
+    }
 
-    locateUser();
+    function onLocationFound(lat, lng) {
+        userLatLng = { lat: lat, lng: lng };
+        placeMeMarker(lat, lng);
+        map.flyTo({ center: [lng, lat], zoom: 15, duration: 1200 });
+        renderSortedList(sortMeetingsByDistance(getFilteredMeetings(), lat, lng));
+    }
+
+    function onLocationError() {
+        if (!userLatLng) userLatLng = { lat: DEFAULT_CENTER[1], lng: DEFAULT_CENTER[0] };
+        placeMeMarker(userLatLng.lat, userLatLng.lng);
+    }
+
     document.getElementById('locate-btn').addEventListener('click', locateUser);
 
     document.getElementById('create-meeting-btn').addEventListener('click', function () {
         window.location.href = '/create';
     });
+
+    // ─── Bottom sheet ─────────────────────────────────────────────────────
+    // Three snap points. The map keeps its full height behind the sheet and is
+    // told, via padding, which slice of itself is actually visible — so
+    // flyTo/fitBounds centre things in the gap above the sheet, not behind it.
+    var sheet = document.getElementById('sheet');
+    var grabber = document.getElementById('sheet-grabber');
+    var STATE_ORDER = ['peek', 'half', 'full'];
+    var sheetState = 'peek';
+    // Tall enough to clear the floating HOME/CREATE/PROFILE bar and still show
+    // a usable strip of the sheet above it.
+    var PEEK_VISIBLE = 200;
+
+    /** How far down the sheet sits, in px, for a given state. "peek" is the
+     *  default so the map keeps most of the screen. */
+    function sheetTop(state) {
+        var h = window.innerHeight;
+        if (state === 'peek') return Math.max(h * 0.5, h - PEEK_VISIBLE);
+        if (state === 'half') return h * 0.42;
+        return h * 0.06;
+    }
+
+    function syncMapPadding() {
+        var visible = window.innerHeight - sheetTop(sheetState);
+        map.setPadding({ top: 20, right: 20, left: 20, bottom: Math.min(visible, window.innerHeight * 0.6) });
+    }
+
+    function setSheetState(state) {
+        sheetState = state;
+        sheet.dataset.state = state;
+        sheet.style.transition = 'transform 0.35s cubic-bezier(0.32, 0.72, 0, 1)';
+        sheet.style.transform = 'translateY(' + sheetTop(state) + 'px)';
+        syncMapPadding();
+    }
+    window.setSheetState = setSheetState;
+
+    var dragStartY = null;
+    var dragStartTop = 0;
+
+    grabber.addEventListener('pointerdown', function (e) {
+        dragStartY = e.clientY;
+        dragStartTop = sheetTop(sheetState);
+        sheet.style.transition = 'none';
+        grabber.setPointerCapture(e.pointerId);
+    });
+
+    grabber.addEventListener('pointermove', function (e) {
+        if (dragStartY === null) return;
+        var top = dragStartTop + (e.clientY - dragStartY);
+        top = Math.max(sheetTop('full'), Math.min(sheetTop('peek'), top));
+        sheet.style.transform = 'translateY(' + top + 'px)';
+    });
+
+    grabber.addEventListener('pointerup', function (e) {
+        if (dragStartY === null) return;
+        var moved = e.clientY - dragStartY;
+        var top = dragStartTop + moved;
+        if (Math.abs(moved) < 6) {
+            // Treat it as a tap: step to the next size up, wrapping at the top
+            var i = STATE_ORDER.indexOf(sheetState);
+            setSheetState(STATE_ORDER[(i + 1) % STATE_ORDER.length]);
+        } else {
+            // Snap to whichever state the sheet was dragged closest to
+            var nearest = STATE_ORDER.reduce(function (best, s) {
+                return Math.abs(sheetTop(s) - top) < Math.abs(sheetTop(best) - top) ? s : best;
+            }, sheetState);
+            setSheetState(nearest);
+        }
+        dragStartY = null;
+    });
+
+    window.addEventListener('resize', function () {
+        setSheetState(sheetState);
+        map.resize();
+    });
+
+    setSheetState('peek');
 });

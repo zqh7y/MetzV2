@@ -47,7 +47,7 @@
                 </svg>
             </div>
             <span class="stat-number">{{ meetings_swiped }}</span>
-            <span class="stat-label">Swiped</span>
+            <span class="stat-label">Seen</span>
         </div>
         <div class="stat-divider"></div>
         <div class="stat-card">
@@ -108,6 +108,99 @@
         </div>
     </div>
 
+    <!-- My Meetings — the old /joined page, folded in as a section -->
+    <div class="profile-section">
+        <div class="profile-section-head">
+            <h3 class="profile-section-title">🤝 My Meetings</h3>
+            <div class="segmented" id="mymeetings-segmented">
+                <button type="button" class="segmented-btn active" id="seg-upcoming" onclick="showJoined('upcoming')">
+                    Upcoming <span class="segmented-count">{{ upcoming|length }}</span>
+                </button>
+                <button type="button" class="segmented-btn" id="seg-past" onclick="showJoined('past')">
+                    Past <span class="segmented-count">{{ past|length }}</span>
+                </button>
+            </div>
+        </div>
+
+        {% macro joined_card(meeting, index, is_past=False) %}
+        {% set is_online = meeting.__class__.__name__ == 'OnlineMeeting' %}
+        <div class="joined-row{% if is_past %} is-past{% endif %}" id="joined-card-{{ meeting.id }}">
+            <div class="joined-row-accent accent-{{ index % 5 }}"></div>
+            <div class="joined-row-body">
+                <div class="joined-row-top">
+                    <span class="meeting-card-type-badge {% if is_online %}badge-type-online{% else %}badge-type-inperson{% endif %}">
+                        {{ '🌐 Online' if is_online else '📍 In-Person' }}
+                    </span>
+                    <span class="meeting-card-time" data-time="{{ meeting.time }}">{{ meeting.time }}</span>
+                </div>
+                <h4 class="joined-row-title">{{ meeting.title }}</h4>
+                {% if meeting.creator_username %}
+                <div class="joined-row-creator">👤 by {{ meeting.creator_username }}{% if trusted_map.get(meeting.creator_uid) %}<span class="trust-badge" title="Trusted creator">★</span>{% endif %}</div>
+                {% endif %}
+                <div class="joined-row-meta">
+                    {% if meeting.location %}
+                    <span class="meeting-card-address">📍 {{ short_locations.get(meeting.id) }}</span>
+                    {% elif meeting.link %}
+                    <a href="{{ meeting.link }}" target="_blank" class="joined-row-link">🔗 Join meeting →</a>
+                    {% endif %}
+                    {% if joined_previews.get(meeting.id) %}
+                    <div class="joined-avatars">
+                        {% for u in joined_previews.get(meeting.id, []) %}
+                        <div class="joined-avatar" {% if not u.profile_picture %}style="background: {{ u.color }};"{% endif %} title="{{ u.uid }}">
+                            {% if u.profile_picture %}<img src="{{ u.profile_picture }}" alt="">{% else %}<span>{{ u.initial }}</span>{% endif %}
+                        </div>
+                        {% endfor %}
+                        {% if meeting.joined_uids|length > 4 %}
+                        <div class="joined-avatar joined-avatar-more">+{{ meeting.joined_uids|length - 4 }}</div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    <span class="joined-row-count">{{ meeting.joined_uids|length }} joined</span>
+                </div>
+            </div>
+            <button class="joined-row-leave" onclick="leaveMeeting({{ meeting.id }})" title="Leave this meeting">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="18" height="18"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        {% endmacro %}
+
+        <div class="joined-list" id="joined-upcoming">
+            {% for meeting in upcoming %}
+                {{ joined_card(meeting, loop.index0) }}
+            {% else %}
+            <div class="profile-empty">
+                <span class="profile-empty-icon">🗓️</span>
+                <p>Nothing coming up. Browse the <a href="/">For You</a> picks on Home.</p>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="joined-list" id="joined-past" style="display:none">
+            {% for meeting in past %}
+                {{ joined_card(meeting, loop.index0, is_past=True) }}
+            {% else %}
+            <div class="profile-empty">
+                <span class="profile-empty-icon">🕓</span>
+                <p>No past meetings yet.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Find People — the old Discover "People" tab -->
+    <div class="profile-section">
+        <div class="profile-section-head">
+            <h3 class="profile-section-title">🔍 Find People</h3>
+        </div>
+        <div class="user-search-input-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="18" height="18"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="user-search-input" placeholder="Search by ID or Gmail username…" oninput="searchUsers(this.value)" autocomplete="off" />
+        </div>
+        <div class="user-search-results" id="user-search-results">
+            <p class="user-search-hint">Type to find users</p>
+        </div>
+    </div>
+
     <!-- Actions -->
     <div class="profile-actions">
         {% if is_admin %}
@@ -129,15 +222,6 @@
             </span>
             Create a Meeting
         </a>
-        <a href="/joined" class="profile-action-btn profile-action-secondary">
-            <span class="action-icon action-icon-joined">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
-                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                    <polyline points="22 4 12 14.01 9 11.01"/>
-                </svg>
-            </span>
-            My Joined Meetings
-        </a>
         <a href="/logout" class="profile-action-btn profile-action-logout">
             <span class="action-icon action-icon-logout">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="20" height="20">
@@ -153,4 +237,70 @@
     {% set active_page = 'profile' %}
     {% include 'nav.html' %}
 </div>
+
+<script src="{{ url_for('static', filename='time-utils.js') }}"></script>
+<script>
+    document.querySelectorAll('.meeting-card-time[data-time]').forEach(function (el) {
+        el.title = el.getAttribute('data-time');
+        el.textContent = formatTimeUntil(el.getAttribute('data-time'));
+    });
+
+    // ── My Meetings ──────────────────────────────────────────────────
+    function showJoined(which) {
+        document.getElementById('seg-upcoming').classList.toggle('active', which === 'upcoming');
+        document.getElementById('seg-past').classList.toggle('active', which === 'past');
+        document.getElementById('joined-upcoming').style.display = which === 'upcoming' ? '' : 'none';
+        document.getElementById('joined-past').style.display = which === 'past' ? '' : 'none';
+    }
+
+    function leaveMeeting(id) {
+        fetch('/join/' + id, { method: 'POST' }).then(function () {
+            var card = document.getElementById('joined-card-' + id);
+            if (!card) return;
+            var list = card.parentElement;
+            card.style.transition = 'opacity 0.3s, transform 0.3s';
+            card.style.opacity = '0';
+            card.style.transform = 'translateX(60px)';
+            setTimeout(function () {
+                card.remove();
+                // Keep the Upcoming/Past badge honest without a page reload.
+                var seg = document.getElementById(list.id === 'joined-past' ? 'seg-past' : 'seg-upcoming');
+                seg.querySelector('.segmented-count').textContent = list.querySelectorAll('.joined-row').length;
+            }, 300);
+        });
+    }
+
+    // ── Find People ──────────────────────────────────────────────────
+    var searchTimeout;
+    function searchUsers(q) {
+        clearTimeout(searchTimeout);
+        var results = document.getElementById('user-search-results');
+        if (!q.trim()) {
+            results.innerHTML = '<p class="user-search-hint">Type to find users</p>';
+            return;
+        }
+        searchTimeout = setTimeout(function () {
+            fetch('/search_users?q=' + encodeURIComponent(q))
+                .then(function (r) { return r.json(); })
+                .then(function (users) {
+                    if (!users.length) {
+                        results.innerHTML = '<p class="user-search-hint">No users found</p>';
+                        return;
+                    }
+                    results.innerHTML = users.map(function (u) {
+                        var initials = u.username.slice(0, 2).toUpperCase();
+                        var badge = (u.is_trusted || u.is_admin) ? '<span class="trust-badge" title="Trusted user">★</span>' : '';
+                        return '<div class="user-result-card" onclick="location.href=\'/user/' + u.uid + '\'">' +
+                            '<div class="user-result-avatar" style="background:' + u.color + '">' + initials + '</div>' +
+                            '<div class="user-result-info">' +
+                                '<span class="user-result-name">' + u.username + badge + '</span>' +
+                                '<span class="user-result-uid">' + u.uid + '</span>' +
+                            '</div>' +
+                            '<span class="user-result-chevron">›</span>' +
+                        '</div>';
+                    }).join('');
+                });
+        }, 300);
+    }
+</script>
 {% endblock %}

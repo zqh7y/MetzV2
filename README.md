@@ -2,8 +2,9 @@
 
 Metz is a web app that helps people in your city discover, create, and join
 local meetups — in person or online. Think of it as a lightweight mix between
-a dating-app "swipe" interface and an event board: meetings show up as cards
-on a map and in a swipe deck, and you join the ones you like.
+a personalised suggestion feed and an event board: meetings show up as cards
+on a map, in a "For You" shelf, and in a searchable list, and you join the
+ones you like.
 
 It was built as a school project for the Software Engineering track at
 **Holtz Metz**, using **Flask** for the backend, **Firebase Authentication**
@@ -19,19 +20,23 @@ for user accounts, **MySQL** (encrypted) for storage, and a hand-rolled
   strings shown to users).
 - **Email verification flow** — after signing up, a 4-digit code is sent to
   the user's email before their account is activated.
-- **Interactive map home screen** — meetings are shown as pins on a Leaflet
-  map, sorted by distance from the user, with an info panel that slides up
-  when a meeting is selected.
+- **Full-screen vector map home screen** — meetings are shown as pins on a
+  MapLibre GL map (CARTO Voyager vector tiles), sorted by distance from the
+  user. The map fills the viewport and a draggable bottom sheet — peek / half
+  / full — holds the search, filters and meeting list on top of it. Selecting
+  a meeting opens a floating details card and tilts the camera toward the pin.
 - **Live attendee-count updates** — a standalone WebSocket server
   ([`socket_server.py`](socket_server.py)) pushes join/leave updates to every
   browser viewing a meeting in real time, with no page reload needed.
-- **Swipe to discover** — a Tinder-style card deck (`/swipe`) lets users pass
-  or join meetings with simple swipe gestures and buttons.
+- **"For You" shelf** — the home page opens with a sideways-scrolling row of
+  meetings you haven't seen yet; each card has a **Pass** and a **Join**
+  button, and picking either retires the card.
 - **Create meetings** — users can create either:
   - 📍 **In-person meetings** (with a real location picked on the map), or
   - 📹 **Online meetings** (with a join link).
-- **Joined meetings list** — see everything you've joined or created, with
-  relative time labels ("in 2 hours", "starting now", "3 days ago").
+- **My Meetings** — the profile page lists everything you've joined, split
+  into **Upcoming** and **Past** with relative time labels ("in 2 hours",
+  "starting now", "3 days ago") and a leave button on each.
 - **User profiles** — search for other users ("People"), view their profile,
   see their joined/created meetings, and get a unique color-coded avatar
   generated from their username.
@@ -44,7 +49,7 @@ for user accounts, **MySQL** (encrypted) for storage, and a hand-rolled
   as **pending** and only appear once an admin approves them from the
   **Review Pending Meetings** screen (`/admin/pending`). Trusted users get an
   animated, color-cycling ★ badge shown next to their name everywhere it
-  appears (home cards, map info panel, swipe cards, joined list, profiles,
+  appears (home cards, map info panel, For You shelf, My Meetings, profiles,
   people search).
 - **Admin dashboard** (`/admin/dashboard`) — a full table of users and
   meetings for admins, with the ability to **ban/unban** or **delete** any
@@ -59,7 +64,8 @@ for user accounts, **MySQL** (encrypted) for storage, and a hand-rolled
   count badge) whenever there's something waiting for review.
 - **Marker clustering** — on the home map, nearby meeting pins collapse into
   a single numbered circle as you zoom out, instead of cluttering the map
-  with overlapping markers.
+  with overlapping markers. Clustering is done by MapLibre on the GeoJSON
+  source, so filtering the list re-clusters the map in the same pass.
 - **Admin accounts** — a small set of admin emails can delete any meeting,
   approve/decline pending ones, mark other users as trusted, and ban/delete
   accounts from the admin dashboard.
@@ -109,11 +115,10 @@ meetupApp/
 │   ├── login.py                 # Firebase email/password login
 │   ├── signup.py                # Firebase signup → triggers email verification
 │   ├── verify.py                # Email verification (4-digit code, resend)
-│   ├── home.py                  # Map + meeting list + tag/type filters
-│   ├── swipe.py                 # Swipe/discover deck
+│   ├── home.py                  # Map + "For You" shelf + meeting list + filters
 │   ├── create.py                # Create a new meeting
-│   ├── joined.py                # Joined meetings, join/pass/delete actions, socket notify
-│   ├── profile.py                # Own profile, other users' profiles, trust toggle
+│   ├── meeting_actions.py       # join/pass/delete endpoints, socket notify
+│   ├── profile.py                # Own profile (+ joined meetings), other users, trust toggle
 │   └── admin.py                 # Pending review, admin dashboard, ban/delete users
 │
 ├── utils/
@@ -128,19 +133,17 @@ meetupApp/
 │   ├── login.html
 │   ├── signup.html
 │   ├── verify.html
-│   ├── home.html                 # Map view
-│   ├── swipe.html                 # Swipe deck
+│   ├── home.html                 # Map view + "For You" shelf
 │   ├── create.html                # Create-meeting form
-│   ├── joined.html                # User's joined/created meetings
-│   ├── profile.html               # Own profile
+│   ├── profile.html               # Own profile + My Meetings + people search
 │   ├── user_profile.html          # Another user's profile
 │   ├── pending.html               # Admin: review pending meetings
 │   └── dashboard.html             # Admin: full user/meeting management dashboard
 │
 ├── static/                      # Flask's static folder
 │   ├── style.css                  # All app styling (Poppins/Inter/Space Grotesk)
-│   ├── home.js                    # Map logic, clustering, info panel, geolocation
-│   ├── swipe.js                   # Swipe deck interactions
+│   ├── home.js                    # Map (MapLibre GL), clustering, info panel,
+│   │                               # geolocation, bottom-sheet drag/snap
 │   ├── time-utils.js              # Relative time formatting ("in 2 hours")
 │   ├── validation.js              # Client-side form validation
 │   └── uploads/                   # User-uploaded meeting cover images
@@ -250,7 +253,7 @@ def broadcast(meeting_id, payload):
             unregister(conn)
 ```
 
-Whenever someone joins or leaves a meeting, [`routes/joined.py`](routes/joined.py)
+Whenever someone joins or leaves a meeting, [`routes/meeting_actions.py`](routes/meeting_actions.py)
 notifies the socket server over a best-effort internal HTTP request (with a
 0.5s timeout, so joining still works even if the socket server is down):
 
@@ -389,7 +392,7 @@ if creator_uid and creator_uid in USERS_DB:
     meeting_obj.status = "approved" if is_trusted(creator_uid) else "pending"
 ```
 
-Only **approved** meetings show up on the home/swipe/joined screens
+Only **approved** meetings show up on the home and profile screens
 (`get_all_meetings(status="approved")`). Admins review everything still
 `"pending"` on [`/admin/pending`](templates/pending.html) and either
 `approve_meeting()` or `decline_meeting()` (which just deletes it) —
@@ -515,12 +518,10 @@ the project keep working.
 |---|---|
 | `/login`, `/signup` | Authentication screens |
 | `/verify`, `/verify/resend` | Email verification code entry |
-| `/` | Home — map view of nearby meetings |
-| `/swipe` | Swipe deck to discover meetings |
+| `/` | Home — map, "For You" shelf, and list of nearby meetings |
 | `/create` | Create a new in-person or online meeting |
-| `/joined` | Meetings the user has joined or created |
 | `/join/<id>`, `/pass/<id>`, `/delete/<id>` | Join, pass, or delete a meeting |
-| `/profile`, `/user/<uid>` | Your profile / another user's profile |
+| `/profile`, `/user/<uid>` | Your profile (with My Meetings + people search) / another user's profile |
 | `/search_users?q=...` | Search for users by name |
 | `/admin/pending` | Admin: review meetings awaiting approval |
 | `/admin/approve/<id>`, `/admin/decline/<id>` | Admin: approve or decline a pending meeting |
