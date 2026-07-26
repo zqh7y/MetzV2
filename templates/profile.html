@@ -10,12 +10,16 @@
         <div class="profile-avatar" {% if not profile_picture %}style="background: {{ profile_color }};"{% endif %}>
             {% if profile_picture %}
                 <img src="{{ profile_picture }}" alt="avatar" class="profile-avatar-img" />
+            {% elif avatar_emoji %}
+                <span class="profile-avatar-emoji">{{ avatar_emoji }}</span>
             {% else %}
                 <span class="profile-avatar-id">{{ uid }}</span>
             {% endif %}
         </div>
         <h2 class="profile-name">{{ username }}{% if is_trusted %}<span class="trust-badge" title="Trusted user">★</span>{% endif %}</h2>
         <p class="profile-email">{{ email }}</p>
+        {% if bio %}<p class="profile-bio">{{ bio }}</p>{% endif %}
+        <a href="/profile/edit" class="profile-edit-btn">✏️ Edit profile</a>
     </div>
 
     <!-- Stats row -->

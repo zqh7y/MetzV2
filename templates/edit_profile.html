@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Profile{% endblock %}
+
+{% block content %}
+<div class="settings-page">
+
+    <div class="settings-header">
+        <a href="/profile" class="settings-back" title="Back to profile">‹</a>
+        <h2 class="settings-title">Edit Profile</h2>
+    </div>
+
+    {% if message %}<p class="error-msg">{{ message }}</p>{% endif %}
+
+    <form method="post" id="edit-profile-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <!-- Live preview of how the profile will look -->
+        <div class="profile-section edit-preview">
+            <div class="edit-avatar" id="edit-avatar" style="background: {{ profile_color }};">
+                <span id="edit-avatar-emoji">{{ avatar_emoji or uid[:2] }}</span>
+            </div>
+            <div class="edit-preview-text">
+                <span class="edit-preview-name" id="preview-name">{{ display_name or username }}</span>
+                <span class="edit-preview-uid">@{{ uid }}</span>
+                <p class="edit-preview-bio" id="preview-bio">{{ bio or 'No bio yet.' }}</p>
+            </div>
+        </div>
+
+        <div class="profile-section">
+            <h3 class="profile-section-title">🙂 Avatar</h3>
+            <p class="settings-hint">Pick an emoji, or leave it blank to keep your ID.</p>
+            <div class="emoji-grid">
+                <button type="button" class="emoji-choice {% if not avatar_emoji %}active{% endif %}"
+                        data-emoji="" onclick="pickEmoji(this, '')" title="No emoji">—</button>
+                {% for e in emoji_choices %}
+                <button type="button" class="emoji-choice {% if avatar_emoji == e %}active{% endif %}"
+                        data-emoji="{{ e }}" onclick="pickEmoji(this, '{{ e }}')">{{ e }}</button>
+                {% endfor %}
+            </div>
+            <input type="hidden" name="avatar_emoji" id="avatar_emoji" value="{{ avatar_emoji }}">
+        </div>
+
+        <div class="profile-section">
+            <h3 class="profile-section-title">✏️ About you</h3>
+
+            <div class="form-group">
+                <label for="display_name">Display name</label>
+                <input type="text" id="display_name" name="display_name" maxlength="{{ max_name }}"
+                       value="{{ display_name }}" placeholder="{{ username }}"
+                       oninput="updatePreview()" autocomplete="nickname">
+                <span class="char-count"><span id="name-count">{{ display_name|length }}</span>/{{ max_name }}</span>
+            </div>
+
+            <div class="form-group">
+                <label for="bio">Bio</label>
+                <textarea id="bio" name="bio" rows="3" maxlength="{{ max_bio }}"
+                          placeholder="A sentence about you — what you like organising or joining."
+                          oninput="updatePreview()">{{ bio }}</textarea>
+                <span class="char-count"><span id="bio-count">{{ bio|length }}</span>/{{ max_bio }}</span>
+            </div>
+
+            <div class="settings-row">
+                <span class="settings-row-label">Email</span>
+                <span class="settings-row-value">{{ email }}</span>
+            </div>
+            <p class="settings-note">Your email and user ID can't be changed.</p>
+        </div>
+
+        <div class="profile-actions">
+            <button type="submit" class="btn-primary btn-green">Save changes</button>
+            <a href="/profile" class="profile-action-btn">Cancel</a>
+        </div>
+    </form>
+
+    {% set active_page = 'profile' %}
+    {% include 'nav.html' %}
+</div>
+
+<script>
+    function pickEmoji(btn, emoji) {
+        document.querySelectorAll('.emoji-choice').forEach(function (b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        document.getElementById('avatar_emoji').value = emoji;
+        document.getElementById('edit-avatar-emoji').textContent = emoji || {{ uid[:2] | tojson }};
+    }
+
+    function updatePreview() {
+        var name = document.getElementById('display_name');
+        var bio = document.getElementById('bio');
+        document.getElementById('preview-name').textContent = name.value.trim() || {{ username | tojson }};
+        document.getElementById('preview-bio').textContent = bio.value.trim() || 'No bio yet.';
+        document.getElementById('name-count').textContent = name.value.length;
+        document.getElementById('bio-count').textContent = bio.value.length;
+    }
+</script>
+{% endblock %}

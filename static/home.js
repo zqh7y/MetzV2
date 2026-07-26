@@ -582,6 +582,122 @@ document.addEventListener("DOMContentLoaded", function () {
     var activeTypeFilter = 'all';
     var activeTagFilters = [];
 
+    // Advanced filters, mirrored by the panel in home.html
+    var FILTER_DEFAULTS = { sort: 'soonest', when: 'any', distance: 'any', show: 'all' };
+    var advanced = Object.assign({}, FILTER_DEFAULTS);
+
+    function parseMeetingTime(value) {
+        if (!value) return null;
+        var d = new Date(String(value).replace(' ', 'T'));
+        return isNaN(d.getTime()) ? null : d;
+    }
+
+    function matchesWhen(meeting) {
+        if (advanced.when === 'any') return true;
+        var when = parseMeetingTime(meeting.time);
+        if (!when) return false;
+        var now = new Date();
+
+        if (advanced.when === 'upcoming') return when >= now;
+        if (advanced.when === 'today') return when.toDateString() === now.toDateString();
+        if (advanced.when === 'week') {
+            var weekAhead = new Date(now.getTime() + 7 * 86400000);
+            return when >= now && when <= weekAhead;
+        }
+        if (advanced.when === 'weekend') {
+            var day = when.getDay();   // 0 Sun, 6 Sat
+            return when >= now && (day === 0 || day === 6);
+        }
+        return true;
+    }
+
+    function matchesDistance(meeting) {
+        if (advanced.distance === 'any') return true;
+        if (!userLatLng || !meeting.lat || !meeting.lng) return false;
+        var km = haversineDistance(userLatLng.lat, userLatLng.lng, meeting.lat, meeting.lng);
+        return km <= parseFloat(advanced.distance);
+    }
+
+    function matchesShow(meeting) {
+        var joined = (meeting.joined_uids || []).indexOf(CURRENT_UID) !== -1;
+        if (advanced.show === 'joined') return joined;
+        if (advanced.show === 'mine') return meeting.creator_uid === CURRENT_UID;
+        if (advanced.show === 'unseen') return FOR_YOU_IDS.indexOf(meeting.id) !== -1;
+        return true;
+    }
+
+    function sortMeetings(list) {
+        var sorted = list.slice();
+        if (advanced.sort === 'soonest') {
+            sorted.sort(function (a, b) {
+                var ta = parseMeetingTime(a.time), tb = parseMeetingTime(b.time);
+                return (ta ? ta.getTime() : Infinity) - (tb ? tb.getTime() : Infinity);
+            });
+        } else if (advanced.sort === 'popular') {
+            sorted.sort(function (a, b) {
+                return (b.joined_uids || []).length - (a.joined_uids || []).length;
+            });
+        } else if (advanced.sort === 'newest') {
+            sorted.sort(function (a, b) { return b.id - a.id; });
+        } else if (advanced.sort === 'nearest' && userLatLng) {
+            sorted = sortMeetingsByDistance(sorted, userLatLng.lat, userLatLng.lng);
+        }
+        return sorted;
+    }
+
+    function activeFilterCount() {
+        var n = Object.keys(FILTER_DEFAULTS).filter(function (k) {
+            return advanced[k] !== FILTER_DEFAULTS[k];
+        }).length;
+        return n + activeTagFilters.length + (activeTypeFilter !== 'all' ? 1 : 0);
+    }
+
+    function syncFilterPanel() {
+        Object.keys(advanced).forEach(function (group) {
+            var wrap = document.querySelector('.filter-group[data-group="' + group + '"]');
+            if (!wrap) return;
+            wrap.querySelectorAll('.filter-opt').forEach(function (btn) {
+                btn.classList.toggle('active', btn.dataset.value === advanced[group]);
+            });
+        });
+
+        var count = activeFilterCount();
+        var badge = document.getElementById('filter-count');
+        if (badge) {
+            badge.hidden = count === 0;
+            badge.textContent = count;
+        }
+        var moreBtn = document.getElementById('filter-more-btn');
+        if (moreBtn) moreBtn.classList.toggle('has-filters', count > 0);
+
+        var note = document.getElementById('distance-note');
+        if (note) note.hidden = !(advanced.distance !== 'any' && !userLatLng);
+    }
+
+    window.toggleFilterPanel = function () {
+        var panel = document.getElementById('filter-panel');
+        panel.hidden = !panel.hidden;
+        document.getElementById('filter-more-btn').classList.toggle('open', !panel.hidden);
+    };
+
+    window.setFilterOption = function (group, value) {
+        advanced[group] = value;
+        syncFilterPanel();
+        applyFilters();
+    };
+
+    window.resetFilters = function () {
+        advanced = Object.assign({}, FILTER_DEFAULTS);
+        activeTypeFilter = 'all';
+        activeTagFilters = [];
+        document.querySelectorAll('.filter-chip').forEach(function (b) {
+            b.classList.toggle('active', b.dataset.filterType === 'all');
+        });
+        document.getElementById('search-input').value = '';
+        syncFilterPanel();
+        applyFilters();
+    };
+
     window.setTypeFilter = function (btn, type) {
         activeTypeFilter = type;
         document.querySelectorAll('.filter-chip[data-filter-type]').forEach(function (b) {
@@ -614,6 +730,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 if (!hasAll) return false;
             }
             var typeWords = m.type === 'OnlineMeeting' ? 'online' : 'in-person in person';
+            if (!matchesWhen(m) || !matchesDistance(m) || !matchesShow(m)) return false;
             var haystack = [
                 m.title, m.description, m.location || '', m.link || '',
                 m.creator_username || '', m.time || '', typeWords, (m.tags || []).join(' ')
@@ -623,12 +740,18 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function applyFilters() {
-        var filtered = getFilteredMeetings();
+        var filtered = sortMeetings(getFilteredMeetings());
 
         var src = map.getSource('meetings');
         if (src) src.setData(meetingsToGeoJSON(filtered));
 
         renderSortedList(filtered);
+
+        var countEl = document.getElementById('filter-result-count');
+        if (countEl) {
+            countEl.textContent = filtered.length + ' of ' + meetings.length + ' meetings';
+        }
+        syncFilterPanel();
 
         var list = document.getElementById('meetings-list');
         var emptyMsg = document.getElementById('search-empty-msg');

@@ -73,14 +73,16 @@
             <button type="button" class="sheet-tab" data-pane="people" onclick="showSheetPane('people')">People</button>
         </div>
 
-        <!-- People search -->
+        <!-- People: most active members by default, search results once typing -->
         <div class="sheet-pane" id="pane-people" hidden>
             <div class="user-search-input-wrap">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="18" height="18"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                <input type="text" id="user-search-input" placeholder="Search by ID or Gmail username…" oninput="searchUsers(this.value)" autocomplete="off" />
+                <input type="text" id="user-search-input" placeholder="Search by name, ID or email…" oninput="searchUsers(this.value)" autocomplete="off" />
+                <button type="button" class="user-search-clear" id="user-search-clear" onclick="clearUserSearch()" hidden title="Clear">✕</button>
             </div>
+            <div class="people-heading" id="people-heading">🔥 Most active</div>
             <div class="user-search-results" id="user-search-results">
-                <p class="user-search-hint">Type to find users</p>
+                <p class="user-search-hint">Loading members…</p>
             </div>
         </div>
 
@@ -89,14 +91,72 @@
             <input type="text" id="search-input" placeholder="Search meetings...">
         </div>
 
-        <div class="filter-bar" id="filter-bar">
-            <button type="button" class="filter-chip active" data-filter-type="all" onclick="setTypeFilter(this, 'all')">All</button>
-            <button type="button" class="filter-chip" data-filter-type="inperson" onclick="setTypeFilter(this, 'inperson')">📍 In-Person</button>
-            <button type="button" class="filter-chip" data-filter-type="online" onclick="setTypeFilter(this, 'online')">🌐 Online</button>
-            <div class="filter-chip-divider"></div>
-            {% for t in available_tags %}
-            <button type="button" class="filter-chip" data-filter-tag="{{ t }}" onclick="toggleTagFilter(this, '{{ t }}')">{{ t }}</button>
-            {% endfor %}
+        <!-- Compact chip row + a toggle for everything else -->
+        <div class="filter-row">
+            <div class="filter-bar" id="filter-bar">
+                <button type="button" class="filter-chip active" data-filter-type="all" onclick="setTypeFilter(this, 'all')">All</button>
+                <button type="button" class="filter-chip" data-filter-type="inperson" onclick="setTypeFilter(this, 'inperson')">📍</button>
+                <button type="button" class="filter-chip" data-filter-type="online" onclick="setTypeFilter(this, 'online')">🌐</button>
+                <div class="filter-chip-divider"></div>
+                {% for t in available_tags %}
+                <button type="button" class="filter-chip" data-filter-tag="{{ t }}" onclick="toggleTagFilter(this, '{{ t }}')">{{ t }}</button>
+                {% endfor %}
+            </div>
+            <button type="button" class="filter-more-btn" id="filter-more-btn" onclick="toggleFilterPanel()" title="More filters">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" width="16" height="16">
+                    <line x1="4" y1="6" x2="20" y2="6"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/>
+                </svg>
+                <span class="filter-count" id="filter-count" hidden>0</span>
+            </button>
+        </div>
+
+        <div class="filter-panel" id="filter-panel" hidden>
+            <div class="filter-group" data-group="sort">
+                <span class="filter-group-label">Sort by</span>
+                <div class="filter-options">
+                    <button type="button" class="filter-opt active" data-value="soonest" onclick="setFilterOption('sort','soonest')">Soonest</button>
+                    <button type="button" class="filter-opt" data-value="nearest" onclick="setFilterOption('sort','nearest')">Nearest</button>
+                    <button type="button" class="filter-opt" data-value="popular" onclick="setFilterOption('sort','popular')">Popular</button>
+                    <button type="button" class="filter-opt" data-value="newest" onclick="setFilterOption('sort','newest')">Newest</button>
+                </div>
+            </div>
+
+            <div class="filter-group" data-group="when">
+                <span class="filter-group-label">When</span>
+                <div class="filter-options">
+                    <button type="button" class="filter-opt active" data-value="any" onclick="setFilterOption('when','any')">Any time</button>
+                    <button type="button" class="filter-opt" data-value="today" onclick="setFilterOption('when','today')">Today</button>
+                    <button type="button" class="filter-opt" data-value="week" onclick="setFilterOption('when','week')">This week</button>
+                    <button type="button" class="filter-opt" data-value="weekend" onclick="setFilterOption('when','weekend')">Weekend</button>
+                    <button type="button" class="filter-opt" data-value="upcoming" onclick="setFilterOption('when','upcoming')">Not started</button>
+                </div>
+            </div>
+
+            <div class="filter-group" data-group="distance">
+                <span class="filter-group-label">Within</span>
+                <div class="filter-options">
+                    <button type="button" class="filter-opt active" data-value="any" onclick="setFilterOption('distance','any')">Any</button>
+                    <button type="button" class="filter-opt" data-value="2" onclick="setFilterOption('distance','2')">2 km</button>
+                    <button type="button" class="filter-opt" data-value="10" onclick="setFilterOption('distance','10')">10 km</button>
+                    <button type="button" class="filter-opt" data-value="50" onclick="setFilterOption('distance','50')">50 km</button>
+                </div>
+                <span class="filter-note" id="distance-note" hidden>Turn on location to use this</span>
+            </div>
+
+            <div class="filter-group" data-group="show">
+                <span class="filter-group-label">Show</span>
+                <div class="filter-options">
+                    <button type="button" class="filter-opt active" data-value="all" onclick="setFilterOption('show','all')">Everything</button>
+                    <button type="button" class="filter-opt" data-value="unseen" onclick="setFilterOption('show','unseen')">Not seen</button>
+                    <button type="button" class="filter-opt" data-value="joined" onclick="setFilterOption('show','joined')">Joined</button>
+                    <button type="button" class="filter-opt" data-value="mine" onclick="setFilterOption('show','mine')">Mine</button>
+                </div>
+            </div>
+
+            <div class="filter-panel-footer">
+                <span class="filter-result-count" id="filter-result-count"></span>
+                <button type="button" class="filter-reset" onclick="resetFilters()">Reset all</button>
+            </div>
         </div>
 
     <!-- "For You" shelf — meetings you haven't joined or passed on yet.
@@ -229,6 +289,8 @@
     var CURRENT_UID = {{ uid | tojson }};
     var CURRENT_IS_ADMIN = {{ is_admin | tojson }};
     var CURRENT_USER_AVATAR = {{ current_user_avatar | tojson }};
+    // Ids the server considers "not seen yet" — powers the Show filter
+    var FOR_YOU_IDS = {{ for_you | map(attribute='id') | list | tojson }};
 </script>
 
 <script>
@@ -264,39 +326,105 @@
         document.getElementById('panel-title').textContent =
             pane === 'people' ? 'Find People' : 'Nearby Meetings';
         // The people list needs room, so open the sheet up when switching to it
-        if (pane === 'people' && typeof setSheetState === 'function') setSheetState('full');
-        if (pane === 'people') document.getElementById('user-search-input').focus();
+        if (pane === 'people') {
+            if (typeof setSheetState === 'function') setSheetState('full');
+            if (!peopleLoaded) loadActivePeople();
+        }
     }
 
     var userSearchTimeout;
-    function searchUsers(q) {
-        clearTimeout(userSearchTimeout);
+    var peopleLoaded = false;
+
+    function escHtml(v) {
+        return String(v === null || v === undefined ? '' : v)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function renderPeople(users, ranked) {
         var results = document.getElementById('user-search-results');
-        if (!q.trim()) {
-            results.innerHTML = '<p class="user-search-hint">Type to find users</p>';
+        if (!users.length) {
+            results.innerHTML = '<p class="user-search-hint">No users found</p>';
             return;
         }
+        results.innerHTML = users.map(function (u, i) {
+            var initials = (u.username || u.uid).slice(0, 2).toUpperCase();
+            var badge = (u.is_trusted || u.is_admin)
+                ? '<span class="trust-badge" title="Trusted user">★</span>' : '';
+            // Only the default "most active" list is ranked; search results aren't
+            var medals = ['🥇', '🥈', '🥉'];
+            var rank = ranked
+                ? '<span class="people-rank' + (i < 3 ? ' people-rank-top' : '') + '">' +
+                  (i < 3 ? medals[i] : '#' + (i + 1)) + '</span>'
+                : '';
+            var face = u.avatar_emoji
+                ? '<span class="people-avatar-emoji">' + escHtml(u.avatar_emoji) + '</span>'
+                : escHtml(initials);
+            var online = u.is_online ? '<span class="people-online" title="Active now"></span>' : '';
+            var bio = u.bio
+                ? '<span class="people-bio">' + escHtml(u.bio) + '</span>'
+                : '<span class="people-uid">@' + escHtml(u.uid) + '</span>';
+
+            // data-uid + one delegated listener, rather than an inline onclick
+            return '<div class="people-card" data-uid="' + escHtml(u.uid) + '">' +
+                rank +
+                '<div class="people-avatar" style="background:' + escHtml(u.color) + '">' + face + online + '</div>' +
+                '<div class="people-info">' +
+                    '<span class="people-name">' + escHtml(u.username) + badge + '</span>' +
+                    bio +
+                    '<span class="people-stats">' +
+                        '<span title="Meetings created">🗓 ' + (u.meetings_created || 0) + '</span>' +
+                        '<span title="Meetings joined">🤝 ' + (u.meetings_joined || 0) + '</span>' +
+                    '</span>' +
+                '</div>' +
+                '<span class="user-result-chevron">›</span>' +
+            '</div>';
+        }).join('');
+    }
+
+    // One listener for the whole list, so re-rendering never rebinds anything
+    document.getElementById('user-search-results').addEventListener('click', function (e) {
+        var card = e.target.closest('.people-card');
+        if (card && card.dataset.uid) location.href = '/user/' + encodeURIComponent(card.dataset.uid);
+    });
+
+    function loadActivePeople() {
+        var results = document.getElementById('user-search-results');
+        document.getElementById('people-heading').textContent = '🔥 Most active';
+        results.innerHTML = '<p class="user-search-hint">Loading members…</p>';
+        fetch('/search_users')
+            .then(function (r) { return r.json(); })
+            .then(function (users) {
+                peopleLoaded = true;
+                renderPeople(Array.isArray(users) ? users : [], true);
+            })
+            .catch(function () {
+                results.innerHTML = '<p class="user-search-hint">Could not load members.</p>';
+            });
+    }
+
+    function clearUserSearch() {
+        var input = document.getElementById('user-search-input');
+        input.value = '';
+        document.getElementById('user-search-clear').hidden = true;
+        loadActivePeople();
+    }
+
+    function searchUsers(q) {
+        clearTimeout(userSearchTimeout);
+        document.getElementById('user-search-clear').hidden = !q.trim();
+
+        // Empty box falls back to the most-active list rather than an empty pane
+        if (!q.trim()) {
+            loadActivePeople();
+            return;
+        }
+
+        document.getElementById('people-heading').textContent = '🔍 Search results';
         userSearchTimeout = setTimeout(function () {
             fetch('/search_users?q=' + encodeURIComponent(q))
                 .then(function (r) { return r.json(); })
-                .then(function (users) {
-                    if (!users.length) {
-                        results.innerHTML = '<p class="user-search-hint">No users found</p>';
-                        return;
-                    }
-                    results.innerHTML = users.map(function (u) {
-                        var initials = u.username.slice(0, 2).toUpperCase();
-                        var badge = (u.is_trusted || u.is_admin) ? '<span class="trust-badge" title="Trusted user">★</span>' : '';
-                        return '<div class="user-result-card" onclick="location.href=\'/user/' + u.uid + '\'">' +
-                            '<div class="user-result-avatar" style="background:' + u.color + '">' + initials + '</div>' +
-                            '<div class="user-result-info">' +
-                                '<span class="user-result-name">' + u.username + badge + '</span>' +
-                                '<span class="user-result-uid">' + u.uid + '</span>' +
-                            '</div>' +
-                            '<span class="user-result-chevron">›</span>' +
-                        '</div>';
-                    }).join('');
-                });
+                .then(function (users) { renderPeople(Array.isArray(users) ? users : [], false); });
         }, 300);
     }
 

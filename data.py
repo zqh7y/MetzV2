@@ -512,14 +512,127 @@ def shorten_address(location):
     return f"{parts[-1]}, {parts[0]}"
 
 
+# Users are searchable by email, but the email itself is never returned —
+# search used to hand every user's address to any logged-in caller.
+def public_user(u):
+    """The subset of a user record that is safe to show to other people."""
+    created = len(u.get("created_meeting_ids", []))
+    joined = len(u.get("joined_meeting_ids", []))
+    return {
+        "uid": u["uid"],
+        "username": u.get("display_name") or u.get("username", ""),
+        "bio": u.get("bio", ""),
+        "avatar_emoji": u.get("avatar_emoji", ""),
+        "profile_picture": u.get("profile_picture"),
+        "color": generate_user_color(u["uid"]),
+        "is_trusted": bool(u.get("is_trusted")),
+        "is_admin": bool(u.get("is_admin")),
+        "meetings_created": created,
+        "meetings_joined": joined,
+        "last_online": u.get("last_online"),
+        "is_online": _is_recently_online(u),
+    }
+
+
+def _is_recently_online(u, minutes=5):
+    stamp = u.get("last_online")
+    if not stamp:
+        return False
+    try:
+        seen = datetime.fromisoformat(stamp)
+    except ValueError:
+        return False
+    if seen.tzinfo is None:
+        seen = seen.replace(tzinfo=timezone.utc)
+    return (datetime.now(timezone.utc) - seen).total_seconds() < minutes * 60
+
+
 def search_users(query):
     """Return up to 10 users matching the query against UID, email, or username."""
     q = query.lower().strip()
     matches = [
         u for u in USERS_DB.values()
-        if q in u["uid"].lower() or q in u["email"].lower() or q in u["username"].lower()
+        if q in u["uid"].lower() or q in u["email"].lower()
+        or q in u.get("username", "").lower() or q in (u.get("display_name") or "").lower()
     ][:10]
-    return [dict(u, color=generate_user_color(u["uid"])) for u in matches]
+    return [public_user(u) for u in matches]
+
+
+def activity_score(u):
+    """How active a user is: organising counts for more than attending, and
+    both decay so a long-dormant account doesn't outrank a current one."""
+    created = len(u.get("created_meeting_ids", []))
+    joined = len(u.get("joined_meeting_ids", []))
+    score = created * 5 + joined * 2
+
+    stamp = u.get("last_online")
+    if stamp:
+        try:
+            seen = datetime.fromisoformat(stamp)
+            if seen.tzinfo is None:
+                seen = seen.replace(tzinfo=timezone.utc)
+            days_ago = (datetime.now(timezone.utc) - seen).total_seconds() / 86400
+            if days_ago < 1:
+                score += 6
+            elif days_ago < 7:
+                score += 3
+            elif days_ago > 60:
+                score -= 4
+        except ValueError:
+            pass
+
+    if u.get("is_trusted"):
+        score += 3
+    return score
+
+
+def get_active_users(limit=12, exclude_uid=None):
+    """Most active members, for the People tab's default view."""
+    candidates = [
+        u for u in USERS_DB.values()
+        if not u.get("is_banned") and u["uid"] != exclude_uid
+    ]
+    candidates.sort(key=activity_score, reverse=True)
+    return [public_user(u) for u in candidates[:limit]]
+
+
+PROFILE_EMOJIS = ["😀", "😎", "🤓", "🥳", "🧑‍💻", "🎨", "🎧", "⚽", "🏔️",
+                  "🌊", "🍕", "☕", "📚", "🎬", "🐱", "🐶", "🌸", "🚀"]
+
+MAX_DISPLAY_NAME = 32
+MAX_BIO = 160
+
+
+def update_profile(uid, display_name=None, bio=None, avatar_emoji=None):
+    """Update the parts of a profile a user is allowed to change.
+
+    Everything is length-capped and HTML-escaped, since these strings end up
+    in other people's browsers.
+    """
+    from utils.models import sanitize_html
+
+    user = USERS_DB.get(uid)
+    if not user:
+        return False
+
+    if display_name is not None:
+        cleaned = sanitize_html(display_name.strip())[:MAX_DISPLAY_NAME]
+        user["display_name"] = cleaned or None
+    if bio is not None:
+        user["bio"] = sanitize_html(bio.strip())[:MAX_BIO]
+    if avatar_emoji is not None:
+        # Whitelist only — an arbitrary string here would be rendered as-is.
+        user["avatar_emoji"] = avatar_emoji if avatar_emoji in PROFILE_EMOJIS else ""
+
+    save_data()
+    return True
+
+
+def display_name_for(uid):
+    user = USERS_DB.get(uid)
+    if not user:
+        return uid
+    return user.get("display_name") or user.get("username") or uid
 
 
 # ─── Algorithm 1: Haversine Distance Sort ───────────────────────────────────

@@ -25,80 +25,114 @@
         <p class="error-msg">{{ message }}</p>
     {% endif %}
 
-    <form method="post" onsubmit="return validateMeetingForm(this)">
+    <form method="post" id="create-form" onsubmit="return validateMeetingForm(this)">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div class="form-group">
-            <label for="title">Meeting Title</label>
-            <input type="text" id="title" name="title" placeholder="e.g. Morning Yoga Session" required maxlength="100">
-        </div>
 
-        <div class="form-group">
-            <label for="description">Description</label>
-            <textarea id="description" name="description" placeholder="What is this meeting about?" rows="3" required maxlength="500"></textarea>
-        </div>
-
-        <div class="form-group">
-            <label>Meeting Type</label>
-            <div class="type-toggle">
-                <button type="button" class="type-toggle-btn active" data-type="inperson" onclick="selectType(this, 'inperson')">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
-                        <path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 1 1 18 0z"/>
-                        <circle cx="12" cy="10" r="3"/>
-                    </svg>
-                    In-Person
-                </button>
-                <button type="button" class="type-toggle-btn" data-type="online" onclick="selectType(this, 'online')">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
-                        <circle cx="12" cy="12" r="10"/>
-                        <line x1="2" y1="12" x2="22" y2="12"/>
-                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-                    </svg>
-                    Online
-                </button>
+        <!-- Progress -->
+        <div class="wizard-progress">
+            <div class="wizard-bar"><div class="wizard-bar-fill" id="wizard-bar-fill"></div></div>
+            <div class="wizard-meta">
+                <span class="wizard-step-name" id="wizard-step-name">Basics</span>
+                <span class="wizard-step-count"><span id="wizard-current">1</span> of 5</span>
             </div>
-            <input type="hidden" name="type" id="type" value="inperson">
         </div>
 
-        <div class="form-group">
-            <label>Interests (pick any that fit)</label>
-            <div class="tag-picker">
-                {% for t in available_tags %}
-                <button type="button" class="tag-option" data-tag="{{ t }}" onclick="toggleTag(this, '{{ t }}')">{{ t }}</button>
-                {% endfor %}
+        <!-- 1 · Basics -->
+        <section class="wizard-step is-active" data-step="1">
+            <div class="form-group">
+                <label for="title">Meeting Title</label>
+                <input type="text" id="title" name="title" placeholder="e.g. Morning Yoga Session" required maxlength="100">
             </div>
-            <div id="tags-hidden-container"></div>
-        </div>
-
-        <div class="form-group">
-            <label>Map Icon</label>
-            <div class="emoji-picker">
-                {% for e in ['📍','🎉','☕','🍕','🎮','🎵','📚','⚽','🧘','🎨','💻','🌐','🎬','🚴','🏕️','🍻'] %}
-                <button type="button" class="emoji-option{% if loop.first %} active{% endif %}" onclick="selectEmoji(this, '{{ e }}')">{{ e }}</button>
-                {% endfor %}
+            <div class="form-group">
+                <label for="description">Description</label>
+                <textarea id="description" name="description" placeholder="What is this meeting about?" rows="3" required maxlength="500"></textarea>
             </div>
-            <input type="hidden" name="emoji" id="emoji" value="📍">
-        </div>
+        </section>
 
-        <div class="form-group" id="location-field">
-            <label for="location">Location</label>
-            <input type="text" id="location" name="location_name" placeholder="Type an address or pick on the map below" autocomplete="off">
-            <div id="create-map"></div>
-            <p class="map-hint">📍 Click the map to drop a pin and auto-fill the address</p>
-            <input type="hidden" id="lat" name="lat">
-            <input type="hidden" id="lng" name="lng">
-        </div>
+        <!-- 2 · Where -->
+        <section class="wizard-step" data-step="2">
+            <div class="form-group">
+                <label>Meeting Type</label>
+                <div class="type-toggle">
+                    <button type="button" class="type-toggle-btn active" data-type="inperson" onclick="selectType(this, 'inperson')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+                            <path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 1 1 18 0z"/>
+                            <circle cx="12" cy="10" r="3"/>
+                        </svg>
+                        In-Person
+                    </button>
+                    <button type="button" class="type-toggle-btn" data-type="online" onclick="selectType(this, 'online')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="2" y1="12" x2="22" y2="12"/>
+                            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                        </svg>
+                        Online
+                    </button>
+                </div>
+                <input type="hidden" name="type" id="type" value="inperson">
+            </div>
 
-        <div class="form-group" id="link-field" style="display:none;">
-            <label for="link">Meeting Link</label>
-            <input type="url" id="link" name="link" placeholder="https://zoom.us/j/...">
-        </div>
+            <div class="form-group" id="location-field">
+                <label for="location">Location</label>
+                <input type="text" id="location" name="location_name" placeholder="Type an address or pick on the map below" autocomplete="off">
+                <div id="create-map"></div>
+                <p class="map-hint">📍 Click the map to drop a pin and auto-fill the address</p>
+                <input type="hidden" id="lat" name="lat">
+                <input type="hidden" id="lng" name="lng">
+            </div>
 
-        <div class="form-group">
-            <label for="time">Date & Time</label>
-            <input type="text" id="time" name="time" placeholder="Pick a date & time" required readonly>
-        </div>
+            <div class="form-group" id="link-field" style="display:none;">
+                <label for="link">Meeting Link</label>
+                <input type="url" id="link" name="link" placeholder="https://zoom.us/j/...">
+            </div>
+        </section>
 
-        <button type="submit" class="btn-primary btn-green">Create Meeting</button>
+        <!-- 3 · When -->
+        <section class="wizard-step" data-step="3">
+            <div class="form-group">
+                <label for="time">Date &amp; Time</label>
+                <input type="text" id="time" name="time" placeholder="Pick a date & time" required readonly>
+                <p class="map-hint">Pick when people should show up.</p>
+            </div>
+        </section>
+
+        <!-- 4 · Details -->
+        <section class="wizard-step" data-step="4">
+            <div class="form-group">
+                <label>Interests (pick any that fit)</label>
+                <div class="tag-picker">
+                    {% for t in available_tags %}
+                    <button type="button" class="tag-option" data-tag="{{ t }}" onclick="toggleTag(this, '{{ t }}')">{{ t }}</button>
+                    {% endfor %}
+                </div>
+                <div id="tags-hidden-container"></div>
+            </div>
+
+            <div class="form-group">
+                <label>Map Icon</label>
+                <div class="emoji-picker">
+                    {% for e in ['📍','🎉','☕','🍕','🎮','🎵','📚','⚽','🧘','🎨','💻','🌐','🎬','🚴','🏕️','🍻'] %}
+                    <button type="button" class="emoji-option{% if loop.first %} active{% endif %}" onclick="selectEmoji(this, '{{ e }}')">{{ e }}</button>
+                    {% endfor %}
+                </div>
+                <input type="hidden" name="emoji" id="emoji" value="📍">
+            </div>
+        </section>
+
+        <!-- 5 · Review -->
+        <section class="wizard-step" data-step="5">
+            <div class="review-card" id="review-card"></div>
+            <p class="map-hint">Check everything looks right, then create it.</p>
+        </section>
+
+        <p class="wizard-error" id="wizard-error" hidden></p>
+
+        <div class="wizard-nav">
+            <button type="button" class="wizard-btn wizard-back" id="wizard-back" onclick="wizardBack()" hidden>← Back</button>
+            <button type="button" class="wizard-btn wizard-next" id="wizard-next" onclick="wizardNext()">Next →</button>
+            <button type="submit" class="btn-primary btn-green wizard-submit" id="wizard-submit" hidden>🎉 Create Meeting</button>
+        </div>
     </form>
 
     <p class="footer-link"><a href="/">← Back to Home</a></p>
@@ -111,6 +145,96 @@
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="{{ url_for('static', filename='validation.js') }}"></script>
 <script>
+    // ── Step wizard ──────────────────────────────────────────────────
+    var STEP_NAMES = ['Basics', 'Where', 'When', 'Details', 'Review'];
+    var TOTAL_STEPS = STEP_NAMES.length;
+    var step = 1;
+
+    function showStep(n) {
+        step = Math.min(TOTAL_STEPS, Math.max(1, n));
+        document.querySelectorAll('.wizard-step').forEach(function (el) {
+            el.classList.toggle('is-active', Number(el.dataset.step) === step);
+        });
+
+        document.getElementById('wizard-bar-fill').style.width = (step / TOTAL_STEPS * 100) + '%';
+        document.getElementById('wizard-step-name').textContent = STEP_NAMES[step - 1];
+        document.getElementById('wizard-current').textContent = step;
+
+        document.getElementById('wizard-back').hidden = step === 1;
+        document.getElementById('wizard-next').hidden = step === TOTAL_STEPS;
+        document.getElementById('wizard-submit').hidden = step !== TOTAL_STEPS;
+
+        // The map is hidden on other steps, so it needs its size back
+        if (step === 2 && window._createMap) setTimeout(function () { window._createMap.resize(); }, 60);
+        if (step === TOTAL_STEPS) buildReview();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function flagInvalid(el, msg) {
+        el.classList.add('field-invalid');
+        el.focus();
+        var holder = document.getElementById('wizard-error');
+        if (holder) { holder.textContent = msg; holder.hidden = false; }
+        setTimeout(function () { el.classList.remove('field-invalid'); }, 1600);
+        return false;
+    }
+
+    function clearError() {
+        var holder = document.getElementById('wizard-error');
+        if (holder) holder.hidden = true;
+    }
+
+    /** Validate only the step being left, so people aren't blocked by fields
+     *  they haven't reached yet. */
+    function validateStep(n) {
+        clearError();
+        if (n === 1) {
+            var title = document.getElementById('title');
+            var desc = document.getElementById('description');
+            if (!title.value.trim()) return flagInvalid(title, 'Give your meeting a title.');
+            if (title.value.trim().length < 3) return flagInvalid(title, 'That title is a bit short.');
+            if (!desc.value.trim()) return flagInvalid(desc, 'Add a short description.');
+        }
+        if (n === 2) {
+            if (document.getElementById('type').value === 'inperson') {
+                var loc = document.getElementById('location');
+                if (!loc.value.trim()) return flagInvalid(loc, 'Pick a location on the map, or type an address.');
+            } else {
+                var link = document.getElementById('link');
+                if (!link.value.trim()) return flagInvalid(link, 'Add the link people should join.');
+                if (!/^https?:\/\//i.test(link.value.trim())) return flagInvalid(link, 'The link should start with http:// or https://');
+            }
+        }
+        if (n === 3) {
+            var time = document.getElementById('time');
+            if (!time.value.trim()) return flagInvalid(time, 'Choose a date and time.');
+        }
+        return true;
+    }
+
+    function wizardNext() { if (validateStep(step)) showStep(step + 1); }
+    function wizardBack() { clearError(); showStep(step - 1); }
+
+    function buildReview() {
+        var isOnline = document.getElementById('type').value === 'online';
+        var rows = [
+            ['Title', document.getElementById('title').value],
+            ['Description', document.getElementById('description').value],
+            ['Type', isOnline ? '🌐 Online' : '📍 In-Person'],
+            [isOnline ? 'Link' : 'Location',
+             isOnline ? document.getElementById('link').value : document.getElementById('location').value],
+            ['When', document.getElementById('time').value],
+            ['Interests', selectedTags.length ? selectedTags.join(', ') : 'None'],
+            ['Icon', document.getElementById('emoji').value]
+        ];
+        document.getElementById('review-card').innerHTML = rows.map(function (r) {
+            var value = String(r[1] || '—')
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return '<div class="review-row"><span class="review-key">' + r[0] +
+                   '</span><span class="review-value">' + value + '</span></div>';
+        }).join('');
+    }
+
     var selectedTags = [];
 
     function toggleTag(btn, tag) {
@@ -148,6 +272,7 @@
         btn.classList.add('active');
         document.getElementById('type').value = type;
         toggleFields();
+    showStep(1);
     }
 
     function toggleFields() {
@@ -160,7 +285,7 @@
             document.getElementById('link').required = false;
             document.getElementById('location').required = true;
             setTimeout(function () {
-                if (window._createMap) window._createMap.invalidateSize();
+                if (window._createMap) window._createMap.resize();
             }, 50);
         } else {
             locField.style.display = 'none';
