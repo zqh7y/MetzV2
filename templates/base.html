@@ -6,6 +6,23 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <script>
+        // Applied before the stylesheet paints, so switching themes never
+        // flashes the wrong colours. Light is the default; "dark" and
+        // "system" are opt-in from Settings.
+        (function () {
+            var saved = null;
+            try { saved = localStorage.getItem('theme'); } catch (e) { /* private mode */ }
+            document.documentElement.setAttribute('data-theme', saved || 'light');
+        })();
+
+        function applyTheme(choice) {
+            document.documentElement.setAttribute('data-theme', choice);
+            try { localStorage.setItem('theme', choice); } catch (e) { /* ignore */ }
+            // The map picks its basemap from the same setting
+            if (typeof window.swapBasemap === 'function') window.swapBasemap();
+        }
+    </script>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     {% block extra_head %}{% endblock %}
 </head>

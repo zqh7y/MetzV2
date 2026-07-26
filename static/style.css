@@ -44,9 +44,11 @@
     --ease-out: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-/* System preference — unless the page explicitly asks for light */
+/* Light is the default. Dark only applies when the user opts in from
+   Settings, either explicitly (data-theme="dark") or by choosing to match
+   the system (data-theme="system"). */
 @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
+    :root[data-theme="system"] {
         color-scheme: dark;
         --bg: #0f1218;
         --surface: #171b23;
@@ -3451,3 +3453,183 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 
 /* Online meetings keep the plain, shorter card */
 .meeting-card.is-online .card-map { display: none; }
+
+/* ── Mini map on the "For You" cards ─────────────────────────────────────
+   The shelf cards are the ones that carry a live map; the plain list cards
+   deliberately don't, to keep the list light and fast. */
+.foryou-map {
+    height: 84px;
+    border-radius: 12px;
+    margin-bottom: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+    background: rgba(255, 255, 255, 0.18);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18) inset;
+}
+
+/* The shimmer needs to read against the card's gradient, not the page */
+.foryou-map:not(.is-live)::after {
+    background: linear-gradient(100deg,
+        rgba(255,255,255,0.10) 30%,
+        rgba(255,255,255,0.26) 50%,
+        rgba(255,255,255,0.10) 70%);
+    background-size: 220% 100%;
+}
+
+/* ═══ Settings ═══════════════════════════════════════════════════════════ */
+.settings-page {
+    min-height: 100vh;
+    background: var(--bg);
+    padding-bottom: 120px;
+}
+
+.settings-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 22px 16px 12px 16px;
+}
+
+.settings-back {
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    text-decoration: none;
+    font-size: 22px;
+    line-height: 1;
+    padding-bottom: 3px;
+    transition: transform 0.2s var(--spring), background 0.2s;
+}
+
+.settings-back:hover { transform: scale(1.08); background: var(--surface-2); }
+
+.settings-title {
+    margin: 0;
+    font-size: 20px;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 800;
+    color: var(--text);
+}
+
+.settings-hint {
+    margin: -4px 0 12px 0;
+    font-size: 12.5px;
+    color: var(--text-2);
+}
+
+.settings-note {
+    margin: 12px 0 0 0;
+    font-size: 11.5px;
+    color: var(--text-3);
+}
+
+.theme-options {
+    display: flex;
+    gap: 10px;
+}
+
+.theme-option {
+    flex: 1;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 8px;
+    border-radius: var(--radius);
+    border: 2px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text-2);
+    cursor: pointer;
+    font-family: inherit;
+    transition: transform 0.28s var(--spring), border-color 0.2s, color 0.2s;
+}
+
+.theme-option:hover { transform: translateY(-3px); }
+
+.theme-option.active {
+    border-color: var(--accent);
+    color: var(--text);
+    background: var(--accent-soft);
+}
+
+.theme-option-name { font-size: 12.5px; font-weight: 700; }
+
+/* Little preview tile for each theme */
+.theme-swatch {
+    width: 100%;
+    height: 42px;
+    border-radius: 9px;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--border);
+}
+
+.theme-swatch-light { background: #f2f4f8; }
+.theme-swatch-dark { background: #171b23; }
+.theme-swatch-system { background: linear-gradient(105deg, #f2f4f8 50%, #171b23 50%); }
+
+.theme-swatch-bar {
+    position: absolute;
+    left: 7px;
+    right: 7px;
+    top: 8px;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--accent);
+    opacity: 0.85;
+}
+
+.theme-swatch-dot {
+    position: absolute;
+    left: 7px;
+    bottom: 8px;
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    background: var(--accent);
+}
+
+.theme-option-check {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--accent);
+    opacity: 0;
+    transform: scale(0.6);
+    transition: opacity 0.2s, transform 0.28s var(--spring);
+}
+
+.theme-option.active .theme-option-check { opacity: 1; transform: scale(1); }
+
+.settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.settings-row:last-child { border-bottom: none; }
+
+.settings-row-label { font-size: 13px; color: var(--text-2); }
+
+.settings-row-value {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.action-icon-settings { color: var(--accent); }

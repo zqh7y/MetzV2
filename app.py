@@ -12,6 +12,7 @@ from routes.home import home_route
 from routes.create import create_route
 from routes.meeting_actions import pass_route, join_route, delete_route
 from routes.profile import profile_route, user_profile_route, toggle_trust_route
+from routes.settings import settings_route
 from routes.verify import verify_route, resend_verification_route
 from routes.admin import pending_route, approve_route, decline_route, dashboard_route, ban_route, delete_user_route
 
@@ -89,6 +90,11 @@ def delete_meeting_route(meeting_id):
 @app.route("/profile")
 def profile():
     return profile_route()
+
+
+@app.route("/settings")
+def settings():
+    return settings_route()
 
 
 @app.route("/user/<uid>")

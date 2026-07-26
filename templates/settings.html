@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<div class="settings-page">
+
+    <div class="settings-header">
+        <a href="/profile" class="settings-back" title="Back to profile">‹</a>
+        <h2 class="settings-title">Settings</h2>
+    </div>
+
+    <div class="profile-section">
+        <h3 class="profile-section-title">🎨 Appearance</h3>
+        <p class="settings-hint">Choose how Metz looks. Your choice is remembered on this device.</p>
+
+        <div class="theme-options" id="theme-options">
+            <button type="button" class="theme-option" data-choice="light" onclick="chooseTheme('light')">
+                <span class="theme-swatch theme-swatch-light">
+                    <span class="theme-swatch-bar"></span>
+                    <span class="theme-swatch-dot"></span>
+                </span>
+                <span class="theme-option-name">Light</span>
+                <span class="theme-option-check">✓</span>
+            </button>
+
+            <button type="button" class="theme-option" data-choice="dark" onclick="chooseTheme('dark')">
+                <span class="theme-swatch theme-swatch-dark">
+                    <span class="theme-swatch-bar"></span>
+                    <span class="theme-swatch-dot"></span>
+                </span>
+                <span class="theme-option-name">Dark</span>
+                <span class="theme-option-check">✓</span>
+            </button>
+
+            <button type="button" class="theme-option" data-choice="system" onclick="chooseTheme('system')">
+                <span class="theme-swatch theme-swatch-system">
+                    <span class="theme-swatch-bar"></span>
+                    <span class="theme-swatch-dot"></span>
+                </span>
+                <span class="theme-option-name">Match system</span>
+                <span class="theme-option-check">✓</span>
+            </button>
+        </div>
+
+        <p class="settings-note">The map follows your choice too — a warm basemap in light, a dark one in dark.</p>
+    </div>
+
+    <div class="profile-section">
+        <h3 class="profile-section-title">👤 Account</h3>
+        <div class="settings-row">
+            <span class="settings-row-label">Signed in as</span>
+            <span class="settings-row-value">{{ email }}</span>
+        </div>
+        <div class="settings-row">
+            <span class="settings-row-label">User ID</span>
+            <span class="settings-row-value">{{ uid }}</span>
+        </div>
+        {% if is_admin %}
+        <div class="settings-row">
+            <span class="settings-row-label">Role</span>
+            <span class="settings-row-value">Admin</span>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="profile-actions">
+        <a href="/profile" class="profile-action-btn">← Back to Profile</a>
+        <a href="/logout" class="profile-action-btn profile-action-logout">
+            <span class="action-icon action-icon-logout">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="20" height="20">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                    <polyline points="16 17 21 12 16 7"/>
+                    <line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+            </span>
+            Logout
+        </a>
+    </div>
+
+    {% set active_page = 'profile' %}
+    {% include 'nav.html' %}
+</div>
+
+<script>
+    function markActiveTheme() {
+        var current = document.documentElement.getAttribute('data-theme') || 'light';
+        document.querySelectorAll('.theme-option').forEach(function (btn) {
+            btn.classList.toggle('active', btn.dataset.choice === current);
+        });
+    }
+
+    function chooseTheme(choice) {
+        applyTheme(choice);   // defined in base.html
+        markActiveTheme();
+    }
+
+    markActiveTheme();
+</script>
+{% endblock %}

@@ -587,9 +587,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function renderSortedList(sortedMeetings) {
         var list = document.getElementById('meetings-list');
-        // Tear down the mini maps first — dropping their containers with
-        // innerHTML would strand the WebGL contexts they hold.
-        list.querySelectorAll('.card-map').forEach(unmountMini);
         list.innerHTML = '';
         var ACCENTS = ['accent-0','accent-1','accent-2','accent-3','accent-4'];
         sortedMeetings.forEach(function (meeting, i) {
@@ -607,11 +604,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
             var mediaHtml = '<div class="meeting-card-accent ' + ACCENTS[i % 5] + '"></div>';
 
-            // In-person meetings get a live mini map; online ones have no
-            // coordinates, so their card is simply shorter.
-            var thumbHtml = (!isOnline && meeting.lat && meeting.lng)
-                ? '<div class="card-map" data-lat="' + meeting.lat + '" data-lng="' + meeting.lng + '"></div>'
-                : '';
 
             var trustBadgeHtml = meeting.creator_is_trusted ? '<span class="trust-badge" title="Trusted creator">★</span>' : '';
             var creatorHtml = meeting.creator_username
@@ -631,8 +623,7 @@ document.addEventListener("DOMContentLoaded", function () {
             card.className = 'meeting-card' + (isOnline ? ' is-online' : '');
             card.setAttribute('data-meeting-id', meeting.id);
             card.innerHTML =
-                thumbHtml
-              + '<div class="card-main">'
+                '<div class="card-main">'
               + mediaHtml
               + '<div class="meeting-card-body">'
               +   '<div class="meeting-card-top">'
@@ -660,7 +651,6 @@ document.addEventListener("DOMContentLoaded", function () {
             attachListItemClick(card);
             list.appendChild(card);
         });
-        observeCardMaps();
     }
 
     function locateUser() {
@@ -769,11 +759,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function observeCardMaps() {
         if (!miniObserver) {
+            // Root is the shelf row itself: it scrolls sideways, so a card's
+            // horizontal position is what decides whether it's worth mounting.
             miniObserver = new IntersectionObserver(function (entries) {
                 entries.forEach(function (entry) {
                     if (entry.isIntersecting) mountMini(entry.target);
                 });
-            }, { root: document.getElementById('sheet-scroll'), rootMargin: '300px 0px' });
+            }, { root: document.getElementById('foryou-row'), rootMargin: '0px 250px' });
         }
         document.querySelectorAll('.card-map:not([data-observed])').forEach(function (el) {
             el.setAttribute('data-observed', '1');
