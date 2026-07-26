@@ -17,7 +17,7 @@ export default function VerifyScreen({ route }) {
     setLoading(true);
     try {
       const res = await api.verify(email, code);
-      signIn(res.uid);
+      signIn(res.uid, res.token);
     } catch (e) {
       setError(e.message);
     } finally {

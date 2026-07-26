@@ -2,21 +2,33 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_BASE_URL } from "./config";
 
 let currentUid = null;
+let currentToken = null;
 
 export async function loadStoredUid() {
   currentUid = await AsyncStorage.getItem("uid");
+  currentToken = await AsyncStorage.getItem("token");
   return currentUid;
 }
 
-export function setCurrentUid(uid) {
+/** Save the signed session token the API issues at login/verify. The uid is
+ *  kept only for display — the server derives identity from the token. */
+export function setSession(uid, token) {
   currentUid = uid;
+  currentToken = token || null;
   if (uid) AsyncStorage.setItem("uid", uid);
   else AsyncStorage.removeItem("uid");
+  if (token) AsyncStorage.setItem("token", token);
+  else AsyncStorage.removeItem("token");
+}
+
+// Kept for callers that only have a uid
+export function setCurrentUid(uid) {
+  setSession(uid, currentToken);
 }
 
 async function request(path, { method = "GET", body, auth = true } = {}) {
   const headers = { "Content-Type": "application/json" };
-  if (auth && currentUid) headers["X-User-Id"] = currentUid;
+  if (auth && currentToken) headers["Authorization"] = `Bearer ${currentToken}`;
 
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method,

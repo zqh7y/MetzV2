@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from flask import Flask, session, redirect, url_for, request, jsonify
+from flask import Flask, session, redirect, url_for, request, jsonify, render_template
 from data import search_users, touch_last_online, is_admin, get_all_meetings, is_banned
 from routes.login import login_route
 from routes.signup import signup_route
@@ -16,11 +16,83 @@ from routes.settings import settings_route
 from routes.verify import verify_route, resend_verification_route
 from routes.admin import pending_route, approve_route, decline_route, dashboard_route, ban_route, delete_user_route
 
-app = Flask(__name__)
-app.secret_key = os.environ["FLASK_SECRET_KEY"]  # Required for session
+from utils.security import (
+    csrf_protect, get_csrf_token, add_security_headers,
+)
 
-# Keep users logged in across browser restarts.
-app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
+app = Flask(__name__)
+
+# Anything other than "development" is treated as production: cookies get the
+# Secure flag, debug is refused, and a weak secret key stops the app booting.
+ENV = os.environ.get("FLASK_ENV", "production").lower()
+IS_PRODUCTION = ENV != "development"
+
+SECRET_KEY = os.environ["FLASK_SECRET_KEY"]  # Required for session
+# The old hard-coded key leaked in this repo's git history, so refuse to run
+# with it (or with anything else obviously guessable) in production.
+_WEAK_KEYS = {"supersecretkey123", "replace-with-a-long-random-string", "secret", "changeme"}
+if IS_PRODUCTION and (SECRET_KEY in _WEAK_KEYS or len(SECRET_KEY) < 32):
+    raise RuntimeError(
+        "FLASK_SECRET_KEY is weak or is a known-leaked value. Generate a new one, "
+        "e.g. python -c \"import secrets; print(secrets.token_urlsafe(48))\""
+    )
+
+app.secret_key = SECRET_KEY
+
+app.config.update(
+    # Keep users logged in across browser restarts.
+    PERMANENT_SESSION_LIFETIME=timedelta(days=30),
+    # Session cookie hardening
+    SESSION_COOKIE_HTTPONLY=True,      # not readable from JavaScript
+    SESSION_COOKIE_SAMESITE="Lax",     # not sent on cross-site POSTs
+    SESSION_COOKIE_SECURE=IS_PRODUCTION,   # HTTPS only once deployed
+    # Refuse oversized request bodies (2 MB is plenty for these forms)
+    MAX_CONTENT_LENGTH=2 * 1024 * 1024,
+)
+
+app.before_request(csrf_protect)
+app.after_request(add_security_headers)
+
+
+@app.context_processor
+def inject_csrf_token():
+    """Makes csrf_token() available to every template."""
+    return {"csrf_token": get_csrf_token}
+
+
+@app.errorhandler(404)
+def not_found(_e):
+    return render_template("error.html", code=404,
+                           title="Page not found",
+                           message="That page doesn't exist."), 404
+
+
+@app.errorhandler(403)
+def forbidden(_e):
+    return render_template("error.html", code=403,
+                           title="Not allowed",
+                           message="You don't have permission to view this."), 403
+
+
+@app.errorhandler(400)
+def bad_request(_e):
+    return render_template("error.html", code=400,
+                           title="Bad request",
+                           message="Something was wrong with that request. Try again."), 400
+
+
+@app.errorhandler(500)
+def server_error(_e):
+    app.logger.exception("Unhandled error")
+    return render_template("error.html", code=500,
+                           title="Something broke",
+                           message="Sorry — an unexpected error occurred."), 500
+
+
+@app.route("/healthz")
+def healthz():
+    """Liveness probe for whatever ends up running this."""
+    return jsonify({"status": "ok"})
 
 
 @app.before_request
@@ -152,4 +224,12 @@ def logout():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5050, host="0.0.0.0")
+    # Debug mode exposes the Werkzeug console, which is remote code execution
+    # for anyone who can reach it — so it is opt-in via FLASK_ENV=development,
+    # never the default. In production run a real WSGI server against wsgi.py
+    # (see README) rather than this.
+    app.run(
+        debug=not IS_PRODUCTION,
+        port=int(os.environ.get("PORT", 5050)),
+        host=os.environ.get("HOST", "127.0.0.1" if IS_PRODUCTION else "0.0.0.0"),
+    )

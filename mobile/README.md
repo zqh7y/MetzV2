@@ -102,7 +102,7 @@ will crash on the Home screen until you rebuild it.
 ## What's implemented
 
 - Email/password signup with the same 4-digit email verification flow as the
-  web app (code `1234` always works locally, same as web)
+  web app (code `1234` works only when the API runs with FLASK_ENV=development)
 - Home: a full-screen MapLibre vector map (CARTO Voyager basemap, same as the
   web app) with clustered meeting pins, under a draggable bottom sheet with
   three snap points (peek / half / full) holding the search box, the
@@ -126,8 +126,11 @@ will crash on the Home screen until you rebuild it.
 - Tapping a pin opens the MeetingDetail screen instead of the web's floating
   details card, which is the more native pattern here.
 - No image upload / profile picture picker.
-- The API trusts `X-User-Id` the same way the web app trusts its session
-  cookie (no Firebase token signature verification). Fine for this project's
+- The API no longer trusts a plain `X-User-Id` header: login and verify return
+  a signed token (`utils/tokens.py`) that the client sends as
+  `Authorization: Bearer <token>` and the server verifies on every request.
+  Firebase ID token signatures are still not re-verified — see SECURITY.md.
+  Fine for this project's
   current security model, but worth hardening before any real deployment.
 - No **admin dashboard** equivalent yet — `mobile/backend/admin_routes.py`
   only exposes pending-meeting approve/decline and trust toggle. The web

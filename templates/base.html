@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>{% block title %}Meetup App{% endblock %}</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
@@ -57,6 +58,30 @@
     {% block content %}{% endblock %}
 
     <script>
+        // Attach the CSRF token to every same-origin state-changing fetch, so
+        // each call site doesn't have to remember. Cross-origin requests are
+        // left untouched — the token must never leak to another host.
+        (function () {
+            var token = document.querySelector('meta[name="csrf-token"]');
+            token = token ? token.getAttribute('content') : '';
+            var nativeFetch = window.fetch.bind(window);
+            var SAFE = ['GET', 'HEAD', 'OPTIONS'];
+
+            window.fetch = function (input, init) {
+                init = init || {};
+                var method = (init.method || (typeof input === 'object' && input.method) || 'GET').toUpperCase();
+                var url = typeof input === 'string' ? input : (input && input.url) || '';
+                var sameOrigin = !/^https?:\/\//i.test(url) || url.indexOf(window.location.origin) === 0;
+
+                if (SAFE.indexOf(method) === -1 && sameOrigin) {
+                    var headers = new Headers(init.headers || (typeof input === 'object' ? input.headers : undefined) || {});
+                    if (!headers.has('X-CSRF-Token')) headers.set('X-CSRF-Token', token);
+                    init = Object.assign({}, init, { headers: headers, credentials: init.credentials || 'same-origin' });
+                }
+                return nativeFetch(input, init);
+            };
+        })();
+
         function toggleJoin(btn, meetingId) {
             fetch('/join/' + meetingId, { method: 'POST' })
                 .then(function (r) { return r.json(); })

@@ -1,3 +1,18 @@
+// ─── HTML escaping ───────────────────────────────────────────────────────────
+// Cards and the info panel are built with innerHTML, so every value that came
+// from a user has to be escaped on the way in. Titles and descriptions are
+// already escaped server-side, but locations, links and usernames are not —
+// a meeting whose location is "<img src=x onerror=...>" would otherwise run.
+function esc(value) {
+    if (value === null || value === undefined) return '';
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 // ─── Joined avatars stack ────────────────────────────────────────────────────
 function buildJoinedAvatarsHtml(meeting) {
     var preview = meeting.joined_preview || [];
@@ -5,9 +20,9 @@ function buildJoinedAvatarsHtml(meeting) {
     if (count === 0) return '';
     var html = '<div class="joined-avatars">';
     preview.forEach(function (u) {
-        var style = !u.profile_picture ? ' style="background: ' + u.color + ';"' : '';
-        var inner = u.profile_picture ? '<img src="' + u.profile_picture + '" alt="">' : '<span>' + u.initial + '</span>';
-        html += '<div class="joined-avatar"' + style + ' title="' + u.uid + '">' + inner + '</div>';
+        var style = !u.profile_picture ? ' style="background: ' + esc(u.color) + ';"' : '';
+        var inner = u.profile_picture ? '<img src="' + esc(u.profile_picture) + '" alt="">' : '<span>' + esc(u.initial) + '</span>';
+        html += '<div class="joined-avatar"' + style + ' title="' + esc(u.uid) + '">' + inner + '</div>';
     });
     if (count > 4) {
         html += '<div class="joined-avatar joined-avatar-more">+' + (count - 4) + '</div>';
@@ -178,22 +193,22 @@ document.addEventListener("DOMContentLoaded", function () {
 
         var extraRow = '';
         if (meeting.location) {
-            extraRow = '<div class="info-detail-row"><span class="info-detail-icon">📍</span><span>' + meeting.location + '</span></div>';
+            extraRow = '<div class="info-detail-row"><span class="info-detail-icon">📍</span><span>' + esc(meeting.location) + '</span></div>';
         } else if (meeting.link) {
             extraRow = '<div class="info-detail-row"><span class="info-detail-icon">🔗</span>'
-                     + '<a href="' + meeting.link + '" target="_blank" class="info-join-link">Join meeting →</a></div>';
+                     + '<a href="' + esc(meeting.link) + '" target="_blank" rel="noopener noreferrer" class="info-join-link">Join meeting →</a></div>';
         }
 
         clearRoute();
 
         var trustBadgeHtml = meeting.creator_is_trusted ? '<span class="trust-badge" title="Trusted creator">★</span>' : '';
         var creatorHtml = meeting.creator_username
-            ? '<div class="info-detail-row"><span class="info-detail-icon">👤</span><span>' + meeting.creator_username + trustBadgeHtml + '</span></div>'
+            ? '<div class="info-detail-row"><span class="info-detail-icon">👤</span><span>' + esc(meeting.creator_username) + trustBadgeHtml + '</span></div>'
             : '';
 
         var tagsHtml = (meeting.tags && meeting.tags.length)
             ? '<div class="meeting-card-tags">' + meeting.tags.map(function (t) {
-                return '<span class="meeting-card-tag">' + t + '</span>';
+                return '<span class="meeting-card-tag">' + esc(t) + '</span>';
               }).join('') + '</div>'
             : '';
 
@@ -208,16 +223,16 @@ document.addEventListener("DOMContentLoaded", function () {
             : '';
 
         infoPanelContent.innerHTML =
-            '<div class="info-sticky-title"><span>' + meeting.title + '</span></div>'
+            '<div class="info-sticky-title"><span>' + esc(meeting.title) + '</span></div>'
             + '<div class="info-hero">'
             +   '<span class="info-badge ' + badgeClass + '">' + badge + '</span>'
-            +   '<h3 class="info-hero-title">' + meeting.title + '</h3>'
+            +   '<h3 class="info-hero-title">' + esc(meeting.title) + '</h3>'
             + '</div>'
             + '<div class="info-body">'
             +   tagsHtml
-            +   '<p class="info-desc">' + meeting.description + '</p>'
+            +   '<p class="info-desc">' + esc(meeting.description) + '</p>'
             +   '<div class="info-details">'
-            +     '<div class="info-detail-row"><span class="info-detail-icon">🕐</span><span title="' + meeting.time + '">' + formatTimeUntil(meeting.time) + '</span></div>'
+            +     '<div class="info-detail-row"><span class="info-detail-icon">🕐</span><span title="' + esc(meeting.time) + '">' + esc(formatTimeUntil(meeting.time)) + '</span></div>'
             +     creatorHtml
             +     extraRow
             +   '</div>'
@@ -644,12 +659,12 @@ document.addEventListener("DOMContentLoaded", function () {
             var isOnline = meeting.type === 'OnlineMeeting';
             var badge = isOnline ? '🌐 Online' : '📍 In-Person';
             var badgeClass = isOnline ? 'badge-type-online' : 'badge-type-inperson';
-            var addressText = meeting.location ? '📍 ' + (meeting.short_location || meeting.location)
+            var addressText = meeting.location ? '📍 ' + esc(meeting.short_location || meeting.location)
                         : meeting.link    ? '🔗 Online' : '';
 
             var tagsHtml = (meeting.tags && meeting.tags.length)
                 ? '<div class="meeting-card-tags">' + meeting.tags.map(function (t) {
-                    return '<span class="meeting-card-tag">' + t + '</span>';
+                    return '<span class="meeting-card-tag">' + esc(t) + '</span>';
                   }).join('') + '</div>'
                 : '';
 
@@ -658,7 +673,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
             var trustBadgeHtml = meeting.creator_is_trusted ? '<span class="trust-badge" title="Trusted creator">★</span>' : '';
             var creatorHtml = meeting.creator_username
-                ? '<span class="meeting-card-creator">👤 ' + meeting.creator_username + trustBadgeHtml + '</span>'
+                ? '<span class="meeting-card-creator">👤 ' + esc(meeting.creator_username) + trustBadgeHtml + '</span>'
                 : '';
 
             var joined = (meeting.joined_uids || []).indexOf(CURRENT_UID) !== -1;
@@ -679,14 +694,14 @@ document.addEventListener("DOMContentLoaded", function () {
               + '<div class="meeting-card-body">'
               +   '<div class="meeting-card-top">'
               +     '<span class="meeting-card-type-badge ' + badgeClass + '">' + badge + '</span>'
-              +     '<span class="meeting-card-time" title="' + meeting.time + '">' + formatTimeUntil(meeting.time) + '</span>'
+              +     '<span class="meeting-card-time" title="' + esc(meeting.time) + '">' + esc(formatTimeUntil(meeting.time)) + '</span>'
               +   '</div>'
               +   '<div class="meeting-card-title-row">'
-              +     '<h4 class="meeting-card-title">' + meeting.title + '</h4>'
+              +     '<h4 class="meeting-card-title">' + esc(meeting.title) + '</h4>'
               +     (addressText ? '<span class="meeting-card-address">' + addressText + '</span>' : '')
               +   '</div>'
               +   tagsHtml
-              +   '<p class="meeting-card-desc">' + meeting.description + '</p>'
+              +   '<p class="meeting-card-desc">' + esc(meeting.description) + '</p>'
               +   '<div class="meeting-card-footer">'
               +     creatorHtml
               +     buildJoinedAvatarsHtml(meeting)

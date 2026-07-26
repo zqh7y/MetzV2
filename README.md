@@ -512,6 +512,38 @@ the project keep working.
 
 ---
 
+## 🔒 Security & running in production
+
+The security model, the protections in place (CSRF, rate limiting, CSP,
+signed API tokens, session hardening) and an honest list of remaining gaps
+are documented in **[SECURITY.md](SECURITY.md)**.
+
+Two things matter most when deploying:
+
+1. **Set `FLASK_ENV` to anything but `development`** (or leave it unset).
+   That turns off debug mode, puts the `Secure` flag on session cookies,
+   rejects the `1234` verification shortcut, requires an explicit CORS
+   allow-list for the mobile API, and refuses to start on a weak
+   `FLASK_SECRET_KEY`.
+
+2. **Don't serve it with `python app.py`.** That is Flask's development
+   server. Use a real WSGI server against [`wsgi.py`](wsgi.py):
+
+   ```bash
+   pip install -r requirements-prod.txt
+
+   # Linux / macOS
+   gunicorn --workers 4 --bind 0.0.0.0:8000 wsgi:app
+
+   # Windows
+   waitress-serve --port=8000 wsgi:app
+   ```
+
+   Behind a reverse proxy, set `TRUST_PROXY=1` so client IPs and HTTPS
+   detection work correctly.
+
+`/healthz` (web) and `/api/health` (mobile API) are liveness endpoints.
+
 ## 🗺️ Main routes
 
 | Route | Description |
@@ -535,14 +567,16 @@ the project keep working.
 
 ## 📚 Notes
 
-- This is a **school project** — the admin email list is intentionally
-  simple (hardcoded) and **not production-ready**. Secrets (Flask session
+- The admin email list is still hardcoded in `data.py`. See
+  [`SECURITY.md`](SECURITY.md) for the full security model and the list of
+  known gaps. Secrets (Flask session
   key, Firebase Web API key, MySQL credentials, the data-encryption key)
   live in a gitignored `.env` file rather than in source — see
   [`.env.example`](.env.example) for what's needed.
-- A development shortcut: during signup verification, the code **`1234`**
-  is always accepted in addition to the real generated code, so the flow can
-  be tested without email access.
+- A development shortcut: during signup verification, the code **`1234`** is
+  accepted in addition to the real generated code **only when
+  `FLASK_ENV=development`**. In production it is rejected — otherwise email
+  verification would be optional for every account.
 - [`sources.md`](sources.md) is a Russian-language exam-prep Q&A document
   with real file/line references into this codebase — useful background
   reading on *why* things are built the way they are, not part of the app

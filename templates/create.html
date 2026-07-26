@@ -26,6 +26,7 @@
     {% endif %}
 
     <form method="post" onsubmit="return validateMeetingForm(this)">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group">
             <label for="title">Meeting Title</label>
             <input type="text" id="title" name="title" placeholder="e.g. Morning Yoga Session" required maxlength="100">

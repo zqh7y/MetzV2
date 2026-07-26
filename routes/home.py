@@ -8,12 +8,15 @@ FOR_YOU_LIMIT = 12
 
 
 def home_route():
+    # Home used to register and sign in a throwaway "test@example.com" user
+    # for anyone arriving without a session, which meant the whole app was
+    # reachable without logging in. Visitors go to the login page instead.
     if "user" not in session:
-        uid = register_user("test@example.com")
-        session["user"] = {"email": "test@example.com", "uid": uid}
-    elif not get_user(session["user"].get("uid", "")):
-        # Session survived a server restart but the in-memory/persisted user
-        # record didn't (e.g. stale cookie from before app_data.json existed).
+        return redirect(url_for("login"))
+
+    if not get_user(session["user"].get("uid", "")):
+        # Session survived a server restart but the persisted user record
+        # didn't (e.g. a stale cookie from an earlier database).
         uid = register_user(session["user"]["email"])
         session["user"]["uid"] = uid
 

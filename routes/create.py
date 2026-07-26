@@ -33,6 +33,9 @@ def create_route():
         else:
             title = sanitize_html(title)
             description = sanitize_html(description)
+            # Locations come from a free-text box (and from Nominatim), and end
+            # up injected into cards client-side — sanitize them too.
+            location_name = sanitize_html(location_name)
             uid = session["user"].get("uid", "")
 
             if meeting_type == "inperson":

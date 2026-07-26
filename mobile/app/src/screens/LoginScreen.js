@@ -18,7 +18,7 @@ export default function LoginScreen({ navigation }) {
     setLoading(true);
     try {
       const res = await api.login(email, password);
-      signIn(res.uid);
+      signIn(res.uid, res.token);
     } catch (e) {
       setError(e.message);
     } finally {

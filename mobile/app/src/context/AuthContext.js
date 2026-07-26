@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { api, loadStoredUid, setCurrentUid } from "../api";
+import { api, loadStoredUid, setSession } from "../api";
 
 const AuthContext = createContext(null);
 
@@ -29,14 +29,14 @@ export function AuthProvider({ children }) {
     }
   }
 
-  function signIn(newUid) {
-    setCurrentUid(newUid);
+  function signIn(newUid, token) {
+    setSession(newUid, token);
     setUid(newUid);
     refreshProfile();
   }
 
   function signOut() {
-    setCurrentUid(null);
+    setSession(null, null);
     setUid(null);
     setProfile(null);
   }

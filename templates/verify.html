@@ -19,6 +19,7 @@
     {% endif %}
 
     <form method="post" id="verify-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="code-input-row">
             <input type="text" name="digit0" class="code-input" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" required autofocus>
             <input type="text" name="digit1" class="code-input" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" required>

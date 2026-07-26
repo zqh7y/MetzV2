@@ -53,6 +53,7 @@ def create_meeting():
 
     title = sanitize_html(title)
     description = sanitize_html(description)
+    location_name = sanitize_html(location_name)
 
     if meeting_type == "inperson":
         try:

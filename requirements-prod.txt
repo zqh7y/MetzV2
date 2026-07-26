@@ -1,0 +1,9 @@
+# Production extras, on top of requirements.txt.
+# Flask's built-in server is single-threaded and not meant to face the
+# internet — run one of these against wsgi.py instead.
+
+# Linux / macOS
+gunicorn==23.0.0
+
+# Windows
+waitress==3.0.2

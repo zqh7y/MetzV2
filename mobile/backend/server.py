@@ -14,9 +14,9 @@ the React Native app.
 Auth model mirrors the web app's: the client signs in against Firebase
 (same API key/project), we register/lookup the user the same way
 data.register_user() does, and from then on the client sends its uid in the
-X-User-Id header. We never re-verify the Firebase idToken signature here —
-the original Flask app doesn't either (it just trusts session["user"]), so
-this keeps the security model identical rather than inventing a new one.
+signed token (see utils/tokens.py), sent as `Authorization: Bearer <token>`
+and verified on every request. The old "trust whatever uid the client sends"
+model let anyone impersonate any user, including admins.
 """
 
 import os
@@ -48,11 +48,30 @@ app.register_blueprint(profile_bp)
 app.register_blueprint(admin_bp)
 
 
+# A wildcard CORS policy lets any website call this API with a user's token.
+# Development keeps "*" for convenience; production needs an explicit list.
+IS_PRODUCTION = os.environ.get("FLASK_ENV", "production").lower() != "development"
+ALLOWED_ORIGINS = [
+    o.strip() for o in os.environ.get("MOBILE_CORS_ORIGINS", "*").split(",") if o.strip()
+]
+if IS_PRODUCTION and ALLOWED_ORIGINS == ["*"]:
+    raise RuntimeError(
+        "MOBILE_CORS_ORIGINS must list the allowed origins in production "
+        "(a wildcard would let any site call this API on a user's behalf)."
+    )
+
+
 @app.after_request
 def add_cors_headers(response):
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type, X-User-Id"
+    origin = request.headers.get("Origin", "")
+    if ALLOWED_ORIGINS == ["*"]:
+        response.headers["Access-Control-Allow-Origin"] = "*"
+    elif origin in ALLOWED_ORIGINS:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Vary"] = "Origin"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-User-Id"
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, DELETE, OPTIONS"
+    response.headers["X-Content-Type-Options"] = "nosniff"
     return response
 
 
@@ -63,7 +82,8 @@ def cors_preflight(_any):
 
 @app.before_request
 def update_last_online():
-    uid = request.headers.get("X-User-Id", "")
+    from helpers import current_uid   # verified identity, not a raw header
+    uid = current_uid()
     if uid:
         touch_last_online(uid)
 
@@ -75,4 +95,10 @@ def health():
 
 if __name__ == "__main__":
     # Separate port from the Flask web app (5050) so both can run side by side.
-    app.run(debug=True, host="0.0.0.0", port=5051)
+    # Debug mode exposes the Werkzeug console (remote code execution for anyone
+    # who can reach it), so it follows FLASK_ENV rather than being hard-coded.
+    app.run(
+        debug=not IS_PRODUCTION,
+        host=os.environ.get("HOST", "127.0.0.1" if IS_PRODUCTION else "0.0.0.0"),
+        port=int(os.environ.get("MOBILE_API_PORT", 5051)),
+    )

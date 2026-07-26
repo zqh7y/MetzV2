@@ -23,6 +23,7 @@
         <p class="profile-email">@{{ uid }}</p>
         {% if viewer_is_admin %}
         <form method="post" action="/admin/trust/{{ uid }}" class="trust-toggle-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="trust-toggle-btn {% if is_trusted %}is-trusted{% endif %}">
                 {{ '★ Remove Trusted Status' if is_trusted else '☆ Mark as Trusted' }}
             </button>
