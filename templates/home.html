@@ -227,6 +227,28 @@
                         <span class="meeting-card-address">🔗 Online</span>
                         {% endif %}
                     </div>
+                    {% if meeting.has_threshold %}
+                    <div class="threshold {% if meeting.commit_status == 'confirmed' %}is-confirmed{% elif meeting.commit_status == 'cancelled' %}is-cancelled{% endif %}">
+                        <div class="threshold-top">
+                            <span class="threshold-label">
+                                {% if meeting.commit_status == 'confirmed' %}✅ Confirmed — it's happening
+                                {% elif meeting.commit_status == 'cancelled' %}🚫 Called off
+                                {% elif meeting.commit_status == 'awaiting' %}⏳ Deadline passed — organiser deciding
+                                {% else %}{{ meeting.joined_uids|length }} of {{ meeting.min_attendees }} needed{% endif %}
+                            </span>
+                            {% if meeting.join_deadline and meeting.commit_status == 'gathering' %}
+                            <span class="threshold-deadline">by {{ meeting.join_deadline }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="threshold-bar">
+                            <div class="threshold-bar-fill" style="width: {{ meeting.threshold_progress }}%;"></div>
+                        </div>
+                        {% if meeting.spots_left is not none and meeting.spots_left == 0 %}
+                        <span class="threshold-full">Full — joining adds you to the waitlist{% if meeting.waitlist_uids %} ({{ meeting.waitlist_uids|length }} waiting){% endif %}</span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
                     {% if meeting.tags %}
                     <div class="meeting-card-tags">
                         {% for t in meeting.tags %}

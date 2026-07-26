@@ -3,7 +3,8 @@ from flask import render_template, session, redirect, url_for, abort
 from flask import request
 from data import (get_user, generate_user_color, is_admin, is_trusted, set_trusted,
                   get_account_status, get_all_meetings, get_joined_users_preview, shorten_address,
-                  update_profile, PROFILE_EMOJIS, MAX_DISPLAY_NAME, MAX_BIO)
+                  update_profile, PROFILE_EMOJIS, MAX_DISPLAY_NAME, MAX_BIO,
+                  meetings_awaiting_decision)
 
 
 def _format_timestamp(iso_str):
@@ -89,9 +90,11 @@ def profile_route():
         avatar_emoji = ""
 
     joined = _joined_meetings(uid, user)
+    awaiting = meetings_awaiting_decision(uid)
 
     return render_template(
         "profile.html",
+        awaiting=awaiting,
         username=username,
         email=email,
         uid=uid,

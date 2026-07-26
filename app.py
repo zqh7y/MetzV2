@@ -10,7 +10,7 @@ from routes.login import login_route
 from routes.signup import signup_route
 from routes.home import home_route
 from routes.create import create_route
-from routes.meeting_actions import pass_route, join_route, delete_route
+from routes.meeting_actions import pass_route, join_route, delete_route, decide_route
 from routes.profile import profile_route, user_profile_route, toggle_trust_route, edit_profile_route
 from routes.settings import settings_route
 from routes.verify import verify_route, resend_verification_route
@@ -152,6 +152,11 @@ def pass_meeting(meeting_id):
 @app.route("/join/<int:meeting_id>", methods=["POST"])
 def join_meeting(meeting_id):
     return join_route(meeting_id)
+
+
+@app.route("/meeting/<int:meeting_id>/decide", methods=["POST"])
+def decide_meeting(meeting_id):
+    return decide_route(meeting_id)
 
 
 @app.route("/delete/<int:meeting_id>", methods=["POST"])

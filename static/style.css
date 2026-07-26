@@ -4300,3 +4300,143 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     color: var(--text);
     word-break: break-word;
 }
+
+/* ═══ Threshold meetings ═════════════════════════════════════════════════
+   "This only happens if enough people join." The bar is the whole point:
+   at a glance you know whether a meeting is real yet. */
+.threshold {
+    margin: 8px 0 6px 0;
+    padding: 8px 10px;
+    border-radius: 12px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+}
+
+.threshold.is-confirmed { border-color: var(--accent); background: var(--accent-soft); }
+.threshold.is-cancelled { opacity: 0.6; }
+
+.threshold-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.threshold-label { font-size: 11.5px; font-weight: 800; color: var(--text); }
+.threshold-deadline { font-size: 10.5px; font-weight: 700; color: var(--text-3); white-space: nowrap; }
+
+.threshold-bar {
+    height: 6px;
+    border-radius: 4px;
+    background: var(--surface-3);
+    overflow: hidden;
+}
+
+.threshold-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-strong));
+    transition: width 0.5s var(--spring);
+}
+
+.threshold.is-confirmed .threshold-bar-fill { background: var(--accent); }
+
+.threshold-full {
+    display: block;
+    margin-top: 6px;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--text-2);
+}
+
+/* Threshold controls in the create wizard */
+.stepper { display: flex; align-items: center; gap: 8px; }
+
+.stepper input {
+    width: 88px;
+    text-align: center;
+    font-size: 17px !important;
+    font-weight: 800;
+}
+
+.stepper-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    border: 1.5px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text);
+    font-size: 20px;
+    font-weight: 800;
+    line-height: 1;
+    cursor: pointer;
+    transition: transform 0.2s var(--spring), border-color 0.2s;
+}
+
+.stepper-btn:hover { transform: translateY(-2px); border-color: var(--accent); }
+
+.threshold-preview {
+    margin-top: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: var(--accent-soft);
+    color: var(--accent-deep);
+    font-size: 12.5px;
+    font-weight: 700;
+}
+
+/* Organiser's decision prompt on Profile */
+.decision-section { border: 1.5px solid var(--accent); }
+
+.decision-card {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px;
+    margin-bottom: 10px;
+}
+
+.decision-card.is-decided { opacity: 0.65; }
+
+.decision-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.decision-title { margin: 0; font-size: 14.5px; font-weight: 800; color: var(--text); }
+.decision-count { font-size: 11.5px; font-weight: 700; color: var(--text-3); white-space: nowrap; }
+
+.decision-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+
+.decision-btn {
+    flex: 1 1 auto;
+    padding: 9px 12px;
+    border-radius: 11px;
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    color: var(--text-2);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: transform 0.2s var(--spring), border-color 0.2s, color 0.2s;
+}
+
+.decision-btn:hover:not(:disabled) { transform: translateY(-2px); border-color: var(--accent); }
+.decision-btn:disabled { cursor: default; opacity: 0.5; }
+
+.decision-run { background: var(--accent); border-color: var(--accent); color: var(--accent-on); }
+.decision-cancel { color: #e74c3c; }
+
+.decision-result {
+    margin: 10px 0 0 0;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent-deep);
+}
+
+.decision-result[hidden] { display: none; }

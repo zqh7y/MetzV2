@@ -19,3 +19,6 @@ sources.docx
 
 # Node
 node_modules/
+
+# Database dumps
+backups/

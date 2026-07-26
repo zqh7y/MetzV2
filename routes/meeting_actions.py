@@ -5,8 +5,9 @@ These are fetch() endpoints, not pages: the meeting cards on Home and the
 pages that used to live here are gone — their content moved into those two
 pages instead."""
 import requests
-from flask import session, jsonify
-from data import user_pass, toggle_join_meeting, delete_meeting, get_joined_users_preview, MEETINGS_DB
+from flask import session, jsonify, request
+from data import (user_pass, toggle_join_meeting, delete_meeting, get_joined_users_preview,
+                  decide_threshold, MEETINGS_DB)
 
 BROADCAST_URL = "http://127.0.0.1:8766/broadcast"
 
@@ -46,3 +47,17 @@ def delete_route(meeting_id):
     if delete_meeting(meeting_id, uid):
         return jsonify({"status": "deleted"})
     return jsonify({"error": "forbidden"}), 403
+
+
+def decide_route(meeting_id):
+    """Organiser's verdict once a threshold deadline passes short of the
+    minimum: run it anyway, extend the deadline, or call it off."""
+    uid = session.get("user", {}).get("uid", "")
+    body = request.get_json(silent=True) or {}
+    action = body.get("action", "")
+    new_deadline = body.get("deadline", "")
+
+    result = decide_threshold(meeting_id, uid, action, new_deadline)
+    if result is None:
+        return jsonify({"error": "Not allowed, or that action doesn't make sense here."}), 403
+    return jsonify(result)

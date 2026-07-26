@@ -112,6 +112,38 @@
         </div>
     </div>
 
+    <!-- Threshold meetings whose deadline passed short of the minimum -->
+    {% if awaiting %}
+    <div class="profile-section decision-section">
+        <h3 class="profile-section-title">⏳ Your call</h3>
+        <p class="settings-hint">These didn't reach their minimum by the deadline. Nobody sees them as failed — decide what happens.</p>
+
+        {% for m in awaiting %}
+        <div class="decision-card" id="decision-{{ m.id }}">
+            <div class="decision-head">
+                <h4 class="decision-title">{{ m.title }}</h4>
+                <span class="decision-count">{{ m.joined_uids|length }} of {{ m.min_attendees }} joined</span>
+            </div>
+            <div class="threshold-bar">
+                <div class="threshold-bar-fill" style="width: {{ m.threshold_progress }}%;"></div>
+            </div>
+            <div class="decision-actions">
+                <button type="button" class="decision-btn decision-run" onclick="decide({{ m.id }}, 'run')">
+                    Run it anyway
+                </button>
+                <button type="button" class="decision-btn" onclick="decideExtend({{ m.id }})">
+                    Give it longer
+                </button>
+                <button type="button" class="decision-btn decision-cancel" onclick="decide({{ m.id }}, 'cancel')">
+                    Call it off
+                </button>
+            </div>
+            <p class="decision-result" id="decision-result-{{ m.id }}" hidden></p>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
     <!-- My Meetings — the old /joined page, folded in as a section -->
     <div class="profile-section">
         <div class="profile-section-head">
@@ -243,6 +275,40 @@
         el.title = el.getAttribute('data-time');
         el.textContent = formatTimeUntil(el.getAttribute('data-time'));
     });
+
+    // ── Threshold decisions ──────────────────────────────────────────
+    function decide(id, action, deadline) {
+        var result = document.getElementById('decision-result-' + id);
+        fetch('/meeting/' + id + '/decide', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: action, deadline: deadline || '' })
+        })
+            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+            .then(function (res) {
+                result.hidden = false;
+                if (!res.ok) {
+                    result.textContent = res.data.error || 'That did not work.';
+                    return;
+                }
+                var said = {
+                    confirmed: '✅ Confirmed — everyone who joined has been kept in.',
+                    cancelled: '🚫 Called off. The people who joined can see it is cancelled.',
+                    gathering: '⏳ Deadline moved — it is collecting people again.'
+                }[res.data.commit_status] || 'Updated.';
+                result.textContent = said;
+                var card = document.getElementById('decision-' + id);
+                card.classList.add('is-decided');
+                card.querySelectorAll('.decision-btn').forEach(function (b) { b.disabled = true; });
+            });
+    }
+
+    function decideExtend(id) {
+        // Deliberately the same format the server parses: YYYY-MM-DD HH:MM
+        var when = prompt('New deadline (YYYY-MM-DD HH:MM):');
+        if (!when) return;
+        decide(id, 'extend', when.trim());
+    }
 
     // ── My Meetings ──────────────────────────────────────────────────
     function showJoined(which) {

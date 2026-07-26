@@ -793,6 +793,27 @@ document.addEventListener("DOMContentLoaded", function () {
 
             var mediaHtml = '<div class="meeting-card-accent ' + ACCENTS[i % 5] + '"></div>';
 
+            // "Only happens if N join" progress, mirroring the server-rendered card
+            var thresholdHtml = '';
+            if (meeting.has_threshold) {
+                var state = meeting.commit_status;
+                var label = state === 'confirmed' ? '✅ Confirmed — it's happening'
+                          : state === 'cancelled' ? '🚫 Called off'
+                          : state === 'awaiting'  ? '⏳ Deadline passed — organiser deciding'
+                          : (meeting.joined_uids || []).length + ' of ' + meeting.min_attendees + ' needed';
+                var deadline = (meeting.join_deadline && state === 'gathering')
+                    ? '<span class="threshold-deadline">by ' + esc(meeting.join_deadline) + '</span>' : '';
+                var full = (meeting.spots_left === 0)
+                    ? '<span class="threshold-full">Full — joining adds you to the waitlist' +
+                      (meeting.waitlist_count ? ' (' + meeting.waitlist_count + ' waiting)' : '') + '</span>' : '';
+                thresholdHtml =
+                    '<div class="threshold' + (state === 'confirmed' ? ' is-confirmed' : state === 'cancelled' ? ' is-cancelled' : '') + '">' +
+                      '<div class="threshold-top"><span class="threshold-label">' + esc(label) + '</span>' + deadline + '</div>' +
+                      '<div class="threshold-bar"><div class="threshold-bar-fill" style="width:' +
+                          (meeting.threshold_progress || 0) + '%"></div></div>' + full +
+                    '</div>';
+            }
+
 
             var trustBadgeHtml = meeting.creator_is_trusted ? '<span class="trust-badge" title="Trusted creator">★</span>' : '';
             var creatorHtml = meeting.creator_username
@@ -823,6 +844,7 @@ document.addEventListener("DOMContentLoaded", function () {
               +     '<h4 class="meeting-card-title">' + esc(meeting.title) + '</h4>'
               +     (addressText ? '<span class="meeting-card-address">' + addressText + '</span>' : '')
               +   '</div>'
+              +   thresholdHtml
               +   tagsHtml
               +   '<p class="meeting-card-desc">' + esc(meeting.description) + '</p>'
               +   '<div class="meeting-card-footer">'

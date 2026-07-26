@@ -159,6 +159,9 @@ def get_all_meetings(status=None):
     """Return meetings as model objects, optionally filtered by status
     ("approved" or "pending")."""
     from utils.models import meeting_from_dict
+    # Deadlines take effect here rather than via a scheduler, so a meeting is
+    # always in the right state by the time anyone looks at it.
+    refresh_all_commit_statuses()
     meetings = [meeting_from_dict(d) for d in MEETINGS_DB.values()]
     if status:
         meetings = [m for m in meetings if m.status == status]
@@ -232,18 +235,92 @@ def can_delete_meeting(uid, meeting):
     return meeting.get("creator_uid") == uid
 
 
+def _parse_deadline(value):
+    """Deadlines are stored as 'YYYY-MM-DD HH:MM' local time."""
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%d %H:%M")
+    except (ValueError, TypeError):
+        return None
+
+
+def _refresh_commit_status(m):
+    """Move a meeting through its commitment lifecycle.
+
+    gathering -> confirmed  as soon as the minimum is reached
+    gathering -> awaiting   when the deadline passes still short of it
+                            (the organiser then decides — see decide_threshold)
+    """
+    minimum = int(m.get("min_attendees") or 0)
+    if not minimum:
+        m["commit_status"] = m.get("commit_status") or "open"
+        return m["commit_status"]
+
+    state = m.get("commit_status") or "gathering"
+    if state in ("cancelled", "confirmed"):
+        return state
+
+    joined = len(m.get("joined_uids", []))
+    if joined >= minimum:
+        m["commit_status"] = "confirmed"
+    else:
+        deadline = _parse_deadline(m.get("join_deadline"))
+        m["commit_status"] = "awaiting" if deadline and datetime.now() > deadline else "gathering"
+    return m["commit_status"]
+
+
+def refresh_all_commit_statuses():
+    """Called when meetings are read, so deadlines take effect without a
+    background scheduler. Cheap: a handful of comparisons per meeting."""
+    changed = False
+    for m in MEETINGS_DB.values():
+        before = m.get("commit_status")
+        if _refresh_commit_status(m) != before:
+            changed = True
+    if changed:
+        save_data()
+
+
 def toggle_join_meeting(uid, meeting_id):
-    """Toggle a user's join on a meeting. Returns {"joined": bool, "count": int} or None."""
+    """Toggle a user's join on a meeting.
+
+    Respects the optional cap: once a meeting is full, further joiners go on
+    the waitlist, and leaving promotes the person who has waited longest.
+    Returns {"joined", "count", ...} or None.
+    """
     m = MEETINGS_DB.get(meeting_id)
     user = USERS_DB.get(uid)
     if not m or not uid:
         return None
+
     joined_uids = m.setdefault("joined_uids", [])
+    waitlist = m.setdefault("waitlist_uids", [])
+    cap = int(m.get("max_attendees") or 0)
+    promoted_uid = None
+    waitlisted = False
+
     if uid in joined_uids:
         joined_uids.remove(uid)
         joined = False
         if user and meeting_id in user["joined_meeting_ids"]:
             user["joined_meeting_ids"].remove(meeting_id)
+        # A place just opened up — give it to whoever waited longest
+        if waitlist and (not cap or len(joined_uids) < cap):
+            promoted_uid = waitlist.pop(0)
+            joined_uids.append(promoted_uid)
+            promoted = USERS_DB.get(promoted_uid)
+            if promoted and meeting_id not in promoted["joined_meeting_ids"]:
+                promoted["joined_meeting_ids"].append(meeting_id)
+    elif uid in waitlist:
+        waitlist.remove(uid)          # leaving the waitlist
+        joined = False
+    elif cap and len(joined_uids) >= cap:
+        waitlist.append(uid)          # full: queue instead of rejecting
+        joined = False
+        waitlisted = True
+        if user and meeting_id not in user["swiped_ids"]:
+            user["swiped_ids"].append(meeting_id)
     else:
         joined_uids.append(uid)
         joined = True
@@ -251,8 +328,59 @@ def toggle_join_meeting(uid, meeting_id):
             user["joined_meeting_ids"].append(meeting_id)
         if user and meeting_id not in user["swiped_ids"]:
             user["swiped_ids"].append(meeting_id)
+
+    _refresh_commit_status(m)
     save_data()
-    return {"joined": joined, "count": len(joined_uids)}
+    return {
+        "joined": joined,
+        "count": len(joined_uids),
+        "waitlisted": waitlisted,
+        "waitlist_count": len(waitlist),
+        "promoted_uid": promoted_uid,
+        "commit_status": m.get("commit_status"),
+        "min_attendees": int(m.get("min_attendees") or 0),
+        "spots_left": (max(0, cap - len(joined_uids)) if cap else None),
+    }
+
+
+def decide_threshold(meeting_id, uid, action, new_deadline=""):
+    """The organiser's call once a deadline passes under the minimum.
+
+    action: "run" (do it anyway), "extend" (new deadline), "cancel".
+    Only the meeting's creator or an admin may decide.
+    """
+    m = MEETINGS_DB.get(meeting_id)
+    if not m:
+        return None
+    if m.get("creator_uid") != uid and not is_admin(uid):
+        return None
+
+    if action == "run":
+        m["commit_status"] = "confirmed"
+    elif action == "cancel":
+        m["commit_status"] = "cancelled"
+    elif action == "extend":
+        if not _parse_deadline(new_deadline):
+            return None
+        m["join_deadline"] = new_deadline
+        m["commit_status"] = "gathering"
+        _refresh_commit_status(m)
+    else:
+        return None
+
+    save_data()
+    return {"commit_status": m["commit_status"], "join_deadline": m.get("join_deadline", "")}
+
+
+def meetings_awaiting_decision(uid):
+    """Threshold meetings this user organises that have passed their deadline
+    without filling — surfaced on their profile so the decision isn't missed."""
+    refresh_all_commit_statuses()
+    from utils.models import meeting_from_dict
+    return [
+        meeting_from_dict(m) for m in MEETINGS_DB.values()
+        if m.get("creator_uid") == uid and m.get("commit_status") == "awaiting"
+    ]
 
 
 def is_admin(uid):

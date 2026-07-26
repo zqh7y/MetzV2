@@ -15,8 +15,17 @@ class Meeting:
 
     DEFAULT_EMOJI = "📍"
 
+    # Commitment lifecycle, separate from `status` (which is admin moderation):
+    #   open      - ordinary meeting, no minimum
+    #   gathering - has a minimum, still collecting people
+    #   awaiting  - deadline passed under the minimum; the organiser must decide
+    #   confirmed - minimum reached (or the organiser chose to run it anyway)
+    #   cancelled - called off
+    COMMIT_STATES = ("open", "gathering", "awaiting", "confirmed", "cancelled")
+
     def __init__(self, id, title, description, time,
-                 creator_uid=None, creator_username=None, joined_uids=None, emoji=None, tags=None, status=None):
+                 creator_uid=None, creator_username=None, joined_uids=None, emoji=None, tags=None, status=None,
+                 min_attendees=0, max_attendees=0, join_deadline="", commit_status=None, waitlist_uids=None):
         self.id = id
         self.title = title
         self.description = description
@@ -28,6 +37,31 @@ class Meeting:
         self.tags = tags or []
         # "approved" meetings are publicly visible; "pending" ones await admin review.
         self.status = status or "approved"
+
+        # ── Threshold ("this only happens if enough people join") ──────────
+        self.min_attendees = int(min_attendees or 0)
+        self.max_attendees = int(max_attendees or 0)      # 0 = unlimited
+        self.join_deadline = join_deadline or ""          # "YYYY-MM-DD HH:MM"
+        self.waitlist_uids = waitlist_uids or []
+        self.commit_status = commit_status or ("gathering" if self.min_attendees else "open")
+
+    @property
+    def has_threshold(self):
+        return self.min_attendees > 0
+
+    @property
+    def spots_left(self):
+        """Remaining places, or None when the meeting is uncapped."""
+        if not self.max_attendees:
+            return None
+        return max(0, self.max_attendees - len(self.joined_uids))
+
+    @property
+    def threshold_progress(self):
+        """0-100, how close this meeting is to actually happening."""
+        if not self.min_attendees:
+            return 100
+        return min(100, round(len(self.joined_uids) / self.min_attendees * 100))
 
     def get_display_text(self):
         """Base method – overridden by subclasses to provide specific display."""
@@ -48,6 +82,15 @@ class Meeting:
             "emoji": self.emoji,
             "tags": self.tags,
             "status": self.status,
+            "min_attendees": self.min_attendees,
+            "max_attendees": self.max_attendees,
+            "join_deadline": self.join_deadline,
+            "commit_status": self.commit_status,
+            "waitlist_uids": self.waitlist_uids,
+            "waitlist_count": len(self.waitlist_uids),
+            "has_threshold": self.has_threshold,
+            "spots_left": self.spots_left,
+            "threshold_progress": self.threshold_progress,
         }
 
 
@@ -56,9 +99,10 @@ class InPersonMeeting(Meeting):
 
     DEFAULT_EMOJI = "📍"
 
-    def __init__(self, id, title, description, time, location, lat, lng,
-                 creator_uid=None, creator_username=None, joined_uids=None, emoji=None, tags=None, status=None):
-        super().__init__(id, title, description, time, creator_uid, creator_username, joined_uids, emoji, tags, status)
+    def __init__(self, id, title, description, time, location, lat, lng, **kwargs):
+        # **kwargs so shared fields (threshold, moderation, tags...) only have
+        # to be declared once, on the base class.
+        super().__init__(id, title, description, time, **kwargs)
         self.location = location
         self.lat = lat
         self.lng = lng
@@ -78,9 +122,8 @@ class OnlineMeeting(Meeting):
 
     DEFAULT_EMOJI = "💻"
 
-    def __init__(self, id, title, description, time, link,
-                 creator_uid=None, creator_username=None, joined_uids=None, emoji=None, tags=None, status=None):
-        super().__init__(id, title, description, time, creator_uid, creator_username, joined_uids, emoji, tags, status)
+    def __init__(self, id, title, description, time, link, **kwargs):
+        super().__init__(id, title, description, time, **kwargs)
         self.link = link
         self.lat = None
         self.lng = None
@@ -159,6 +202,12 @@ def meeting_from_dict(data):
         emoji=data.get("emoji"),
         tags=data.get("tags", []),
         status=data.get("status", "approved"),
+        # Meetings created before thresholds existed simply have none.
+        min_attendees=data.get("min_attendees", 0),
+        max_attendees=data.get("max_attendees", 0),
+        join_deadline=data.get("join_deadline", ""),
+        commit_status=data.get("commit_status"),
+        waitlist_uids=data.get("waitlist_uids", []),
     )
     if data.get("type") == "InPersonMeeting":
         return InPersonMeeting(

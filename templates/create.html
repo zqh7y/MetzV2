@@ -33,7 +33,7 @@
             <div class="wizard-bar"><div class="wizard-bar-fill" id="wizard-bar-fill"></div></div>
             <div class="wizard-meta">
                 <span class="wizard-step-name" id="wizard-step-name">Basics</span>
-                <span class="wizard-step-count"><span id="wizard-current">1</span> of 5</span>
+                <span class="wizard-step-count"><span id="wizard-current">1</span> of 6</span>
             </div>
         </div>
 
@@ -97,8 +97,45 @@
             </div>
         </section>
 
-        <!-- 4 · Details -->
+        <!-- 4 · Commitment -->
         <section class="wizard-step" data-step="4">
+            <div class="form-group">
+                <label>Only happen if enough people join?</label>
+                <p class="map-hint">Set a minimum and nobody has to wonder whether it's actually on. If it doesn't fill by the deadline, you decide what to do — it never shows up as a failed event.</p>
+                <div class="type-toggle">
+                    <button type="button" class="type-toggle-btn active" data-threshold="off" onclick="setThreshold(this, 'off')">Open to all</button>
+                    <button type="button" class="type-toggle-btn" data-threshold="on" onclick="setThreshold(this, 'on')">Needs a minimum</button>
+                </div>
+            </div>
+
+            <div id="threshold-fields" style="display:none;">
+                <div class="form-group">
+                    <label for="min_attendees">Minimum people</label>
+                    <div class="stepper">
+                        <button type="button" class="stepper-btn" onclick="bumpMin(-1)">−</button>
+                        <input type="number" id="min_attendees" name="min_attendees" min="2" max="500" value="4" oninput="renderThresholdPreview()">
+                        <button type="button" class="stepper-btn" onclick="bumpMin(1)">+</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="join_deadline">They have to join by</label>
+                    <input type="text" id="join_deadline" name="join_deadline" placeholder="Pick a deadline" readonly>
+                    <p class="map-hint">Must be before the meeting starts.</p>
+                </div>
+
+                <div class="form-group">
+                    <label for="max_attendees">Maximum (optional)</label>
+                    <input type="number" id="max_attendees" name="max_attendees" min="0" max="1000" placeholder="No limit" oninput="renderThresholdPreview()">
+                    <p class="map-hint">Once full, extra people join a waitlist and move up automatically if someone drops out.</p>
+                </div>
+
+                <p class="threshold-preview" id="threshold-preview"></p>
+            </div>
+        </section>
+
+        <!-- 5 · Details -->
+        <section class="wizard-step" data-step="5">
             <div class="form-group">
                 <label>Interests (pick any that fit)</label>
                 <div class="tag-picker">
@@ -120,8 +157,8 @@
             </div>
         </section>
 
-        <!-- 5 · Review -->
-        <section class="wizard-step" data-step="5">
+        <!-- 6 · Review -->
+        <section class="wizard-step" data-step="6">
             <div class="review-card" id="review-card"></div>
             <p class="map-hint">Check everything looks right, then create it.</p>
         </section>
@@ -145,8 +182,48 @@
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="{{ url_for('static', filename='validation.js') }}"></script>
 <script>
+    // ── Threshold controls ───────────────────────────────────────────
+    var thresholdOn = false;
+
+    function setThreshold(btn, mode) {
+        thresholdOn = mode === 'on';
+        document.querySelectorAll('[data-threshold]').forEach(function (b) {
+            b.classList.toggle('active', b.dataset.threshold === mode);
+        });
+        document.getElementById('threshold-fields').style.display = thresholdOn ? '' : 'none';
+        // A blank minimum is what tells the server "no threshold"
+        if (!thresholdOn) {
+            document.getElementById('min_attendees').value = '';
+            document.getElementById('join_deadline').value = '';
+            document.getElementById('max_attendees').value = '';
+        } else if (!document.getElementById('min_attendees').value) {
+            document.getElementById('min_attendees').value = 4;
+        }
+        renderThresholdPreview();
+    }
+
+    function bumpMin(delta) {
+        var el = document.getElementById('min_attendees');
+        var n = Math.max(2, Math.min(500, (parseInt(el.value, 10) || 4) + delta));
+        el.value = n;
+        renderThresholdPreview();
+    }
+
+    function renderThresholdPreview() {
+        var preview = document.getElementById('threshold-preview');
+        if (!preview) return;
+        if (!thresholdOn) { preview.textContent = ''; return; }
+        var min = parseInt(document.getElementById('min_attendees').value, 10) || 0;
+        var max = parseInt(document.getElementById('max_attendees').value, 10) || 0;
+        var by = document.getElementById('join_deadline').value;
+        var text = 'Happens only if ' + min + ' people join';
+        if (by) text += ' by ' + by;
+        if (max) text += ', capped at ' + max;
+        preview.textContent = text + '.';
+    }
+
     // ── Step wizard ──────────────────────────────────────────────────
-    var STEP_NAMES = ['Basics', 'Where', 'When', 'Details', 'Review'];
+    var STEP_NAMES = ['Basics', 'Where', 'When', 'Commitment', 'Details', 'Review'];
     var TOTAL_STEPS = STEP_NAMES.length;
     var step = 1;
 
@@ -209,6 +286,20 @@
             var time = document.getElementById('time');
             if (!time.value.trim()) return flagInvalid(time, 'Choose a date and time.');
         }
+        if (n === 4 && thresholdOn) {
+            var min = document.getElementById('min_attendees');
+            var max = document.getElementById('max_attendees');
+            var by = document.getElementById('join_deadline');
+            var minN = parseInt(min.value, 10) || 0;
+            var maxN = parseInt(max.value, 10) || 0;
+            if (minN < 2) return flagInvalid(min, 'A minimum of at least 2 people makes sense.');
+            if (!by.value.trim()) return flagInvalid(by, 'Pick the deadline for reaching the minimum.');
+            if (maxN && maxN < minN) return flagInvalid(max, 'The maximum cannot be below the minimum.');
+            if (document.getElementById('time').value &&
+                by.value > document.getElementById('time').value) {
+                return flagInvalid(by, 'The deadline has to be before the meeting starts.');
+            }
+        }
         return true;
     }
 
@@ -224,6 +315,11 @@
             [isOnline ? 'Link' : 'Location',
              isOnline ? document.getElementById('link').value : document.getElementById('location').value],
             ['When', document.getElementById('time').value],
+            ['Commitment', thresholdOn
+                ? ('needs ' + (document.getElementById('min_attendees').value || '?') + ' by ' +
+                   (document.getElementById('join_deadline').value || '?') +
+                   (document.getElementById('max_attendees').value ? ', max ' + document.getElementById('max_attendees').value : ''))
+                : 'Open to all'],
             ['Interests', selectedTags.length ? selectedTags.join(', ') : 'None'],
             ['Icon', document.getElementById('emoji').value]
         ];
@@ -304,6 +400,17 @@
         altFormat: 'D, M j, Y \\a\\t H:i',
         minDate: 'today',
         time_24hr: true,
+    });
+
+    // Same picker for the join deadline
+    flatpickr('#join_deadline', {
+        enableTime: true,
+        dateFormat: 'Y-m-d H:i',
+        altInput: true,
+        altFormat: 'D, M j, Y \\a\\t H:i',
+        minDate: 'today',
+        time_24hr: true,
+        onChange: function () { renderThresholdPreview(); },
     });
 
     // ─── Location picker map + geocoding ────────────────────────────────

@@ -3,6 +3,48 @@ from data import add_meeting, is_trusted
 from utils.models import InPersonMeeting, OnlineMeeting, validate_meeting_data, sanitize_html, AVAILABLE_TAGS
 
 
+def parse_count(value):
+    """Parse a people-count field. Blank or invalid means "not set" (0)."""
+    try:
+        n = int(str(value).strip())
+    except (TypeError, ValueError):
+        return 0
+    return n if n > 0 else 0
+
+
+def validate_threshold(minimum, maximum, deadline, meeting_time):
+    """A threshold is optional, but if given it has to make sense."""
+    from datetime import datetime
+    errors = []
+    if not minimum:
+        return errors
+
+    if minimum > 500:
+        errors.append("A minimum of more than 500 people isn't realistic.")
+    if maximum and maximum < minimum:
+        errors.append("The maximum can't be smaller than the minimum.")
+
+    if not deadline:
+        errors.append("Set a deadline for reaching the minimum.")
+        return errors
+
+    try:
+        parsed = datetime.strptime(deadline, "%Y-%m-%d %H:%M")
+    except ValueError:
+        errors.append("The join deadline isn't a valid date and time.")
+        return errors
+
+    if parsed < datetime.now():
+        errors.append("The join deadline is already in the past.")
+    try:
+        starts = datetime.strptime(meeting_time, "%Y-%m-%d %H:%M")
+        if parsed > starts:
+            errors.append("The join deadline has to be before the meeting starts.")
+    except (ValueError, TypeError):
+        pass
+    return errors
+
+
 def parse_coord(value):
     """Parse a form field into a float, or return None if missing/invalid."""
     try:
@@ -26,8 +68,15 @@ def create_route():
         emoji = request.form.get("emoji", "").strip()
         tags = [t for t in request.form.getlist("tags") if t in AVAILABLE_TAGS]
 
+        # ── Threshold ("only happens if enough people join") ──────────────
+        min_attendees = parse_count(request.form.get("min_attendees", ""))
+        max_attendees = parse_count(request.form.get("max_attendees", ""))
+        join_deadline = request.form.get("join_deadline", "").strip()
+        threshold_errors = validate_threshold(min_attendees, max_attendees, join_deadline, time)
+
         errors = validate_meeting_data(title, description, time, meeting_type,
                                        location_name=location_name, link=link)
+        errors += threshold_errors
         if errors:
             message = " | ".join(errors)
         else:
@@ -44,6 +93,8 @@ def create_route():
                 new_meeting = InPersonMeeting(
                     id=0, title=title, description=description, time=time,
                     location=location_name, lat=lat, lng=lng, emoji=emoji, tags=tags,
+                    min_attendees=min_attendees, max_attendees=max_attendees,
+                    join_deadline=join_deadline,
                 )
                 add_meeting(new_meeting, creator_uid=uid)
                 return redirect(url_for("home", pending=0 if is_trusted(uid) else 1))
@@ -51,6 +102,8 @@ def create_route():
             elif meeting_type == "online":
                 new_meeting = OnlineMeeting(
                     id=0, title=title, description=description, time=time, link=link, emoji=emoji, tags=tags,
+                    min_attendees=min_attendees, max_attendees=max_attendees,
+                    join_deadline=join_deadline,
                 )
                 add_meeting(new_meeting, creator_uid=uid)
                 return redirect(url_for("home", pending=0 if is_trusted(uid) else 1))
