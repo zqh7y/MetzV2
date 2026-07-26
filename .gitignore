@@ -22,3 +22,6 @@ node_modules/
 
 # Database dumps
 backups/
+
+# Rendered page snapshots used for visual review
+static/_preview/

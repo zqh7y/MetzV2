@@ -18,7 +18,7 @@
             {% elif avatar_emoji %}
                 <span class="profile-avatar-emoji">{{ avatar_emoji }}</span>
             {% else %}
-                <span class="profile-avatar-id">{{ uid }}</span>
+                <span class="profile-avatar-initials">{{ initials }}</span>
             {% endif %}
         </div>
         <h2 class="profile-name">{{ username }}{% if is_trusted %}<span class="trust-badge" title="Trusted user">★</span>{% endif %}</h2>

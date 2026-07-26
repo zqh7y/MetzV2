@@ -364,19 +364,28 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     background: var(--surface);
 }
 
-.container .form-group {
+/* Form controls are styled by class, not by page container — Edit Profile
+   lives outside .container and was falling back to browser defaults. */
+.form-group {
     display: flex;
     flex-direction: column;
-    margin-bottom: 16px;
+    margin-bottom: 18px;
 }
 
-.container .form-group label {
+.form-group label {
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 700;
     color: var(--text-2);
-    margin-bottom: 6px;
+    margin-bottom: 7px;
 }
 
+.form-group input[type="email"],
+.form-group input[type="password"],
+.form-group input[type="text"],
+.form-group input[type="url"],
+.form-group input[type="number"],
+.form-group select,
+.form-group textarea,
 .container input[type="email"],
 .container input[type="password"],
 .container input[type="text"],
@@ -384,25 +393,40 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .container select,
 .container textarea {
     width: 100%;
-    padding: 11px 14px;
+    padding: 12px 14px;
+    font-family: inherit;
     font-size: 15px;
+    color: var(--text);
     border: 1.5px solid var(--border);
-    border-radius: 8px;
-    background: #fafbfc;
-    transition: border-color 0.2s;
+    border-radius: var(--radius);
+    background: var(--surface-2);
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
     outline: none;
 }
 
+.form-group input::placeholder,
+.form-group textarea::placeholder,
+.container input::placeholder,
+.container textarea::placeholder {
+    color: var(--text-3);
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus,
 .container input:focus,
 .container select:focus,
 .container textarea:focus {
-    border-color: #3498db;
+    border-color: var(--accent);
     background: var(--surface);
+    box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
+.form-group textarea,
 .container textarea {
     resize: vertical;
-    min-height: 90px;
+    min-height: 96px;
+    line-height: 1.5;
 }
 
 .container .btn-primary {
@@ -4440,3 +4464,226 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 }
 
 .decision-result[hidden] { display: none; }
+
+/* ═══ Form field polish (shared by Create, Edit Profile, auth) ═══════════ */
+.field-foot {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 6px;
+}
+
+.field-hint {
+    font-size: 11.5px;
+    color: var(--text-3);
+    line-height: 1.4;
+}
+
+.char-count {
+    display: inline;
+    text-align: right;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-3);
+    white-space: nowrap;
+    margin-top: 0;
+}
+
+/* A value the user can see but not change */
+.readonly-field {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: var(--radius);
+    border: 1.5px dashed var(--border);
+    background: var(--surface-3);
+    color: var(--text-2);
+    font-size: 14px;
+    overflow: hidden;
+}
+
+.readonly-field > span:first-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.readonly-badge {
+    flex-shrink: 0;
+    font-size: 10.5px;
+    font-weight: 800;
+    color: var(--text-3);
+}
+
+/* ═══ Edit Profile ═══════════════════════════════════════════════════════ */
+.edit-preview {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: linear-gradient(135deg, var(--accent-soft), transparent 70%), var(--surface);
+    border: 1px solid var(--border);
+}
+
+.edit-avatar {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 800;
+    font-size: 26px;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 4px var(--surface), 0 0 0 6px var(--accent-soft-2);
+}
+
+.edit-preview-name {
+    font-size: 17px;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 700;
+    color: var(--text);
+    word-break: break-word;
+}
+
+/* Sat in the flow rather than sticky: a sticky bar here overlapped the
+   fields it was floating above, which read as a rendering bug. */
+.edit-actions {
+    display: flex;
+    gap: 10px;
+    margin: 22px 16px 0 16px;
+    padding: 0;
+}
+
+.edit-cancel,
+.edit-save {
+    flex: 1;
+    padding: 13px 16px;
+    border-radius: var(--radius);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 800;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    border: 1.5px solid var(--border);
+    transition: transform 0.28s var(--spring), background 0.2s;
+}
+
+.edit-cancel { background: var(--surface-2); color: var(--text-2); }
+.edit-cancel:hover { transform: translateY(-2px); }
+
+.edit-save {
+    flex: 1.6;
+    border-color: transparent;
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+    color: var(--accent-on);
+}
+
+.edit-save:hover { transform: translateY(-2px); }
+
+/* Avatar letters on profiles */
+.profile-avatar-initials {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 800;
+    font-size: 30px;
+    letter-spacing: 0.5px;
+    color: #fff;
+}
+
+/* ═══ Create wizard: step dots + breathing room ══════════════════════════ */
+.wizard-dots {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.wizard-dot {
+    flex: 1;
+    height: 4px;
+    border-radius: 3px;
+    background: var(--surface-3);
+    transition: background 0.3s, transform 0.3s var(--spring);
+}
+
+.wizard-dot.is-done {
+    background: var(--accent-soft-2);
+    cursor: pointer;
+}
+
+.wizard-dot.is-done:hover { transform: scaleY(1.6); }
+
+.wizard-dot.is-active {
+    background: var(--accent);
+    transform: scaleY(1.6);
+}
+
+/* The bar under the dots is now redundant detail — keep it subtle */
+.wizard-bar { height: 4px; opacity: 0.55; }
+
+.create-container {
+    /* clears the floating nav so the wizard buttons are never underneath it */
+    padding-bottom: 130px;
+}
+
+.create-header { margin-bottom: 18px; }
+
+/* Give each step room to breathe rather than crowding the progress bar */
+.wizard-step { padding-top: 4px; }
+
+.wizard-step .form-group:last-child { margin-bottom: 4px; }
+
+#create-map {
+    height: 240px;
+    border-radius: var(--radius);
+    border: 1.5px solid var(--border);
+}
+
+/* The map hint reads as guidance, not as an error */
+.map-hint {
+    font-size: 11.5px;
+    color: var(--text-3);
+    margin-top: 7px;
+    line-height: 1.45;
+}
+
+/* Both settings-style pages need to clear the floating nav */
+.settings-page { padding-bottom: 130px; }
+
+/* The dots are the progress indicator on Create; make them a bit more solid
+   now that they stand alone. */
+.wizard-dots { gap: 5px; margin-bottom: 12px; }
+.wizard-dot { height: 5px; }
+
+/* ═══ Profile hero polish ════════════════════════════════════════════════ */
+.profile-avatar {
+    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.22), 0 10px 26px rgba(0, 0, 0, 0.28);
+}
+
+.profile-handle {
+    margin-top: 2px;
+    font-size: 12.5px;
+    font-weight: 800;
+    letter-spacing: 0.3px;
+    color: rgba(255, 255, 255, 0.92);
+}
+
+.profile-email {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.62);
+}
+
+/* Stat numbers should read as the primary information in the row */
+.stat-number { font-size: 23px; }
+.stat-label { letter-spacing: 0.4px; }
+
+/* Consistent section headings across Profile / Settings / Edit Profile */
+.profile-section-title {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}

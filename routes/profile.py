@@ -91,10 +91,12 @@ def profile_route():
 
     joined = _joined_meetings(uid, user)
     awaiting = meetings_awaiting_decision(uid)
+    initials = (username or uid)[:2].upper()
 
     return render_template(
         "profile.html",
         awaiting=awaiting,
+        initials=initials,
         username=username,
         email=email,
         uid=uid,
@@ -125,6 +127,7 @@ def user_profile_route(uid):
     return render_template(
         "user_profile.html",
         username=user.get("display_name") or user["username"],
+        initials=(user.get("display_name") or user.get("username") or uid)[:2].upper(),
         uid=uid,
         bio=user.get("bio", ""),
         avatar_emoji=user.get("avatar_emoji", ""),
@@ -178,6 +181,7 @@ def edit_profile_route():
         email=session["user"].get("email", ""),
         display_name=user.get("display_name") or "",
         username=user.get("username", ""),
+        initials=(user.get("display_name") or user.get("username") or uid)[:2].upper(),
         bio=user.get("bio", ""),
         avatar_emoji=user.get("avatar_emoji", ""),
         profile_color=generate_user_color(uid),

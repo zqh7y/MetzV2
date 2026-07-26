@@ -30,7 +30,11 @@
 
         <!-- Progress -->
         <div class="wizard-progress">
-            <div class="wizard-bar"><div class="wizard-bar-fill" id="wizard-bar-fill"></div></div>
+            <div class="wizard-dots" id="wizard-dots">
+                {% for label in ['Basics', 'Where', 'When', 'Commitment', 'Details', 'Review'] %}
+                <span class="wizard-dot{% if loop.first %} is-active{% endif %}" data-dot="{{ loop.index }}" title="{{ label }}"></span>
+                {% endfor %}
+            </div>
             <div class="wizard-meta">
                 <span class="wizard-step-name" id="wizard-step-name">Basics</span>
                 <span class="wizard-step-count"><span id="wizard-current">1</span> of 6</span>
@@ -233,7 +237,11 @@
             el.classList.toggle('is-active', Number(el.dataset.step) === step);
         });
 
-        document.getElementById('wizard-bar-fill').style.width = (step / TOTAL_STEPS * 100) + '%';
+        document.querySelectorAll('.wizard-dot').forEach(function (d) {
+            var n = Number(d.dataset.dot);
+            d.classList.toggle('is-active', n === step);
+            d.classList.toggle('is-done', n < step);
+        });
         document.getElementById('wizard-step-name').textContent = STEP_NAMES[step - 1];
         document.getElementById('wizard-current').textContent = step;
 
@@ -304,6 +312,12 @@
     }
 
     function wizardNext() { if (validateStep(step)) showStep(step + 1); }
+
+    // Dots jump back to a finished step; going forward still has to validate
+    document.addEventListener('click', function (e) {
+        var dot = e.target.closest('.wizard-dot');
+        if (dot && Number(dot.dataset.dot) < step) showStep(Number(dot.dataset.dot));
+    });
     function wizardBack() { clearError(); showStep(step - 1); }
 
     function buildReview() {

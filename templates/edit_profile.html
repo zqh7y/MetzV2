@@ -18,7 +18,7 @@
         <!-- Live preview of how the profile will look -->
         <div class="profile-section edit-preview">
             <div class="edit-avatar" id="edit-avatar" style="background: {{ profile_color }};">
-                <span id="edit-avatar-emoji">{{ avatar_emoji or uid[:2] }}</span>
+                <span id="edit-avatar-emoji">{{ avatar_emoji or initials }}</span>
             </div>
             <div class="edit-preview-text">
                 <span class="edit-preview-name" id="preview-name">{{ display_name or username }}</span>
@@ -29,7 +29,7 @@
 
         <div class="profile-section">
             <h3 class="profile-section-title">🙂 Avatar</h3>
-            <p class="settings-hint">Pick an emoji, or leave it blank to keep your ID.</p>
+            <p class="settings-hint">Pick an emoji, or leave it blank to use your initials.</p>
             <div class="emoji-grid">
                 <button type="button" class="emoji-choice {% if not avatar_emoji %}active{% endif %}"
                         data-emoji="" onclick="pickEmoji(this, '')" title="No emoji">—</button>
@@ -49,7 +49,10 @@
                 <input type="text" id="display_name" name="display_name" maxlength="{{ max_name }}"
                        value="{{ display_name }}" placeholder="{{ username }}"
                        oninput="updatePreview()" autocomplete="nickname">
-                <span class="char-count"><span id="name-count">{{ display_name|length }}</span>/{{ max_name }}</span>
+                <div class="field-foot">
+                    <span class="field-hint">Shown instead of your email prefix.</span>
+                    <span class="char-count"><span id="name-count">{{ display_name|length }}</span>/{{ max_name }}</span>
+                </div>
             </div>
 
             <div class="form-group">
@@ -57,19 +60,27 @@
                 <textarea id="bio" name="bio" rows="3" maxlength="{{ max_bio }}"
                           placeholder="A sentence about you — what you like organising or joining."
                           oninput="updatePreview()">{{ bio }}</textarea>
-                <span class="char-count"><span id="bio-count">{{ bio|length }}</span>/{{ max_bio }}</span>
+                <div class="field-foot">
+                    <span class="field-hint">People see this when they open your profile.</span>
+                    <span class="char-count"><span id="bio-count">{{ bio|length }}</span>/{{ max_bio }}</span>
+                </div>
             </div>
 
-            <div class="settings-row">
-                <span class="settings-row-label">Email</span>
-                <span class="settings-row-value">{{ email }}</span>
+            <div class="form-group">
+                <label>Email</label>
+                <div class="readonly-field">
+                    <span>{{ email }}</span>
+                    <span class="readonly-badge">🔒 Locked</span>
+                </div>
+                <div class="field-foot">
+                    <span class="field-hint">Your email and user ID (@{{ uid }}) can't be changed.</span>
+                </div>
             </div>
-            <p class="settings-note">Your email and user ID can't be changed.</p>
         </div>
 
-        <div class="profile-actions">
-            <button type="submit" class="btn-primary btn-green">Save changes</button>
-            <a href="/profile" class="profile-action-btn">Cancel</a>
+        <div class="edit-actions">
+            <a href="/profile" class="edit-cancel">Cancel</a>
+            <button type="submit" class="edit-save">Save changes</button>
         </div>
     </form>
 
@@ -82,7 +93,7 @@
         document.querySelectorAll('.emoji-choice').forEach(function (b) { b.classList.remove('active'); });
         btn.classList.add('active');
         document.getElementById('avatar_emoji').value = emoji;
-        document.getElementById('edit-avatar-emoji').textContent = emoji || {{ uid[:2] | tojson }};
+        document.getElementById('edit-avatar-emoji').textContent = emoji || {{ initials | tojson }};
     }
 
     function updatePreview() {
