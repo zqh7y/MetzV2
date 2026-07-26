@@ -10,42 +10,109 @@
         <h2 class="settings-title">Settings</h2>
     </div>
 
+    <!-- Theme -->
     <div class="profile-section">
         <h3 class="profile-section-title">🎨 Appearance</h3>
-        <p class="settings-hint">Choose how Metz looks. Your choice is remembered on this device.</p>
+        <p class="settings-hint">Choose how Metz looks. Your choices are remembered on this device.</p>
 
-        <div class="theme-options" id="theme-options">
-            <button type="button" class="theme-option" data-choice="light" onclick="chooseTheme('light')">
+        <div class="theme-options" data-pref="theme">
+            <button type="button" class="theme-option" data-choice="light" onclick="choose('theme','light')">
                 <span class="theme-swatch theme-swatch-light">
-                    <span class="theme-swatch-bar"></span>
-                    <span class="theme-swatch-dot"></span>
+                    <span class="theme-swatch-bar"></span><span class="theme-swatch-dot"></span>
                 </span>
                 <span class="theme-option-name">Light</span>
                 <span class="theme-option-check">✓</span>
             </button>
-
-            <button type="button" class="theme-option" data-choice="dark" onclick="chooseTheme('dark')">
+            <button type="button" class="theme-option" data-choice="dark" onclick="choose('theme','dark')">
                 <span class="theme-swatch theme-swatch-dark">
-                    <span class="theme-swatch-bar"></span>
-                    <span class="theme-swatch-dot"></span>
+                    <span class="theme-swatch-bar"></span><span class="theme-swatch-dot"></span>
                 </span>
                 <span class="theme-option-name">Dark</span>
                 <span class="theme-option-check">✓</span>
             </button>
-
-            <button type="button" class="theme-option" data-choice="system" onclick="chooseTheme('system')">
+            <button type="button" class="theme-option" data-choice="system" onclick="choose('theme','system')">
                 <span class="theme-swatch theme-swatch-system">
-                    <span class="theme-swatch-bar"></span>
-                    <span class="theme-swatch-dot"></span>
+                    <span class="theme-swatch-bar"></span><span class="theme-swatch-dot"></span>
                 </span>
                 <span class="theme-option-name">Match system</span>
                 <span class="theme-option-check">✓</span>
             </button>
         </div>
 
-        <p class="settings-note">The map follows your choice too — a warm basemap in light, a dark one in dark.</p>
+        <p class="settings-note">The map follows your choice — a warm basemap in light, a dark one in dark.</p>
     </div>
 
+    <!-- Accent colour -->
+    <div class="profile-section">
+        <h3 class="profile-section-title">💧 Accent colour</h3>
+        <p class="settings-hint">Used for buttons, links, map pins and highlights.</p>
+
+        <div class="accent-options" data-pref="accent">
+            {% for a in [('teal', 'Teal', '#0d9c8a'), ('indigo', 'Indigo', '#667eea'), ('coral', 'Coral', '#f5576c'), ('amber', 'Amber', '#e08c1a')] %}
+            <button type="button" class="accent-option" data-choice="{{ a[0] }}" onclick="choose('accent','{{ a[0] }}')" title="{{ a[1] }}">
+                <span class="accent-dot" style="background: {{ a[2] }};"></span>
+                <span class="accent-name">{{ a[1] }}</span>
+            </button>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Layout & motion -->
+    <div class="profile-section">
+        <h3 class="profile-section-title">📐 Layout &amp; motion</h3>
+
+        <div class="setting-block">
+            <div class="setting-block-text">
+                <span class="setting-block-label">Density</span>
+                <span class="setting-block-desc">How much fits on screen at once.</span>
+            </div>
+            <div class="segmented" data-pref="density">
+                <button type="button" class="segmented-btn" data-choice="compact" onclick="choose('density','compact')">Compact</button>
+                <button type="button" class="segmented-btn" data-choice="comfortable" onclick="choose('density','comfortable')">Comfortable</button>
+            </div>
+        </div>
+
+        <div class="setting-block">
+            <div class="setting-block-text">
+                <span class="setting-block-label">Animations</span>
+                <span class="setting-block-desc">Turn off if motion bothers you or the app feels slow.</span>
+            </div>
+            <div class="segmented" data-pref="motion">
+                <button type="button" class="segmented-btn" data-choice="full" onclick="choose('motion','full')">Full</button>
+                <button type="button" class="segmented-btn" data-choice="reduced" onclick="choose('motion','reduced')">Reduced</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Home screen -->
+    <div class="profile-section">
+        <h3 class="profile-section-title">🗺️ Home screen</h3>
+
+        <div class="setting-block">
+            <div class="setting-block-text">
+                <span class="setting-block-label">Live maps on “For You” cards</span>
+                <span class="setting-block-desc">Real maps look better but use more battery.</span>
+            </div>
+            <div class="segmented" data-pref="minimaps">
+                <button type="button" class="segmented-btn" data-choice="on" onclick="choose('minimaps','on')">On</button>
+                <button type="button" class="segmented-btn" data-choice="off" onclick="choose('minimaps','off')">Off</button>
+            </div>
+        </div>
+
+        <div class="setting-block">
+            <div class="setting-block-text">
+                <span class="setting-block-label">Panel position on open</span>
+                <span class="setting-block-desc">How much map you see when Home loads.</span>
+            </div>
+            <div class="segmented" data-pref="sheet">
+                <button type="button" class="segmented-btn" data-choice="peek" onclick="choose('sheet','peek')">Map</button>
+                <button type="button" class="segmented-btn" data-choice="half" onclick="choose('sheet','half')">Split</button>
+                <button type="button" class="segmented-btn" data-choice="full" onclick="choose('sheet','full')">List</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Account -->
     <div class="profile-section">
         <h3 class="profile-section-title">👤 Account</h3>
         <div class="settings-row">
@@ -56,15 +123,14 @@
             <span class="settings-row-label">User ID</span>
             <span class="settings-row-value">{{ uid }}</span>
         </div>
-        {% if is_admin %}
         <div class="settings-row">
             <span class="settings-row-label">Role</span>
-            <span class="settings-row-value">Admin</span>
+            <span class="settings-row-value">{{ 'Admin' if is_admin else ('Trusted' if is_trusted else 'Member') }}</span>
         </div>
-        {% endif %}
     </div>
 
     <div class="profile-actions">
+        <button type="button" class="profile-action-btn" onclick="resetPrefs()">↺ Reset to defaults</button>
         <a href="/profile" class="profile-action-btn">← Back to Profile</a>
         <a href="/logout" class="profile-action-btn profile-action-logout">
             <span class="action-icon action-icon-logout">
@@ -83,18 +149,30 @@
 </div>
 
 <script>
-    function markActiveTheme() {
-        var current = document.documentElement.getAttribute('data-theme') || 'light';
-        document.querySelectorAll('.theme-option').forEach(function (btn) {
-            btn.classList.toggle('active', btn.dataset.choice === current);
+    // Every control marks itself active from the data-* attribute that the
+    // bootstrap script in base.html already put on <html>.
+    function markActive() {
+        document.querySelectorAll('[data-pref]').forEach(function (group) {
+            var key = group.dataset.pref;
+            var current = document.documentElement.getAttribute('data-' + key);
+            group.querySelectorAll('[data-choice]').forEach(function (btn) {
+                btn.classList.toggle('active', btn.dataset.choice === current);
+            });
         });
     }
 
-    function chooseTheme(choice) {
-        applyTheme(choice);   // defined in base.html
-        markActiveTheme();
+    function choose(key, value) {
+        setPref(key, value);   // defined in base.html
+        markActive();
     }
 
-    markActiveTheme();
+    function resetPrefs() {
+        Object.keys(window.PREF_DEFAULTS).forEach(function (k) {
+            setPref(k, window.PREF_DEFAULTS[k]);
+        });
+        markActive();
+    }
+
+    markActive();
 </script>
 {% endblock %}

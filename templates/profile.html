@@ -187,20 +187,6 @@
         </div>
     </div>
 
-    <!-- Find People — the old Discover "People" tab -->
-    <div class="profile-section">
-        <div class="profile-section-head">
-            <h3 class="profile-section-title">🔍 Find People</h3>
-        </div>
-        <div class="user-search-input-wrap">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="18" height="18"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input type="text" id="user-search-input" placeholder="Search by ID or Gmail username…" oninput="searchUsers(this.value)" autocomplete="off" />
-        </div>
-        <div class="user-search-results" id="user-search-results">
-            <p class="user-search-hint">Type to find users</p>
-        </div>
-    </div>
-
     <!-- Actions -->
     <div class="profile-actions">
         {% if is_admin %}
@@ -279,37 +265,5 @@
         });
     }
 
-    // ── Find People ──────────────────────────────────────────────────
-    var searchTimeout;
-    function searchUsers(q) {
-        clearTimeout(searchTimeout);
-        var results = document.getElementById('user-search-results');
-        if (!q.trim()) {
-            results.innerHTML = '<p class="user-search-hint">Type to find users</p>';
-            return;
-        }
-        searchTimeout = setTimeout(function () {
-            fetch('/search_users?q=' + encodeURIComponent(q))
-                .then(function (r) { return r.json(); })
-                .then(function (users) {
-                    if (!users.length) {
-                        results.innerHTML = '<p class="user-search-hint">No users found</p>';
-                        return;
-                    }
-                    results.innerHTML = users.map(function (u) {
-                        var initials = u.username.slice(0, 2).toUpperCase();
-                        var badge = (u.is_trusted || u.is_admin) ? '<span class="trust-badge" title="Trusted user">★</span>' : '';
-                        return '<div class="user-result-card" onclick="location.href=\'/user/' + u.uid + '\'">' +
-                            '<div class="user-result-avatar" style="background:' + u.color + '">' + initials + '</div>' +
-                            '<div class="user-result-info">' +
-                                '<span class="user-result-name">' + u.username + badge + '</span>' +
-                                '<span class="user-result-uid">' + u.uid + '</span>' +
-                            '</div>' +
-                            '<span class="user-result-chevron">›</span>' +
-                        '</div>';
-                    }).join('');
-                });
-        }, 300);
-    }
 </script>
 {% endblock %}

@@ -3633,3 +3633,184 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 }
 
 .action-icon-settings { color: var(--accent); }
+
+/* ── Meetings / People switch inside the sheet ───────────────────────────── */
+.sheet-tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--surface-3);
+    border-radius: 12px;
+    padding: 3px;
+    margin-bottom: 12px;
+}
+
+.sheet-tab {
+    flex: 1;
+    border: none;
+    background: transparent;
+    border-radius: 10px;
+    padding: 8px 0;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-2);
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, transform 0.28s var(--spring);
+}
+
+.sheet-tab.active {
+    background: var(--surface);
+    color: var(--accent);
+    box-shadow: var(--shadow-1);
+}
+
+.sheet-tab:active { transform: scale(0.97); }
+
+.sheet-pane[hidden] { display: none; }
+
+/* The people search lives on Home now, inside the sheet */
+#pane-people .user-search-input-wrap {
+    background: var(--surface-2);
+    box-shadow: none;
+    border: 1px solid var(--border);
+}
+
+#pane-people .user-result-card { background: var(--surface-2); }
+
+/* ═══ Preference variants (set from Settings) ════════════════════════════ */
+
+/* Accent choices — these override the functional accent only; the decorative
+   card gradients stay as they are. */
+:root[data-accent="indigo"] {
+    --accent: #667eea;
+    --accent-strong: #764ba2;
+    --accent-deep: #4c3a86;
+    --accent-soft: rgba(102, 126, 234, 0.12);
+    --accent-soft-2: rgba(102, 126, 234, 0.22);
+    --accent-glow: rgba(102, 126, 234, 0.38);
+}
+
+:root[data-accent="coral"] {
+    --accent: #f5576c;
+    --accent-strong: #d63a55;
+    --accent-deep: #a72840;
+    --accent-soft: rgba(245, 87, 108, 0.12);
+    --accent-soft-2: rgba(245, 87, 108, 0.22);
+    --accent-glow: rgba(245, 87, 108, 0.38);
+}
+
+:root[data-accent="amber"] {
+    --accent: #e08c1a;
+    --accent-strong: #b96f0d;
+    --accent-deep: #8c5308;
+    --accent-soft: rgba(224, 140, 26, 0.14);
+    --accent-soft-2: rgba(224, 140, 26, 0.24);
+    --accent-glow: rgba(224, 140, 26, 0.40);
+}
+
+/* Comfortable density: more air, larger touch targets, fewer items per screen */
+:root[data-density="comfortable"] {
+    --gap-1: 9px;
+    --gap-2: 14px;
+    --gap-3: 20px;
+    --radius: 18px;
+    --radius-lg: 22px;
+}
+
+:root[data-density="comfortable"] .sheet-scroll { padding: 0 22px 130px; }
+:root[data-density="comfortable"] .meeting-card { border-radius: 18px; }
+:root[data-density="comfortable"] .meeting-card-body { padding: 15px 14px 50px 17px; }
+:root[data-density="comfortable"] .meeting-card-title { font-size: 16px; }
+:root[data-density="comfortable"] .meeting-card-desc { font-size: 13.5px; }
+:root[data-density="comfortable"] .meetings-list { gap: 14px; }
+:root[data-density="comfortable"] .filter-chip { padding: 8px 15px; font-size: 13px; }
+:root[data-density="comfortable"] .profile-section { padding: 20px; }
+:root[data-density="comfortable"] .search-container input[type="text"] { padding: 14px 18px; }
+
+/* Reduced motion: honour it as a preference as well as a system setting */
+:root[data-motion="reduced"] *,
+:root[data-motion="reduced"] *::before,
+:root[data-motion="reduced"] *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+    }
+}
+
+/* Mini maps turned off: the card keeps its layout, just without the map */
+:root[data-minimaps="off"] .foryou-map { display: none; }
+
+/* ── Settings: accent picker and setting rows ────────────────────────────── */
+.accent-options {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.accent-option {
+    flex: 1 1 70px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 7px;
+    padding: 12px 6px;
+    border-radius: var(--radius);
+    border: 2px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text-2);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.28s var(--spring), border-color 0.2s, color 0.2s;
+}
+
+.accent-option:hover { transform: translateY(-3px); }
+
+.accent-option.active {
+    border-color: var(--accent);
+    color: var(--text);
+    background: var(--accent-soft);
+}
+
+.accent-dot {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+
+.accent-option.active .accent-dot {
+    box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--accent);
+}
+
+.setting-block {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+}
+
+.setting-block:last-child { border-bottom: none; padding-bottom: 0; }
+
+.setting-block-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 150px; }
+.setting-block-label { font-size: 13.5px; font-weight: 700; color: var(--text); }
+.setting-block-desc { font-size: 11.5px; color: var(--text-3); }
+
+/* The segmented control is shared with Profile's Upcoming/Past switch */
+.segmented-btn.active {
+    background: var(--surface);
+    color: var(--accent);
+    box-shadow: var(--shadow-1);
+}

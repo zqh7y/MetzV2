@@ -7,21 +7,48 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
     <script>
-        // Applied before the stylesheet paints, so switching themes never
-        // flashes the wrong colours. Light is the default; "dark" and
-        // "system" are opt-in from Settings.
+        // Preferences live in localStorage and surface as data-* attributes on
+        // <html>, which the stylesheet keys off. Applied here, before the
+        // stylesheet paints, so a non-default choice never flashes the wrong
+        // look on load.
         (function () {
-            var saved = null;
-            try { saved = localStorage.getItem('theme'); } catch (e) { /* private mode */ }
-            document.documentElement.setAttribute('data-theme', saved || 'light');
-        })();
+            var DEFAULTS = {
+                theme: 'light',        // light | dark | system
+                accent: 'teal',        // teal | indigo | coral | amber
+                density: 'compact',    // compact | comfortable
+                motion: 'full',        // full | reduced
+                minimaps: 'on',        // on | off  (live maps on For You cards)
+                sheet: 'peek'          // peek | half | full  (Home sheet on open)
+            };
 
-        function applyTheme(choice) {
-            document.documentElement.setAttribute('data-theme', choice);
-            try { localStorage.setItem('theme', choice); } catch (e) { /* ignore */ }
-            // The map picks its basemap from the same setting
-            if (typeof window.swapBasemap === 'function') window.swapBasemap();
-        }
+            function read(key) {
+                try {
+                    return localStorage.getItem('pref:' + key) || DEFAULTS[key];
+                } catch (e) {
+                    return DEFAULTS[key];   // private mode / storage disabled
+                }
+            }
+
+            var root = document.documentElement;
+            Object.keys(DEFAULTS).forEach(function (k) {
+                root.setAttribute('data-' + k, read(k));
+            });
+
+            window.PREF_DEFAULTS = DEFAULTS;
+            window.getPref = read;
+
+            window.setPref = function (key, value) {
+                try { localStorage.setItem('pref:' + key, value); } catch (e) { /* ignore */ }
+                root.setAttribute('data-' + key, value);
+                // Side effects for the things CSS alone can't handle
+                if (key === 'theme' && typeof window.swapBasemap === 'function') window.swapBasemap();
+                if (key === 'accent' && typeof window.refreshMapAccent === 'function') window.refreshMapAccent();
+                if (key === 'minimaps' && typeof window.refreshMiniMaps === 'function') window.refreshMiniMaps();
+            };
+
+            // Kept so older callers still work
+            window.applyTheme = function (choice) { window.setPref('theme', choice); };
+        })();
     </script>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     {% block extra_head %}{% endblock %}

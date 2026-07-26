@@ -60,6 +60,20 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function basemapUrl() { return prefersDark() ? STYLE_DARK : STYLE_LIGHT; }
 
+    /** The map can't use CSS variables, so read the active accent out of them. */
+    function cssVar(name, fallback) {
+        var v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        return v || fallback;
+    }
+
+    function accentColors() {
+        return {
+            base: cssVar('--accent', '#0d9c8a'),
+            strong: cssVar('--accent-strong', '#0a7d6e'),
+            deep: cssVar('--accent-deep', '#075f55')
+        };
+    }
+
     var DEFAULT_CENTER = [35.2137, 31.7683];   // [lng, lat] — MapLibre order
     // Reuse a fontstack the basemap style already ships glyphs for, otherwise
     // labels silently fail to render.
@@ -338,8 +352,20 @@ document.addEventListener("DOMContentLoaded", function () {
     // Sources, layers and pin images. Kept in its own function because
     // setStyle() (used when the system flips light/dark) throws all of them
     // away and they have to be reinstalled on the new style.
-    function installMapLayers() {
-        map.addSource('meetings', {
+    // 'styledata' fires repeatedly while a style loads, so installing on the
+    // first one can drop everything when the swap completes. These helpers
+    // make installation idempotent and it runs on 'style.load' instead.
+    function ensureSource(id, spec) {
+        if (!map.getSource(id)) map.addSource(id, spec);
+    }
+
+    function ensureLayer(spec) {
+        if (!map.getLayer(spec.id)) map.addLayer(spec);
+    }
+
+    function installMapLayers(replacePins) {
+        var AC = accentColors();
+        ensureSource('meetings', {
             type: 'geojson',
             data: meetingsToGeoJSON(meetings),
             cluster: true,
@@ -347,42 +373,42 @@ document.addEventListener("DOMContentLoaded", function () {
             clusterMaxZoom: 14
         });
 
-        map.addSource('route', { type: 'geojson', data: EMPTY_FC });
+        ensureSource('route', { type: 'geojson', data: EMPTY_FC });
 
         // Route: a soft wide glow under a solid line reads better over busy tiles
-        map.addLayer({
+        ensureLayer({
             id: 'route-glow', type: 'line', source: 'route',
             layout: { 'line-cap': 'round', 'line-join': 'round' },
-            paint: { 'line-color': '#0d9c8a', 'line-width': 14, 'line-opacity': 0.22, 'line-blur': 6 }
+            paint: { 'line-color': AC.base, 'line-width': 14, 'line-opacity': 0.22, 'line-blur': 6 }
         });
-        map.addLayer({
+        ensureLayer({
             id: 'route-line', type: 'line', source: 'route',
             layout: { 'line-cap': 'round', 'line-join': 'round' },
-            paint: { 'line-color': '#0a8f7e', 'line-width': 4.5, 'line-opacity': 0.95 }
+            paint: { 'line-color': AC.strong, 'line-width': 4.5, 'line-opacity': 0.95 }
         });
 
         // Clusters: size and colour both step up with the number of meetings
-        map.addLayer({
+        ensureLayer({
             id: 'cluster-glow', type: 'circle', source: 'meetings',
             filter: ['has', 'point_count'],
             paint: {
-                'circle-color': ['step', ['get', 'point_count'], '#0d9c8a', 10, '#0a7d6e', 30, '#f5576c'],
+                'circle-color': ['step', ['get', 'point_count'], AC.base, 10, AC.strong, 30, AC.deep],
                 'circle-radius': ['step', ['get', 'point_count'], 26, 10, 32, 30, 38],
                 'circle-opacity': 0.25,
                 'circle-blur': 0.6
             }
         });
-        map.addLayer({
+        ensureLayer({
             id: 'clusters', type: 'circle', source: 'meetings',
             filter: ['has', 'point_count'],
             paint: {
-                'circle-color': ['step', ['get', 'point_count'], '#0d9c8a', 10, '#0a7d6e', 30, '#f5576c'],
+                'circle-color': ['step', ['get', 'point_count'], AC.base, 10, AC.strong, 30, AC.deep],
                 'circle-radius': ['step', ['get', 'point_count'], 18, 10, 23, 30, 28],
                 'circle-stroke-width': 3,
                 'circle-stroke-color': '#ffffff'
             }
         });
-        map.addLayer({
+        ensureLayer({
             id: 'cluster-count', type: 'symbol', source: 'meetings',
             filter: ['has', 'point_count'],
             layout: {
@@ -394,11 +420,11 @@ document.addEventListener("DOMContentLoaded", function () {
         });
 
         // Halo behind the pin the user currently has open
-        map.addLayer({
+        ensureLayer({
             id: 'meeting-pin-halo', type: 'circle', source: 'meetings',
             filter: ['==', ['get', 'id'], -1],
             paint: {
-                'circle-color': '#0d9c8a',
+                'circle-color': AC.base,
                 'circle-radius': 22,
                 'circle-opacity': 0.28,
                 'circle-blur': 0.5
@@ -408,7 +434,7 @@ document.addEventListener("DOMContentLoaded", function () {
         var pending = 2;
         function ready() {
             if (--pending) return;
-            map.addLayer({
+            ensureLayer({
                 id: 'meeting-pins', type: 'symbol', source: 'meetings',
                 filter: ['!', ['has', 'point_count']],
                 layout: {
@@ -432,16 +458,29 @@ document.addEventListener("DOMContentLoaded", function () {
             });
         }
         // Images outlive setStyle(), so re-adding them after a theme swap throws
-        function addPin(name, from, to) {
-            if (map.hasImage(name)) { ready(); return; }
+        function addPin(name, from, to, replace) {
+            if (map.hasImage(name) && !replace) { ready(); return; }
             pinImage(from, to, function (img) {
-                if (!map.hasImage(name)) map.addImage(name, img);
+                if (map.hasImage(name)) map.removeImage(name);
+                map.addImage(name, img);
                 ready();
             });
         }
-        addPin('pin-inperson', '#16c2ab', '#0a7d6e');
-        addPin('pin-online', '#4facfe', '#2b6ef5');
+        addPin('pin-inperson', AC.base, AC.strong, replacePins);
+        addPin('pin-online', '#4facfe', '#2b6ef5', replacePins);
     }
+
+    // setStyle() throws away our sources and layers, and MapLibre gives no
+    // usable "new style is ready" event: there is no style.load, and at every
+    // styledata isStyleLoaded() is still false. 'idle' is the first point the
+    // new style is genuinely live, so reinstall from there. The getSource
+    // check makes this a no-op on all the other idles.
+    map.on('idle', function () {
+        if (map.getSource('meetings')) return;
+        installMapLayers(true);
+        applyFilters();
+        setSelectedPin(selectedId);
+    });
 
     map.on('load', function () {
         installMapLayers();
@@ -480,11 +519,6 @@ document.addEventListener("DOMContentLoaded", function () {
     // ─── Follow the system light/dark switch, live ────────────────────────
     function swapBasemap() {
         map.setStyle(basemapUrl());
-        map.once('styledata', function () {
-            installMapLayers();
-            applyFilters();
-            setSelectedPin(selectedId);
-        });
         // The card thumbnails are cheap to rebuild: drop them and let the
         // observer remount them against the new style as they come into view.
         Array.from(liveMinis.keys()).forEach(unmountMini);
@@ -493,6 +527,23 @@ document.addEventListener("DOMContentLoaded", function () {
     if (darkQuery.addEventListener) darkQuery.addEventListener('change', swapBasemap);
     else if (darkQuery.addListener) darkQuery.addListener(swapBasemap);
     window.swapBasemap = swapBasemap;   // used when a theme override is applied
+
+    // Called by setPref() when the accent colour changes
+    window.refreshMapAccent = function () {
+        if (!map.isStyleLoaded()) return;
+        var AC = accentColors();
+        var ramp = ['step', ['get', 'point_count'], AC.base, 10, AC.strong, 30, AC.deep];
+        if (map.getLayer('clusters')) map.setPaintProperty('clusters', 'circle-color', ramp);
+        if (map.getLayer('cluster-glow')) map.setPaintProperty('cluster-glow', 'circle-color', ramp);
+        if (map.getLayer('meeting-pin-halo')) map.setPaintProperty('meeting-pin-halo', 'circle-color', AC.base);
+        if (map.getLayer('route-glow')) map.setPaintProperty('route-glow', 'line-color', AC.base);
+        if (map.getLayer('route-line')) map.setPaintProperty('route-line', 'line-color', AC.strong);
+        pinImage(AC.base, AC.strong, function (img) {
+            if (map.hasImage('pin-inperson')) map.removeImage('pin-inperson');
+            map.addImage('pin-inperson', img);
+        });
+        // Mini maps draw their pin in CSS, so they update on their own.
+    };
 
     // ─── Meeting list item clicks ─────────────────────────────────────────
     function attachListItemClick(item) {
@@ -732,8 +783,12 @@ document.addEventListener("DOMContentLoaded", function () {
         if (worst) unmountMini(worst);
     }
 
+    function miniMapsEnabled() {
+        return document.documentElement.getAttribute('data-minimaps') !== 'off';
+    }
+
     function mountMini(el) {
-        if (liveMinis.has(el)) return;
+        if (liveMinis.has(el) || !miniMapsEnabled()) return;
         var lat = parseFloat(el.dataset.lat), lng = parseFloat(el.dataset.lng);
         if (!lat || !lng) return;
         while (liveMinis.size >= MINI_LIMIT) evictFurthestMini(el);
@@ -775,6 +830,19 @@ document.addEventListener("DOMContentLoaded", function () {
 
     observeCardMaps();
 
+    // Called by setPref() when the mini-map preference changes
+    window.refreshMiniMaps = function () {
+        if (miniMapsEnabled()) {
+            observeCardMaps();
+            document.querySelectorAll('.card-map').forEach(function (el) {
+                var r = el.getBoundingClientRect();
+                if (r.top < window.innerHeight + 250 && r.bottom > -250) mountMini(el);
+            });
+        } else {
+            Array.from(liveMinis.keys()).forEach(unmountMini);
+        }
+    };
+
     // ─── Bottom sheet ─────────────────────────────────────────────────────
     // Three snap points. The map keeps its full height behind the sheet and is
     // told, via padding, which slice of itself is actually visible — so
@@ -782,7 +850,8 @@ document.addEventListener("DOMContentLoaded", function () {
     var sheet = document.getElementById('sheet');
     var grabber = document.getElementById('sheet-grabber');
     var STATE_ORDER = ['peek', 'half', 'full'];
-    var sheetState = 'peek';
+    var savedSheet = document.documentElement.getAttribute('data-sheet');
+    var sheetState = STATE_ORDER.indexOf(savedSheet) !== -1 ? savedSheet : 'peek';
     // Tall enough to clear the floating HOME/CREATE/PROFILE bar and still show
     // a usable strip of the sheet above it.
     var PEEK_VISIBLE = 200;
@@ -850,5 +919,5 @@ document.addEventListener("DOMContentLoaded", function () {
         map.resize();
     });
 
-    setSheetState('peek');
+    setSheetState(sheetState);
 });

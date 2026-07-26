@@ -57,7 +57,7 @@
 
         <!-- Top bar: title + compact create button -->
         <div class="panel-topbar">
-            <span class="panel-title">Nearby Meetings</span>
+            <span class="panel-title" id="panel-title">Nearby Meetings</span>
             <button class="create-btn-small" id="create-meeting-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
                      stroke-linecap="round" width="14" height="14">
@@ -67,6 +67,24 @@
             </button>
         </div>
 
+        <!-- Meetings / People switch -->
+        <div class="sheet-tabs" id="sheet-tabs">
+            <button type="button" class="sheet-tab active" data-pane="meetings" onclick="showSheetPane('meetings')">Meetings</button>
+            <button type="button" class="sheet-tab" data-pane="people" onclick="showSheetPane('people')">People</button>
+        </div>
+
+        <!-- People search -->
+        <div class="sheet-pane" id="pane-people" hidden>
+            <div class="user-search-input-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="18" height="18"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" id="user-search-input" placeholder="Search by ID or Gmail username…" oninput="searchUsers(this.value)" autocomplete="off" />
+            </div>
+            <div class="user-search-results" id="user-search-results">
+                <p class="user-search-hint">Type to find users</p>
+            </div>
+        </div>
+
+        <div class="sheet-pane" id="pane-meetings">
         <div class="search-container">
             <input type="text" id="search-input" placeholder="Search meetings...">
         </div>
@@ -200,6 +218,7 @@
             </div>
             {% endif %}
         </div>
+        </div><!-- /#pane-meetings -->
         </div><!-- /.sheet-scroll -->
     </div><!-- /.sheet -->
 </div>
@@ -233,6 +252,52 @@
 
     function passMeeting(id) {
         fetch('/pass/' + id, { method: 'POST' }).then(function () { retireShelfCard(id); });
+    }
+
+    // ── Meetings / People panes ──────────────────────────────────────
+    function showSheetPane(pane) {
+        document.querySelectorAll('.sheet-tab').forEach(function (b) {
+            b.classList.toggle('active', b.dataset.pane === pane);
+        });
+        document.getElementById('pane-meetings').hidden = pane !== 'meetings';
+        document.getElementById('pane-people').hidden = pane !== 'people';
+        document.getElementById('panel-title').textContent =
+            pane === 'people' ? 'Find People' : 'Nearby Meetings';
+        // The people list needs room, so open the sheet up when switching to it
+        if (pane === 'people' && typeof setSheetState === 'function') setSheetState('full');
+        if (pane === 'people') document.getElementById('user-search-input').focus();
+    }
+
+    var userSearchTimeout;
+    function searchUsers(q) {
+        clearTimeout(userSearchTimeout);
+        var results = document.getElementById('user-search-results');
+        if (!q.trim()) {
+            results.innerHTML = '<p class="user-search-hint">Type to find users</p>';
+            return;
+        }
+        userSearchTimeout = setTimeout(function () {
+            fetch('/search_users?q=' + encodeURIComponent(q))
+                .then(function (r) { return r.json(); })
+                .then(function (users) {
+                    if (!users.length) {
+                        results.innerHTML = '<p class="user-search-hint">No users found</p>';
+                        return;
+                    }
+                    results.innerHTML = users.map(function (u) {
+                        var initials = u.username.slice(0, 2).toUpperCase();
+                        var badge = (u.is_trusted || u.is_admin) ? '<span class="trust-badge" title="Trusted user">★</span>' : '';
+                        return '<div class="user-result-card" onclick="location.href=\'/user/' + u.uid + '\'">' +
+                            '<div class="user-result-avatar" style="background:' + u.color + '">' + initials + '</div>' +
+                            '<div class="user-result-info">' +
+                                '<span class="user-result-name">' + u.username + badge + '</span>' +
+                                '<span class="user-result-uid">' + u.uid + '</span>' +
+                            '</div>' +
+                            '<span class="user-result-chevron">›</span>' +
+                        '</div>';
+                    }).join('');
+                });
+        }, 300);
     }
 
     function joinFromShelf(id) {
