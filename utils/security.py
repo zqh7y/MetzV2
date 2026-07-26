@@ -116,7 +116,10 @@ def add_security_headers(response):
         "script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net blob:; "
         "worker-src 'self' blob:; "
         "child-src 'self' blob:; "
-        "style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com; "
+        # jsdelivr serves flatpickr's stylesheet — without it the date picker's
+        # calendar renders unstyled and spills into the page as stray content.
+        "style-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net "
+        "https://fonts.googleapis.com; "
         "font-src 'self' https://fonts.gstatic.com data:; "
         "img-src 'self' data: blob: https://*.cartocdn.com https://*.basemaps.cartocdn.com "
         "https://*.openstreetmap.org; "

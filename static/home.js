@@ -797,7 +797,7 @@ document.addEventListener("DOMContentLoaded", function () {
             var thresholdHtml = '';
             if (meeting.has_threshold) {
                 var state = meeting.commit_status;
-                var label = state === 'confirmed' ? '✅ Confirmed — it's happening'
+                var label = state === 'confirmed' ? '✅ Confirmed — this is happening'
                           : state === 'cancelled' ? '🚫 Called off'
                           : state === 'awaiting'  ? '⏳ Deadline passed — organiser deciding'
                           : (meeting.joined_uids || []).length + ' of ' + meeting.min_attendees + ' needed';
