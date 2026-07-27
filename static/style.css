@@ -3379,9 +3379,9 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
     padding: 0 20px;
-    /* Clear the floating HOME / CREATE / PROFILE bar so the last meeting
-       card is never hidden behind it. */
-    padding-bottom: 120px;
+    /* Home has no bottom bar (it uses the hamburger drawer), so only a little
+       breathing room is needed at the end of the list. */
+    padding-bottom: 40px;
 }
 
 /* The shelf spans the sheet's own padding instead of the old page margins */
@@ -3741,7 +3741,7 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     --radius-lg: 22px;
 }
 
-:root[data-density="comfortable"] .sheet-scroll { padding: 0 22px 130px; }
+:root[data-density="comfortable"] .sheet-scroll { padding: 0 22px 48px; }
 :root[data-density="comfortable"] .meeting-card { border-radius: 18px; }
 :root[data-density="comfortable"] .meeting-card-body { padding: 15px 14px 50px 17px; }
 :root[data-density="comfortable"] .meeting-card-title { font-size: 16px; }
@@ -4894,3 +4894,201 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
 .review-empty-icon { font-size: 44px; margin-bottom: 12px; }
 .review-empty h3 { margin: 0 0 6px 0; color: var(--text); font-size: 17px; }
 .review-empty p { margin: 0 0 16px 0; font-size: 13px; }
+
+/* ═══ Home hamburger menu + drawer ═══════════════════════════════════════ */
+.map-menu-btn {
+    position: fixed;
+    top: 14px;
+    left: 14px;
+    z-index: 6;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 14px 9px 12px;
+    border-radius: 22px;
+    background: rgba(28, 28, 46, 0.72);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: #fff;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(16, 20, 40, 0.28);
+    transition: transform 0.2s var(--spring), background 0.2s;
+}
+.map-menu-btn:hover { transform: translateY(-1px); background: rgba(28, 28, 46, 0.82); }
+.map-menu-btn:active { transform: scale(0.97); }
+
+.map-menu-brand {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 800;
+    font-size: 14px;
+    letter-spacing: 0.3px;
+}
+
+/* Red dot when an admin has meetings waiting for review */
+.map-menu-dot {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #e74c3c;
+    border: 2px solid rgba(28, 28, 46, 0.9);
+}
+
+.drawer-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 900;
+    background: rgba(10, 14, 24, 0.45);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.drawer-scrim.is-open { opacity: 1; }
+.drawer-scrim[hidden] { display: none; }
+
+.drawer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 950;
+    width: 82%;
+    max-width: 320px;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    box-shadow: 0 0 60px rgba(16, 20, 40, 0.4);
+    transform: translateX(-104%);
+    transition: transform 0.32s var(--ease-out);
+    padding: 0 0 calc(16px + env(safe-area-inset-bottom, 0px)) 0;
+}
+.drawer.is-open { transform: translateX(0); }
+
+.drawer-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: calc(18px + env(safe-area-inset-top, 0px)) 16px 16px 18px;
+    border-bottom: 1px solid var(--border);
+}
+
+.drawer-brand { display: flex; align-items: center; gap: 12px; }
+.drawer-logo {
+    width: 42px;
+    height: 42px;
+    border-radius: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+    color: #fff;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 800;
+    font-size: 20px;
+    box-shadow: 0 6px 16px var(--accent-glow);
+}
+.drawer-title { display: block; font-family: 'Poppins', sans-serif; font-weight: 800; font-size: 17px; color: var(--text); }
+.drawer-sub { display: block; font-size: 11.5px; color: var(--text-3); margin-top: 1px; }
+
+.drawer-close {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text-2);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: transform 0.2s var(--spring), background 0.2s;
+}
+.drawer-close:hover { transform: rotate(90deg); background: var(--surface-3); }
+
+.drawer-nav {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.drawer-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    padding: 13px 14px;
+    border-radius: 13px;
+    color: var(--text);
+    text-decoration: none;
+    font-size: 14.5px;
+    font-weight: 600;
+    transition: background 0.18s, transform 0.18s var(--spring);
+}
+.drawer-item:hover { background: var(--surface-2); transform: translateX(3px); }
+.drawer-item.is-active { background: var(--accent-soft); color: var(--accent); font-weight: 800; }
+
+.drawer-item-icon {
+    width: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    flex-shrink: 0;
+}
+.drawer-item.is-active .drawer-item-icon { color: var(--accent); }
+
+.drawer-badge {
+    margin-left: auto;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 10px;
+    background: #e74c3c;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.drawer-divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 12px 14px 6px 14px;
+    font-size: 10.5px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-3);
+}
+.drawer-divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+}
+
+.drawer-logout {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    margin: 0 12px;
+    padding: 13px 14px;
+    border-radius: 13px;
+    color: #e74c3c;
+    text-decoration: none;
+    font-size: 14.5px;
+    font-weight: 700;
+    background: rgba(231, 76, 60, 0.08);
+    transition: background 0.18s;
+}
+.drawer-logout:hover { background: rgba(231, 76, 60, 0.16); }

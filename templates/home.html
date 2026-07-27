@@ -12,15 +12,8 @@
     <!-- Full-bleed map: it fills the viewport and everything else floats on top -->
     <div id="map"></div>
 
-    <!-- Floating title pill -->
-    <div class="map-title-pill">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
-             stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
-            <path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 1 1 18 0z"/>
-            <circle cx="12" cy="10" r="3"/>
-        </svg>
-        Explore Nearby
-    </div>
+    <!-- Hamburger menu (Home has no bottom bar; the drawer replaces it) -->
+    {% include 'home_menu.html' %}
 
     <!-- Icon-only locate button -->
     <button id="locate-btn" title="Find my location">
@@ -468,8 +461,7 @@
     }
 </script>
 
-{% set active_page = 'home' %}
-{% include 'nav.html' %}
+<!-- No bottom bar on Home — navigation lives in the hamburger drawer above. -->
 
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script src="{{ url_for('static', filename='validation.js') }}"></script>

@@ -1,0 +1,129 @@
+<!-- Home-only navigation drawer. Home drops the bottom bar in favour of this
+     hamburger, so everything reachable from the nav (and more) lives here. -->
+<button class="map-menu-btn" id="menu-open" aria-label="Open menu" aria-expanded="false">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" width="18" height="18">
+        <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+    </svg>
+    <span class="map-menu-brand">Metz</span>
+    {% if is_admin and nav_pending_count and nav_pending_count > 0 %}
+    <span class="map-menu-dot"></span>
+    {% endif %}
+</button>
+
+<div class="drawer-scrim" id="drawer-scrim" hidden></div>
+
+<aside class="drawer" id="drawer" aria-hidden="true">
+    <div class="drawer-head">
+        <div class="drawer-brand">
+            <span class="drawer-logo">M</span>
+            <div>
+                <span class="drawer-title">Metz</span>
+                <span class="drawer-sub">Meet people nearby</span>
+            </div>
+        </div>
+        <button class="drawer-close" id="menu-close" aria-label="Close menu">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="18" height="18">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+        </button>
+    </div>
+
+    <nav class="drawer-nav">
+        <a href="/" class="drawer-item is-active">
+            <span class="drawer-item-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+                </svg>
+            </span>
+            Home
+        </a>
+
+        <a href="/create" class="drawer-item">
+            <span class="drawer-item-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" width="20" height="20">
+                    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+            </span>
+            Create a meeting
+        </a>
+
+        <a href="/profile" class="drawer-item">
+            <span class="drawer-item-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                </svg>
+            </span>
+            My profile
+        </a>
+
+        <a href="/settings" class="drawer-item">
+            <span class="drawer-item-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+            </span>
+            Settings
+        </a>
+
+        {% if is_admin %}
+        <div class="drawer-divider"><span>Admin</span></div>
+
+        <a href="/admin/pending" class="drawer-item">
+            <span class="drawer-item-icon">⏳</span>
+            Review meetings
+            {% if nav_pending_count and nav_pending_count > 0 %}
+            <span class="drawer-badge">{{ nav_pending_count if nav_pending_count < 100 else '99+' }}</span>
+            {% endif %}
+        </a>
+
+        <a href="/admin/dashboard" class="drawer-item">
+            <span class="drawer-item-icon">🛠️</span>
+            Developer dashboard
+        </a>
+        {% endif %}
+    </nav>
+
+    <a href="/logout" class="drawer-logout">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+        Log out
+    </a>
+</aside>
+
+<script>
+(function () {
+    var scrim = document.getElementById('drawer-scrim');
+    var drawer = document.getElementById('drawer');
+    var openBtn = document.getElementById('menu-open');
+    var closeBtn = document.getElementById('menu-close');
+
+    function openDrawer() {
+        scrim.hidden = false;
+        // Force a reflow so the transition runs from the hidden state. rAF
+        // would be cleaner, but it is throttled in background tabs, which
+        // would leave the drawer stuck shut.
+        void drawer.offsetWidth;
+        drawer.classList.add('is-open');
+        scrim.classList.add('is-open');
+        drawer.setAttribute('aria-hidden', 'false');
+        openBtn.setAttribute('aria-expanded', 'true');
+    }
+
+    function closeDrawer() {
+        drawer.classList.remove('is-open');
+        scrim.classList.remove('is-open');
+        drawer.setAttribute('aria-hidden', 'true');
+        openBtn.setAttribute('aria-expanded', 'false');
+        setTimeout(function () { scrim.hidden = true; }, 300);
+    }
+
+    openBtn.addEventListener('click', openDrawer);
+    closeBtn.addEventListener('click', closeDrawer);
+    scrim.addEventListener('click', closeDrawer);
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && drawer.classList.contains('is-open')) closeDrawer();
+    });
+})();
+</script>
