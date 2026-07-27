@@ -182,7 +182,11 @@ def add_meeting(meeting_obj, creator_uid=None):
         meeting_obj.creator_username = USERS_DB[creator_uid]["username"]
         USERS_DB[creator_uid]["created_meeting_ids"].append(meeting_obj.id)
         meeting_obj.status = "approved" if is_trusted(creator_uid) else "pending"
-    MEETINGS_DB[meeting_obj.id] = meeting_obj.to_dict()
+    record = meeting_obj.to_dict()
+    # Stamped here rather than on the model so it survives to_dict/from_dict
+    # untouched; used by the dashboard's "new this week" figure.
+    record["created_at"] = datetime.now(timezone.utc).isoformat()
+    MEETINGS_DB[meeting_obj.id] = record
     save_data()
     return meeting_obj
 
@@ -722,6 +726,81 @@ def get_active_users(limit=12, exclude_uid=None):
     ]
     candidates.sort(key=activity_score, reverse=True)
     return [public_user(u) for u in candidates[:limit]]
+
+
+def _within_days(iso_str, days):
+    """True if an ISO timestamp is within the last `days` days."""
+    if not iso_str:
+        return False
+    try:
+        dt = datetime.fromisoformat(iso_str)
+    except ValueError:
+        return False
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return (datetime.now(timezone.utc) - dt).total_seconds() <= days * 86400
+
+
+def platform_stats():
+    """A snapshot of the whole platform for the developer dashboard.
+
+    Everything is derived from the in-memory stores, so it is cheap to call
+    on each dashboard load and always reflects the current state.
+    """
+    refresh_all_commit_statuses()
+    users = list(USERS_DB.values())
+    meetings = list(MEETINGS_DB.values())
+
+    def count(seq, pred):
+        return sum(1 for x in seq if pred(x))
+
+    total_joins = sum(len(m.get("joined_uids", [])) for m in meetings)
+    threshold = [m for m in meetings if int(m.get("min_attendees") or 0) > 0]
+
+    # Top organisers by number of meetings created, richest first
+    organisers = sorted(
+        (u for u in users if u.get("created_meeting_ids")),
+        key=lambda u: len(u["created_meeting_ids"]), reverse=True,
+    )[:5]
+    top_organisers = [{
+        "uid": u["uid"],
+        "name": u.get("display_name") or u.get("username") or u["uid"],
+        "created": len(u.get("created_meeting_ids", [])),
+        "color": generate_user_color(u["uid"]),
+    } for u in organisers]
+
+    return {
+        "users": {
+            "total": len(users),
+            "admins": count(users, lambda u: u.get("is_admin")),
+            "trusted": count(users, lambda u: u.get("is_trusted") and not u.get("is_admin")),
+            "banned": count(users, lambda u: u.get("is_banned")),
+            "online_now": count(users, _is_recently_online),
+            "new_7d": count(users, lambda u: _within_days(u.get("joined_at"), 7)),
+            "with_avatar": count(users, lambda u: u.get("avatar_emoji") or u.get("profile_picture")),
+        },
+        "meetings": {
+            "total": len(meetings),
+            "approved": count(meetings, lambda m: m.get("status") == "approved"),
+            "pending": count(meetings, lambda m: m.get("status") == "pending"),
+            "online": count(meetings, lambda m: m.get("link")),
+            "inperson": count(meetings, lambda m: m.get("location")),
+            "new_7d": count(meetings, lambda m: _within_days(m.get("created_at"), 7)),
+        },
+        "threshold": {
+            "total": len(threshold),
+            "confirmed": count(threshold, lambda m: m.get("commit_status") == "confirmed"),
+            "gathering": count(threshold, lambda m: m.get("commit_status") == "gathering"),
+            "awaiting": count(threshold, lambda m: m.get("commit_status") == "awaiting"),
+            "cancelled": count(threshold, lambda m: m.get("commit_status") == "cancelled"),
+        },
+        "engagement": {
+            "total_joins": total_joins,
+            "avg_per_meeting": round(total_joins / len(meetings), 1) if meetings else 0,
+            "pending_review": count(meetings, lambda m: m.get("status") == "pending"),
+        },
+        "top_organisers": top_organisers,
+    }
 
 
 PROFILE_EMOJIS = ["😀", "😎", "🤓", "🥳", "🧑‍💻", "🎨", "🎧", "⚽", "🏔️",

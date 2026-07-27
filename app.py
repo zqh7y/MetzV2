@@ -14,7 +14,7 @@ from routes.meeting_actions import pass_route, join_route, delete_route, decide_
 from routes.profile import profile_route, user_profile_route, toggle_trust_route, edit_profile_route
 from routes.settings import settings_route
 from routes.verify import verify_route, resend_verification_route
-from routes.admin import pending_route, approve_route, decline_route, dashboard_route, ban_route, delete_user_route
+from routes.admin import pending_route, approve_route, decline_route, dashboard_route, ban_route, delete_user_route, set_trust_route
 
 from utils.security import (
     csrf_protect, get_csrf_token, add_security_headers,
@@ -207,6 +207,11 @@ def admin_ban(uid):
 @app.route("/admin/delete_user/<uid>", methods=["POST"])
 def admin_delete_user(uid):
     return delete_user_route(uid)
+
+
+@app.route("/admin/set_trust/<uid>", methods=["POST"])
+def admin_set_trust(uid):
+    return set_trust_route(uid)
 
 
 @app.route("/admin/approve/<int:meeting_id>", methods=["POST"])

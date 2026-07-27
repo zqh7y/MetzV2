@@ -1,46 +1,72 @@
 {% extends "base.html" %}
 
-{% block title %}Pending Meetings{% endblock %}
+{% block title %}Review Meetings{% endblock %}
 
 {% block content %}
-<div class="likes-page">
+<div class="dash-page">
 
-    <div class="likes-header">
-        <h2>⏳ Pending Meetings</h2>
-        <p>{{ meetings | length }} awaiting review</p>
+    <div class="dash-header">
+        <div>
+            <h2 class="dash-title">⏳ Review Meetings</h2>
+            <p class="dash-sub"><span id="pending-count">{{ meetings | length }}</span> awaiting your review</p>
+        </div>
+        <a href="/admin/dashboard" class="dash-back" title="Developer dashboard">‹</a>
     </div>
 
-    <div class="likes-list" id="pending-list">
+    <div class="review-list" id="pending-list">
         {% if meetings %}
             {% for meeting in meetings %}
-            <div class="like-card" id="pending-card-{{ meeting.id }}">
-                <div class="like-card-color card-color-{{ loop.index0 % 5 }}"></div>
-                <div class="like-card-body">
-                    <div class="like-card-badge">{{ '🌐 Online' if meeting.link else '📍 In-Person' }}</div>
-                    <h3 class="like-card-title">{{ meeting.title }}</h3>
+            {% set is_online = meeting.link %}
+            <div class="review-card" id="pending-card-{{ meeting.id }}">
+                <div class="review-card-accent accent-{{ loop.index0 % 5 }}"></div>
+                <div class="review-card-body">
+                    <div class="review-card-top">
+                        <span class="meeting-card-type-badge {{ 'badge-type-online' if is_online else 'badge-type-inperson' }}">
+                            {{ '🌐 Online' if is_online else '📍 In-Person' }}
+                        </span>
+                        <span class="review-card-time">🕐 {{ meeting.time }}</span>
+                    </div>
+
+                    <h3 class="review-card-title">{{ meeting.title }}</h3>
+
                     {% if meeting.creator_username %}
-                    <div class="like-card-creator">👤 by {{ meeting.creator_username }}{% if trusted_map.get(meeting.creator_uid) %}<span class="trust-badge" title="Trusted creator">★</span>{% endif %}</div>
+                    <a href="/user/{{ meeting.creator_uid }}" class="review-card-creator">
+                        👤 {{ meeting.creator_username }}{% if trusted_map.get(meeting.creator_uid) %}<span class="trust-badge" title="Trusted creator">★</span>{% endif %}
+                    </a>
                     {% endif %}
-                    <p class="like-card-desc">{{ meeting.description }}</p>
-                    <div class="like-card-meta">
-                        <span>🕐 {{ meeting.time }}</span>
+
+                    {% if meeting.tags %}
+                    <div class="meeting-card-tags">
+                        {% for t in meeting.tags %}<span class="meeting-card-tag">{{ t }}</span>{% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <p class="review-card-desc">{{ meeting.description }}</p>
+
+                    <div class="review-card-meta">
                         {% if meeting.location %}
-                        <span class="card-location-tag">📍 {{ meeting.location }}</span>
+                        <span class="review-meta-item">📍 {{ meeting.location }}</span>
+                        {% elif meeting.link %}
+                        <span class="review-meta-item">🔗 {{ meeting.link }}</span>
+                        {% endif %}
+                        {% if meeting.has_threshold %}
+                        <span class="review-meta-item">🎯 needs {{ meeting.min_attendees }}{% if meeting.max_attendees %} · max {{ meeting.max_attendees }}{% endif %}</span>
                         {% endif %}
                     </div>
-                    <div class="pending-actions">
-                        <button class="pending-approve-btn" onclick="moderateMeeting({{ meeting.id }}, 'approve')">✓ Approve</button>
-                        <button class="pending-decline-btn" onclick="moderateMeeting({{ meeting.id }}, 'decline')">✕ Decline</button>
+
+                    <div class="review-actions">
+                        <button class="review-btn review-approve" onclick="moderateMeeting({{ meeting.id }}, 'approve')">✓ Approve</button>
+                        <button class="review-btn review-decline" onclick="moderateMeeting({{ meeting.id }}, 'decline')">✕ Decline</button>
                     </div>
                 </div>
             </div>
             {% endfor %}
         {% else %}
-            <div class="likes-empty">
-                <div class="likes-empty-icon">✅</div>
-                <h3>Nothing pending</h3>
-                <p>All caught up — no meetings waiting for review.</p>
-                <a href="/profile" class="no-more-btn">Back to Profile</a>
+            <div class="review-empty" id="review-empty">
+                <div class="review-empty-icon">✅</div>
+                <h3>All caught up</h3>
+                <p>No meetings are waiting for review right now.</p>
+                <a href="/admin/dashboard" class="no-more-btn">Back to Dashboard</a>
             </div>
         {% endif %}
     </div>
@@ -51,18 +77,37 @@
 
 <script>
 function moderateMeeting(id, action) {
+    var card = document.getElementById('pending-card-' + id);
+    var btns = card ? card.querySelectorAll('.review-btn') : [];
+    btns.forEach(function (b) { b.disabled = true; });
+
     fetch('/admin/' + action + '/' + id, { method: 'POST' })
         .then(function (r) { return r.json(); })
         .then(function (data) {
-            if (data.error) { alert('Not allowed.'); return; }
-            var card = document.getElementById('pending-card-' + id);
+            if (data.error) {
+                alert('Not allowed.');
+                btns.forEach(function (b) { b.disabled = false; });
+                return;
+            }
             if (card) {
-                card.style.transition = 'opacity 0.3s, transform 0.3s';
-                card.style.opacity = '0';
-                card.style.transform = 'translateX(60px)';
-                setTimeout(function () { card.remove(); }, 300);
+                card.classList.add(action === 'approve' ? 'is-approved' : 'is-declined');
+                setTimeout(function () {
+                    card.remove();
+                    updateCount();
+                }, 380);
             }
         });
+}
+
+function updateCount() {
+    var left = document.querySelectorAll('.review-card').length;
+    document.getElementById('pending-count').textContent = left;
+    if (left === 0) {
+        var list = document.getElementById('pending-list');
+        list.innerHTML = '<div class="review-empty"><div class="review-empty-icon">✅</div>' +
+            '<h3>All caught up</h3><p>No meetings are waiting for review right now.</p>' +
+            '<a href="/admin/dashboard" class="no-more-btn">Back to Dashboard</a></div>';
+    }
 }
 </script>
 {% endblock %}

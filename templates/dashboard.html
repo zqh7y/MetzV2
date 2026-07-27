@@ -3,96 +3,210 @@
 {% block title %}Developer Dashboard{% endblock %}
 
 {% block content %}
-<div class="likes-page">
+<div class="dash-page">
 
-    <div class="likes-header">
-        <h2>🛠️ Developer Dashboard</h2>
-        <p>{{ users | length }} users · {{ meetings | length }} meetings</p>
+    <div class="dash-header">
+        <div>
+            <h2 class="dash-title">🛠️ Developer Dashboard</h2>
+            <p class="dash-sub">{{ stats.users.total }} users · {{ stats.meetings.total }} meetings · {{ stats.engagement.total_joins }} joins</p>
+        </div>
+        <a href="/profile" class="dash-back" title="Back to profile">‹</a>
     </div>
 
-    <div class="dashboard-section">
-        <h3 class="dashboard-section-title">Users</h3>
-        <div class="dashboard-table-wrap">
-            <table class="dashboard-table">
+    <!-- Section switch -->
+    <div class="dash-tabs">
+        <button type="button" class="dash-tab active" data-pane="overview" onclick="showDashPane('overview')">Overview</button>
+        <button type="button" class="dash-tab" data-pane="users" onclick="showDashPane('users')">Users <span class="dash-tab-count">{{ stats.users.total }}</span></button>
+        <button type="button" class="dash-tab" data-pane="meetings" onclick="showDashPane('meetings')">Meetings <span class="dash-tab-count">{{ stats.meetings.total }}</span></button>
+    </div>
+
+    <!-- ─────────── OVERVIEW ─────────── -->
+    <div class="dash-pane" id="dash-overview">
+        {% if stats.engagement.pending_review > 0 %}
+        <a href="/admin/pending" class="dash-alert">
+            ⏳ {{ stats.engagement.pending_review }} meeting{{ 's' if stats.engagement.pending_review != 1 }} waiting for review →
+        </a>
+        {% endif %}
+
+        <div class="stat-grid">
+            {% macro stat(icon, value, label, tone='') %}
+            <div class="stat-tile {{ tone }}">
+                <span class="stat-tile-icon">{{ icon }}</span>
+                <span class="stat-tile-value">{{ value }}</span>
+                <span class="stat-tile-label">{{ label }}</span>
+            </div>
+            {% endmacro %}
+
+            {{ stat('👥', stats.users.total, 'Total users') }}
+            {{ stat('🟢', stats.users.online_now, 'Online now', 'tone-good') }}
+            {{ stat('✨', stats.users.new_7d, 'New this week') }}
+            {{ stat('★', stats.users.trusted, 'Trusted') }}
+            {{ stat('🚫', stats.users.banned, 'Banned', 'tone-bad' if stats.users.banned else '') }}
+            {{ stat('🗓️', stats.meetings.total, 'Meetings') }}
+            {{ stat('🤝', stats.engagement.total_joins, 'Total joins') }}
+            {{ stat('📊', stats.engagement.avg_per_meeting, 'Avg / meeting') }}
+        </div>
+
+        <div class="dash-card">
+            <h3 class="dash-card-title">Meetings breakdown</h3>
+            <div class="dash-bars">
+                {% set mt = stats.meetings.total or 1 %}
+                <div class="dash-bar-row">
+                    <span class="dash-bar-label">📍 In-person</span>
+                    <div class="dash-bar"><div class="dash-bar-fill" style="width: {{ (stats.meetings.inperson / mt * 100) | round }}%"></div></div>
+                    <span class="dash-bar-val">{{ stats.meetings.inperson }}</span>
+                </div>
+                <div class="dash-bar-row">
+                    <span class="dash-bar-label">🌐 Online</span>
+                    <div class="dash-bar"><div class="dash-bar-fill" style="width: {{ (stats.meetings.online / mt * 100) | round }}%"></div></div>
+                    <span class="dash-bar-val">{{ stats.meetings.online }}</span>
+                </div>
+                <div class="dash-bar-row">
+                    <span class="dash-bar-label">✅ Approved</span>
+                    <div class="dash-bar"><div class="dash-bar-fill" style="width: {{ (stats.meetings.approved / mt * 100) | round }}%"></div></div>
+                    <span class="dash-bar-val">{{ stats.meetings.approved }}</span>
+                </div>
+                <div class="dash-bar-row">
+                    <span class="dash-bar-label">⏳ Pending</span>
+                    <div class="dash-bar"><div class="dash-bar-fill warn" style="width: {{ (stats.meetings.pending / mt * 100) | round }}%"></div></div>
+                    <span class="dash-bar-val">{{ stats.meetings.pending }}</span>
+                </div>
+            </div>
+        </div>
+
+        {% if stats.threshold.total %}
+        <div class="dash-card">
+            <h3 class="dash-card-title">Threshold meetings <span class="dash-card-note">{{ stats.threshold.total }} total</span></h3>
+            <div class="dash-chip-row">
+                <span class="dash-chip tone-good">✅ {{ stats.threshold.confirmed }} confirmed</span>
+                <span class="dash-chip">⏳ {{ stats.threshold.gathering }} gathering</span>
+                <span class="dash-chip tone-warn">⚠️ {{ stats.threshold.awaiting }} awaiting</span>
+                <span class="dash-chip tone-bad">🚫 {{ stats.threshold.cancelled }} cancelled</span>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if stats.top_organisers %}
+        <div class="dash-card">
+            <h3 class="dash-card-title">Top organisers</h3>
+            <div class="dash-leaders">
+                {% for o in stats.top_organisers %}
+                <a href="/user/{{ o.uid }}" class="dash-leader">
+                    <span class="dash-leader-rank">{{ ['🥇','🥈','🥉'][loop.index0] if loop.index0 < 3 else loop.index }}</span>
+                    <span class="dash-leader-avatar" style="background: {{ o.color }}">{{ o.name[:2].upper() }}</span>
+                    <span class="dash-leader-name">{{ o.name }}</span>
+                    <span class="dash-leader-count">{{ o.created }} created</span>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- ─────────── USERS ─────────── -->
+    <div class="dash-pane" id="dash-users" hidden>
+        <div class="dash-search-wrap">
+            <input type="text" class="dash-search" id="user-search" placeholder="Filter users by name, ID or email…" oninput="filterRows('user', this.value)">
+        </div>
+        <div class="dash-table-wrap">
+            <table class="dash-table">
                 <thead>
                     <tr>
-                        <th>UID</th>
-                        <th>Username</th>
-                        <th>Email</th>
-                        <th>Admin</th>
-                        <th>Trusted</th>
-                        <th>Banned</th>
-                        <th>Joined</th>
-                        <th>Last Online</th>
-                        <th>Actions</th>
+                        <th>User</th><th>ID</th><th>Role</th><th>Meetings</th><th>Last online</th><th>Actions</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="user-tbody">
                     {% for user in users %}
-                    <tr id="user-row-{{ user.uid }}">
-                        <td>{{ user.uid }}</td>
-                        <td>{{ user.username }}</td>
-                        <td>{{ user.email }}</td>
-                        <td>{{ '✅' if user.is_admin else '—' }}</td>
-                        <td>{{ '★' if user.is_trusted else '—' }}</td>
-                        <td>{{ '🚫' if user.is_banned else '—' }}</td>
-                        <td>{{ user.joined_at }}</td>
-                        <td>{{ user.last_online }}</td>
+                    <tr id="user-row-{{ user.uid }}" data-search="{{ (user.username ~ ' ' ~ user.uid ~ ' ' ~ user.email)|lower }}">
+                        <td>
+                            <div class="dash-user-cell">
+                                <span class="dash-user-avatar" style="background: {{ user_color(user.uid) }}">
+                                    {{ user.avatar_emoji or (user.display_name or user.username or user.uid)[:2]|upper }}
+                                </span>
+                                <div class="dash-user-text">
+                                    <span class="dash-user-name">{{ user.display_name or user.username }}</span>
+                                    <span class="dash-user-email">{{ user.email }}</span>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="dash-mono">{{ user.uid }}</td>
+                        <td>
+                            <span class="role-badges" id="roles-{{ user.uid }}">
+                                {% if user.is_admin %}<span class="role-badge role-admin">Admin</span>{% endif %}
+                                {% if user.is_trusted and not user.is_admin %}<span class="role-badge role-trusted">★ Trusted</span>{% endif %}
+                                {% if user.is_banned %}<span class="role-badge role-banned">Banned</span>{% endif %}
+                                {% if not user.is_admin and not user.is_trusted and not user.is_banned %}<span class="role-badge">Member</span>{% endif %}
+                            </span>
+                        </td>
+                        <td class="dash-mono">{{ user.created_meeting_ids|length }}c · {{ user.joined_meeting_ids|length }}j</td>
+                        <td class="dash-dim">{{ user.last_online[:10] if user.last_online else '—' }}</td>
                         <td>
                             {% if not user.is_admin %}
-                            <button class="dashboard-action-btn" onclick="toggleBan('{{ user.uid }}')">
-                                {{ 'Unban' if user.is_banned else 'Ban' }}
-                            </button>
-                            <button class="dashboard-action-btn dashboard-action-danger" onclick="deleteUser('{{ user.uid }}')">Delete</button>
+                            <div class="dash-row-actions">
+                                <button class="dash-btn" onclick="toggleTrust('{{ user.uid }}')" id="trust-btn-{{ user.uid }}">
+                                    {{ 'Untrust' if user.is_trusted else 'Trust' }}
+                                </button>
+                                <button class="dash-btn" onclick="toggleBan('{{ user.uid }}')" id="ban-btn-{{ user.uid }}">
+                                    {{ 'Unban' if user.is_banned else 'Ban' }}
+                                </button>
+                                <button class="dash-btn dash-btn-danger" onclick="deleteUser('{{ user.uid }}')">Delete</button>
+                            </div>
                             {% else %}
-                            —
+                            <span class="dash-dim">protected</span>
                             {% endif %}
                         </td>
                     </tr>
                     {% else %}
-                    <tr><td colspan="9">No users yet.</td></tr>
+                    <tr><td colspan="6" class="dash-empty">No users yet.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
+        <p class="dash-none" id="user-none" hidden>No users match that filter.</p>
     </div>
 
-    <div class="dashboard-section">
-        <h3 class="dashboard-section-title">Meetings</h3>
-        <div class="dashboard-table-wrap">
-            <table class="dashboard-table">
+    <!-- ─────────── MEETINGS ─────────── -->
+    <div class="dash-pane" id="dash-meetings" hidden>
+        <div class="dash-search-wrap">
+            <input type="text" class="dash-search" id="meeting-search" placeholder="Filter meetings by title or creator…" oninput="filterRows('meeting', this.value)">
+        </div>
+        <div class="dash-table-wrap">
+            <table class="dash-table">
                 <thead>
                     <tr>
-                        <th>ID</th>
-                        <th>Title</th>
-                        <th>Type</th>
-                        <th>Status</th>
-                        <th>Creator</th>
-                        <th>Joined</th>
-                        <th>Time</th>
-                        <th>Actions</th>
+                        <th>#</th><th>Title</th><th>Type</th><th>Status</th><th>Creator</th><th>Joined</th><th>Actions</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="meeting-tbody">
                     {% for meeting in meetings %}
-                    <tr id="meeting-row-{{ meeting.id }}">
-                        <td>{{ meeting.id }}</td>
-                        <td>{{ meeting.title }}</td>
-                        <td>{{ '🌐 Online' if meeting.link else '📍 In-Person' }}</td>
-                        <td>{{ meeting.status }}</td>
-                        <td>{{ meeting.creator_username }}</td>
-                        <td>{{ meeting.joined_uids | length }}</td>
-                        <td>{{ meeting.time }}</td>
+                    <tr id="meeting-row-{{ meeting.id }}" data-search="{{ (meeting.title ~ ' ' ~ (meeting.creator_username or ''))|lower }}">
+                        <td class="dash-mono">{{ meeting.id }}</td>
+                        <td class="dash-meeting-title">{{ meeting.title }}</td>
+                        <td>{{ '🌐' if meeting.link else '📍' }}</td>
                         <td>
-                            <button class="dashboard-action-btn dashboard-action-danger" onclick="deleteMeeting({{ meeting.id }})">Delete</button>
+                            <span class="status-badge status-{{ meeting.status }}">{{ meeting.status }}</span>
+                            {% if meeting.has_threshold %}
+                            <span class="status-badge status-{{ meeting.commit_status }}">{{ meeting.commit_status }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="dash-dim">{{ meeting.creator_username or '—' }}</td>
+                        <td class="dash-mono">{{ meeting.joined_uids|length }}{% if meeting.min_attendees %}/{{ meeting.min_attendees }}{% endif %}</td>
+                        <td>
+                            <div class="dash-row-actions">
+                                {% if meeting.status == 'pending' %}
+                                <button class="dash-btn dash-btn-good" onclick="moderate({{ meeting.id }}, 'approve')">Approve</button>
+                                {% endif %}
+                                <button class="dash-btn dash-btn-danger" onclick="deleteMeeting({{ meeting.id }})">Delete</button>
+                            </div>
                         </td>
                     </tr>
                     {% else %}
-                    <tr><td colspan="8">No meetings yet.</td></tr>
+                    <tr><td colspan="7" class="dash-empty">No meetings yet.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
+        <p class="dash-none" id="meeting-none" hidden>No meetings match that filter.</p>
     </div>
 
     {% set active_page = 'profile' %}
@@ -100,14 +214,60 @@
 </div>
 
 <script>
+function showDashPane(pane) {
+    document.querySelectorAll('.dash-tab').forEach(function (t) {
+        t.classList.toggle('active', t.dataset.pane === pane);
+    });
+    ['overview', 'users', 'meetings'].forEach(function (p) {
+        document.getElementById('dash-' + p).hidden = p !== pane;
+    });
+}
+
+function filterRows(kind, query) {
+    var q = query.toLowerCase().trim();
+    var rows = document.querySelectorAll('#' + kind + '-tbody tr[data-search]');
+    var shown = 0;
+    rows.forEach(function (row) {
+        var match = !q || row.dataset.search.indexOf(q) !== -1;
+        row.hidden = !match;
+        if (match) shown++;
+    });
+    document.getElementById(kind + '-none').hidden = shown !== 0;
+}
+
+function toggleTrust(uid) {
+    fetch('/admin/set_trust/' + uid, { method: 'POST' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.error) { alert('Not allowed.'); return; }
+            var btn = document.getElementById('trust-btn-' + uid);
+            btn.textContent = data.is_trusted ? 'Untrust' : 'Trust';
+            var roles = document.getElementById('roles-' + uid);
+            var existing = roles.querySelector('.role-trusted');
+            if (data.is_trusted && !existing) {
+                var span = document.createElement('span');
+                span.className = 'role-badge role-trusted';
+                span.textContent = '★ Trusted';
+                roles.appendChild(span);
+                var member = roles.querySelector('.role-badge:not(.role-trusted):not(.role-admin):not(.role-banned)');
+                if (member && member.textContent === 'Member') member.remove();
+            } else if (!data.is_trusted && existing) {
+                existing.remove();
+            }
+        });
+}
+
 function toggleBan(uid) {
     fetch('/admin/ban/' + uid, { method: 'POST' })
         .then(function (r) { return r.json(); })
-        .then(function () { window.location.reload(); });
+        .then(function (data) {
+            if (data.error) { alert('Not allowed.'); return; }
+            window.location.reload();
+        });
 }
 
 function deleteUser(uid) {
-    if (!confirm('Delete this user? This cannot be undone.')) return;
+    if (!confirm('Delete this user and their meetings? This cannot be undone.')) return;
     fetch('/admin/delete_user/' + uid, { method: 'POST' })
         .then(function (r) { return r.json(); })
         .then(function (data) {
@@ -117,13 +277,22 @@ function deleteUser(uid) {
         });
 }
 
-function deleteMeeting(meetingId) {
-    if (!confirm('Delete this meeting? This cannot be undone.')) return;
-    fetch('/delete/' + meetingId, { method: 'POST' })
+function moderate(id, action) {
+    fetch('/admin/' + action + '/' + id, { method: 'POST' })
         .then(function (r) { return r.json(); })
         .then(function (data) {
             if (data.error) { alert('Not allowed.'); return; }
-            var row = document.getElementById('meeting-row-' + meetingId);
+            window.location.reload();
+        });
+}
+
+function deleteMeeting(id) {
+    if (!confirm('Delete this meeting? This cannot be undone.')) return;
+    fetch('/delete/' + id, { method: 'POST' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.error) { alert('Not allowed.'); return; }
+            var row = document.getElementById('meeting-row-' + id);
             if (row) row.remove();
         });
 }
