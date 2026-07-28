@@ -3,7 +3,7 @@ import hashlib
 import json
 import os
 import pymysql
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from cryptography.fernet import Fernet
 from utils.models import InPersonMeeting, OnlineMeeting
 
@@ -286,8 +286,127 @@ def refresh_all_commit_statuses():
         save_data()
 
 
-def toggle_join_meeting(uid, meeting_id):
+# ─── Showing up: timing, the join window, and the cost of bailing ───────────
+# Joining is a promise, so the app needs to know where a meeting sits in its
+# own timeline. Meetings have no explicit end time, so one is assumed.
+JOIN_WINDOW_MINUTES = 10     # how early an online call's button goes live
+ASSUMED_DURATION_HOURS = 2   # how long a meeting is treated as running for
+LATE_BAIL_HOURS = 6          # leaving inside this counts against you
+CHECKIN_GRACE_HOURS = 1      # wait this long after the end before asking "did you go?"
+
+
+def _meeting_start(m):
+    """Meeting times are stored as 'YYYY-MM-DD HH:MM' local time, same as deadlines."""
+    return _parse_deadline(m.get("time"))
+
+
+def meeting_phase(m):
+    """Where a meeting is right now: upcoming / soon / live / ended.
+
+    Meetings with an unparseable time are treated as "upcoming" — better to
+    keep showing a broken-looking meeting than to silently retire it.
+    """
+    start = _meeting_start(m)
+    if not start:
+        return "upcoming"
+    now = datetime.now()
+    end = start + timedelta(hours=ASSUMED_DURATION_HOURS)
+    if now >= end:
+        return "ended"
+    if now >= start:
+        return "live"
+    if (start - now).total_seconds() <= JOIN_WINDOW_MINUTES * 60:
+        return "soon"
+    return "upcoming"
+
+
+def seconds_until_start(m):
+    """Negative once the meeting has started. None if it has no usable time."""
+    start = _meeting_start(m)
+    if not start:
+        return None
+    return int((start - datetime.now()).total_seconds())
+
+
+def link_view(m, uid):
+    """What this user is allowed to see of an online meeting's join link.
+
+    The link is the whole point of an online meeting, so it is not public:
+    only people who committed (plus the organiser and admins) get the URL,
+    and the button to actually open it goes live JOIN_WINDOW_MINUTES before
+    the start — the same "be there at the time" rule the in-person ones have.
+    """
+    link = m.get("link") or ""
+    if not link:
+        return None
+
+    is_host = m.get("creator_uid") == uid or is_admin(uid)
+    visible = bool(uid) and (uid in m.get("joined_uids", []) or is_host)
+    phase = meeting_phase(m)
+
+    return {
+        "visible": visible,
+        "url": link if visible else "",
+        "live": visible and phase in ("soon", "live"),
+        "phase": phase,
+        "opens_in": max(0, (seconds_until_start(m) or 0) - JOIN_WINDOW_MINUTES * 60),
+        "window_minutes": JOIN_WINDOW_MINUTES,
+    }
+
+
+def client_meeting_dict(meeting_obj, viewer_uid):
+    """A meeting as JSON for the browser, with the join link redacted for
+    anyone who hasn't joined. to_dict() stays the full record — that one is
+    what gets persisted."""
+    d = meeting_obj.to_dict()
+    if d.get("is_online"):
+        view = link_view(MEETINGS_DB.get(meeting_obj.id, d), viewer_uid)
+        d["link"] = view["url"] if view else ""
+        d["link_view"] = view
+    d["phase"] = meeting_phase(d)
+    d["seconds_until_start"] = seconds_until_start(d)
+    return d
+
+
+def commitment_brief(meeting_id, uid):
+    """Everything the join-commitment sheet needs to show before someone
+    promises to turn up. Returned by the join endpoint instead of joining."""
+    m = MEETINGS_DB.get(meeting_id)
+    if not m:
+        return None
+
+    joined_uids = m.get("joined_uids", [])
+    cap = int(m.get("max_attendees") or 0)
+    creator = USERS_DB.get(m.get("creator_uid") or "")
+    return {
+        "id": meeting_id,
+        "title": m.get("title", ""),
+        "description": m.get("description", ""),
+        "time": m.get("time", ""),
+        "is_online": bool(m.get("link")),
+        "location": m.get("location", ""),
+        "short_location": shorten_address(m.get("location", "")),
+        "organiser": (creator or {}).get("display_name") or (creator or {}).get("username") or m.get("creator_username", ""),
+        "joined_count": len(joined_uids),
+        "min_attendees": int(m.get("min_attendees") or 0),
+        "spots_left": (max(0, cap - len(joined_uids)) if cap else None),
+        "will_waitlist": bool(cap and len(joined_uids) >= cap),
+        "join_deadline": m.get("join_deadline", ""),
+        "commit_status": m.get("commit_status", "open"),
+        "late_bail_hours": LATE_BAIL_HOURS,
+        "window_minutes": JOIN_WINDOW_MINUTES,
+        "phase": meeting_phase(m),
+        "reliability": get_reliability(uid),
+    }
+
+
+def toggle_join_meeting(uid, meeting_id, pledge=False, confirm_bail=False):
     """Toggle a user's join on a meeting.
+
+    Joining is deliberately not a single tap: unless the caller passes
+    `pledge=True` (the commitment sheet was shown and accepted) this returns
+    {"needs_commitment": ...} instead of joining. Leaving close to the start
+    likewise needs `confirm_bail=True`, and is then recorded as a late bail.
 
     Respects the optional cap: once a meeting is full, further joiners go on
     the waitlist, and leaving promotes the person who has waited longest.
@@ -299,14 +418,38 @@ def toggle_join_meeting(uid, meeting_id):
         return None
 
     joined_uids = m.setdefault("joined_uids", [])
-    waitlist = m.setdefault("waitlist_uids", [])
+    waitlist_uids = m.setdefault("waitlist_uids", [])
+
+    # Joining (as opposed to leaving) is what needs the promise.
+    if uid not in joined_uids and uid not in waitlist_uids and not pledge:
+        return {"needs_commitment": True, "meeting": commitment_brief(meeting_id, uid)}
+
+    # Backing out once other people are counting on you.
+    if uid in joined_uids and not confirm_bail:
+        remaining = seconds_until_start(m)
+        if remaining is not None and remaining <= LATE_BAIL_HOURS * 3600:
+            return {
+                "needs_bail_confirm": True,
+                "meeting": commitment_brief(meeting_id, uid),
+                "hours_left": max(0, round(remaining / 3600, 1)),
+                "started": remaining <= 0,
+            }
+
+    waitlist = waitlist_uids
     cap = int(m.get("max_attendees") or 0)
     promoted_uid = None
     waitlisted = False
+    bailed_late = False
 
     if uid in joined_uids:
         joined_uids.remove(uid)
         joined = False
+        # Pulling out this close to the start is what a no-show costs the
+        # people who planned around you, so it is recorded the same way.
+        remaining = seconds_until_start(m)
+        if remaining is not None and remaining <= LATE_BAIL_HOURS * 3600:
+            m.setdefault("late_bails", {})[uid] = datetime.now(timezone.utc).isoformat()
+            bailed_late = True
         if user and meeting_id in user["joined_meeting_ids"]:
             user["joined_meeting_ids"].remove(meeting_id)
         # A place just opened up — give it to whoever waited longest
@@ -328,6 +471,8 @@ def toggle_join_meeting(uid, meeting_id):
     else:
         joined_uids.append(uid)
         joined = True
+        # Re-joining after a late bail clears the black mark: they came back.
+        m.get("late_bails", {}).pop(uid, None)
         if user and meeting_id not in user["joined_meeting_ids"]:
             user["joined_meeting_ids"].append(meeting_id)
         if user and meeting_id not in user["swiped_ids"]:
@@ -341,9 +486,11 @@ def toggle_join_meeting(uid, meeting_id):
         "waitlisted": waitlisted,
         "waitlist_count": len(waitlist),
         "promoted_uid": promoted_uid,
+        "bailed_late": bailed_late,
         "commit_status": m.get("commit_status"),
         "min_attendees": int(m.get("min_attendees") or 0),
         "spots_left": (max(0, cap - len(joined_uids)) if cap else None),
+        "link_view": link_view(m, uid),
     }
 
 
@@ -385,6 +532,177 @@ def meetings_awaiting_decision(uid):
         meeting_from_dict(m) for m in MEETINGS_DB.values()
         if m.get("creator_uid") == uid and m.get("commit_status") == "awaiting"
     ]
+
+
+# ─── Did you actually go? ───────────────────────────────────────────────────
+# A join only means something if turning up (or not) is recorded somewhere.
+# After a meeting ends, the people who joined confirm whether they went, and
+# the organiser can correct them. Everything else — the reliability score,
+# the profile badge — is derived from those records rather than stored.
+ATTENDANCE_STATES = ("went", "missed")
+
+
+def checkin_is_open(m):
+    """Attendance can only be settled once the meeting is actually over."""
+    start = _meeting_start(m)
+    if not start:
+        return False
+    return datetime.now() >= start + timedelta(hours=ASSUMED_DURATION_HOURS)
+
+
+def record_checkin(uid, meeting_id, status):
+    """The attendee's own answer to "did you go?".
+
+    Deliberately allows admitting a miss — the score is meant to be honest,
+    not flattering, and the organiser can overrule either way.
+    """
+    m = MEETINGS_DB.get(meeting_id)
+    if not m or status not in ATTENDANCE_STATES:
+        return None
+    if uid not in m.get("joined_uids", []):
+        return None
+    if not checkin_is_open(m):
+        return None
+
+    m.setdefault("attendance", {})[uid] = status
+    save_data()
+    return {"status": status, "reliability": get_reliability(uid)}
+
+
+def set_attendance(meeting_id, marker_uid, target_uid, status):
+    """The organiser's verdict on one attendee. Only the meeting's creator
+    (or an admin) may mark, and only after the meeting has ended."""
+    m = MEETINGS_DB.get(meeting_id)
+    if not m:
+        return None
+    if m.get("creator_uid") != marker_uid and not is_admin(marker_uid):
+        return None
+    if target_uid not in m.get("joined_uids", []) or not checkin_is_open(m):
+        return None
+
+    attendance = m.setdefault("attendance", {})
+    if status == "clear":
+        attendance.pop(target_uid, None)
+    elif status in ATTENDANCE_STATES:
+        attendance[target_uid] = status
+    else:
+        return None
+
+    save_data()
+    return {"uid": target_uid, "status": attendance.get(target_uid, ""),
+            "reliability": get_reliability(target_uid)}
+
+
+def get_reliability(uid):
+    """How often this user actually turns up to what they join.
+
+    Counts settled records only: a meeting nobody has confirmed yet sits in
+    "pending" and moves the score neither way. Someone with nothing settled
+    has no score rather than a suspicious 0%.
+    """
+    went = missed = pending = 0
+    if uid:
+        for m in MEETINGS_DB.values():
+            marked = (m.get("attendance") or {}).get(uid)
+            if marked == "went":
+                went += 1
+            elif marked == "missed":
+                missed += 1
+            elif uid in (m.get("late_bails") or {}):
+                missed += 1          # bailed too late to be replaced
+            elif uid in m.get("joined_uids", []) and checkin_is_open(m):
+                pending += 1         # over, but nobody has said yet
+
+    settled = went + missed
+    score = round(went / settled * 100) if settled else None
+
+    if score is None:
+        label = "No record yet"
+    elif score >= 90:
+        label = "Always shows up"
+    elif score >= 70:
+        label = "Usually shows up"
+    elif score >= 40:
+        label = "Hit and miss"
+    else:
+        label = "Rarely shows up"
+
+    return {"score": score, "went": went, "missed": missed,
+            "pending": pending, "settled": settled, "label": label}
+
+
+def meetings_needing_checkin(uid):
+    """Ended meetings this user joined but hasn't answered for yet."""
+    from utils.models import meeting_from_dict
+    out = []
+    for m in MEETINGS_DB.values():
+        if uid in m.get("joined_uids", []) and checkin_is_open(m) \
+                and uid not in (m.get("attendance") or {}):
+            out.append(meeting_from_dict(m))
+    out.sort(key=lambda m: m.time, reverse=True)
+    return out
+
+
+def meetings_needing_attendance(uid):
+    """Ended meetings this user organised where somebody is still unmarked."""
+    from utils.models import meeting_from_dict
+    out = []
+    for m in MEETINGS_DB.values():
+        if m.get("creator_uid") != uid or not checkin_is_open(m):
+            continue
+        attendance = m.get("attendance") or {}
+        if any(a not in attendance for a in m.get("joined_uids", [])):
+            out.append(meeting_from_dict(m))
+    out.sort(key=lambda m: m.time, reverse=True)
+    return out
+
+
+def attendee_rows(meeting_id):
+    """The joined users of a meeting, with their attendance mark — what the
+    organiser's marking panel and the detail page's people list render."""
+    m = MEETINGS_DB.get(meeting_id)
+    if not m:
+        return []
+    attendance = m.get("attendance") or {}
+    rows = []
+    for uid in m.get("joined_uids", []):
+        user = USERS_DB.get(uid) or {}
+        rows.append({
+            "uid": uid,
+            "username": user.get("display_name") or user.get("username") or uid,
+            "avatar_emoji": user.get("avatar_emoji", ""),
+            "profile_picture": user.get("profile_picture"),
+            "color": generate_user_color(uid),
+            "initial": (user.get("display_name") or user.get("username") or uid)[:1].upper(),
+            "is_trusted": is_trusted(uid),
+            "attendance": attendance.get(uid, ""),
+            "reliability": get_reliability(uid),
+        })
+    return rows
+
+
+def next_up_meeting(uid):
+    """The soonest meeting this user has joined that hasn't ended — what the
+    "Next up" reminder on Home counts down to, so a join doesn't quietly
+    disappear into a list nobody scrolls back to."""
+    user = USERS_DB.get(uid)
+    if not user:
+        return None
+    from utils.models import meeting_from_dict
+
+    candidates = []
+    for mid in user.get("joined_meeting_ids", []):
+        m = MEETINGS_DB.get(mid)
+        if not m or m.get("status") == "pending" or m.get("commit_status") == "cancelled":
+            continue
+        start = _meeting_start(m)
+        if start and meeting_phase(m) != "ended":
+            candidates.append((start, m))
+
+    if not candidates:
+        return None
+    candidates.sort(key=lambda pair: pair[0])
+    return meeting_from_dict(candidates[0][1])
 
 
 def is_admin(uid):

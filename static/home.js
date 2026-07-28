@@ -59,6 +59,9 @@ document.addEventListener("DOMContentLoaded", function () {
         el.title = el.getAttribute('data-time');
         el.textContent = formatTimeUntil(el.getAttribute('data-time'));
     });
+    // Flag the server-rendered cards too, then keep them fresh as time passes
+    setTimeout(function () { markSoonCards(); }, 0);
+    setInterval(function () { markSoonCards(); }, 60000);
     // ─── Map (MapLibre GL + CARTO vector tiles) ───────────────────────────
     // The basemap follows the system theme alongside the rest of the UI: a
     // light map inside a dark app looks like a bug.
@@ -121,6 +124,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // ─── Info panel (right 50% of map container) ─────────────────────────
     var infoPanel = document.getElementById('map-info-panel');
     var infoPanelContent = document.getElementById('info-panel-content');
+    var openPanelId = null;   // which meeting the panel is currently showing
 
     // Fade the hero image away and reveal the pinned title as the user scrolls down
     infoPanelContent.addEventListener('scroll', function () {
@@ -194,9 +198,17 @@ document.addEventListener("DOMContentLoaded", function () {
         var extraRow = '';
         if (meeting.location) {
             extraRow = '<div class="info-detail-row"><span class="info-detail-icon">📍</span><span>' + esc(meeting.location) + '</span></div>';
-        } else if (meeting.link) {
+        } else if (isOnline) {
+            // The link is only in this payload at all if the viewer joined —
+            // the server strips it for everyone else.
+            var lv = meeting.link_view || {};
             extraRow = '<div class="info-detail-row"><span class="info-detail-icon">🔗</span>'
-                     + '<a href="' + esc(meeting.link) + '" target="_blank" rel="noopener noreferrer" class="info-join-link">Join meeting →</a></div>';
+                     + (lv.visible
+                        ? (lv.live
+                           ? '<a href="' + esc(lv.url) + '" target="_blank" rel="noopener noreferrer" class="info-join-link">Open the call →</a>'
+                           : '<span>Link unlocks ' + (lv.window_minutes || 10) + ' min before the start</span>')
+                        : '<span>Join to get the call link</span>')
+                     + '</div>';
         }
 
         clearRoute();
@@ -253,6 +265,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     return html;
                 })()
             +   '</div>'
+            +   '<a class="info-detail-link" href="/meeting/' + meeting.id + '">Full details, attendees and check-in →</a>'
             + '</div>';
 
         var navBtn = document.getElementById('info-nav-btn');
@@ -262,6 +275,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         infoPanel.classList.add('open');
         infoPanelContent.scrollTop = 0;
+        openPanelId = meeting.id;
 
         // Highlight the pin and lean the camera in on it. Map padding (set by
         // the sheet) keeps the pin in the part of the map still visible.
@@ -307,7 +321,16 @@ document.addEventListener("DOMContentLoaded", function () {
             .catch(go);
     }
 
+    // Joining from inside the panel changes what the panel should say (an
+    // online meeting's link appears), so base.html asks it to redraw.
+    window.refreshInfoPanel = function (meetingId) {
+        if (openPanelId !== meetingId) return;
+        var meeting = MEETINGS_DATA.find(function (m) { return m.id === meetingId; });
+        if (meeting) showInfoPanel(meeting);
+    };
+
     function hideInfoPanel() {
+        openPanelId = null;
         infoPanel.classList.remove('open');
         clearRoute();
         setSelectedPin(null);
@@ -861,6 +884,33 @@ document.addEventListener("DOMContentLoaded", function () {
 
             attachListItemClick(card);
             list.appendChild(card);
+        });
+        markSoonCards();
+    }
+
+    // A meeting you committed to that starts within the hour should not look
+    // like every other card in the list.
+    function markSoonCards() {
+        document.querySelectorAll('.meeting-card[data-meeting-id]').forEach(function (card) {
+            var meeting = meetings.find(function (m) { return String(m.id) === card.dataset.meetingId; });
+            if (!meeting) return;
+
+            var joined = (meeting.joined_uids || []).indexOf(CURRENT_UID) !== -1;
+            var start = new Date(String(meeting.time).replace(' ', 'T')).getTime();
+            var minutesAway = (start - Date.now()) / 60000;
+            var isSoon = joined && !isNaN(start) && minutesAway <= 60 && minutesAway > -120;
+
+            card.classList.toggle('is-soon', isSoon);
+            var existing = card.querySelector('.card-soon-chip');
+            if (isSoon && !existing) {
+                var chip = document.createElement('span');
+                chip.className = 'card-soon-chip';
+                chip.textContent = minutesAway <= 0 ? '🔴 Happening now' : '⏰ You\'re going — starts soon';
+                var top = card.querySelector('.meeting-card-top');
+                if (top) top.appendChild(chip);
+            } else if (!isSoon && existing) {
+                existing.remove();
+            }
         });
     }
 

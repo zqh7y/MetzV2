@@ -4,7 +4,8 @@ from flask import request
 from data import (get_user, generate_user_color, is_admin, is_trusted, set_trusted,
                   get_account_status, get_all_meetings, get_joined_users_preview, shorten_address,
                   update_profile, PROFILE_EMOJIS, MAX_DISPLAY_NAME, MAX_BIO,
-                  meetings_awaiting_decision)
+                  meetings_awaiting_decision, get_reliability, meetings_needing_checkin,
+                  meetings_needing_attendance)
 
 
 def _format_timestamp(iso_str):
@@ -111,6 +112,9 @@ def profile_route():
         is_trusted=is_trusted(uid),
         is_admin=is_admin(uid),
         account_status=get_account_status(uid),
+        reliability=get_reliability(uid),
+        needs_checkin=meetings_needing_checkin(uid),
+        needs_attendance=meetings_needing_attendance(uid),
     )
 
 
@@ -141,6 +145,7 @@ def user_profile_route(uid):
         is_trusted=is_trusted(uid),
         viewer_is_admin=is_admin(viewer_uid),
         account_status=get_account_status(uid),
+        reliability=get_reliability(uid),
     )
 
 

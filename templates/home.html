@@ -48,6 +48,33 @@
         <div class="pending-banner">⏳ Your meeting was submitted and is waiting for admin approval.</div>
         {% endif %}
 
+        <!-- "Next up": the reminder. Whatever this user committed to soonest
+             sits at the top of the sheet, counting down, so a join made last
+             week doesn't quietly turn into a no-show. -->
+        {% if next_up %}
+        <a class="nextup nextup-{{ next_up.phase }}" id="nextup"
+           href="/meeting/{{ next_up.meeting.id }}"
+           data-time="{{ next_up.meeting.time }}"
+           data-seconds="{{ next_up.seconds }}">
+            <div class="nextup-left">
+                <span class="nextup-kicker" id="nextup-kicker">
+                    {% if next_up.phase == 'live' %}Happening now
+                    {% elif next_up.phase == 'soon' %}Starting any minute
+                    {% else %}Next up — you said you'd be there{% endif %}
+                </span>
+                <span class="nextup-title">{{ next_up.meeting.title }}</span>
+                <span class="nextup-meta">
+                    {% if next_up.is_online %}🌐 Online{% elif next_up.short_location %}📍 {{ next_up.short_location }}{% endif %}
+                    · {{ next_up.meeting.time }}
+                </span>
+            </div>
+            <div class="nextup-right">
+                <span class="nextup-countdown" id="nextup-countdown"></span>
+                <span class="nextup-go">Details →</span>
+            </div>
+        </a>
+        {% endif %}
+
         <!-- Top bar: title + compact create button -->
         <div class="panel-topbar">
             <span class="panel-title" id="panel-title">Nearby Meetings</span>
@@ -331,6 +358,34 @@
         fetch('/pass/' + id, { method: 'POST' }).then(function () { retireShelfCard(id); });
     }
 
+    // ── "Next up" reminder ───────────────────────────────────────────
+    // The strip counts down on its own so the urgency is visible without a
+    // refresh, and switches to its loud state inside the last hour.
+    (function () {
+        var strip = document.getElementById('nextup');
+        if (!strip) return;
+        var countdownEl = document.getElementById('nextup-countdown');
+        var kickerEl = document.getElementById('nextup-kicker');
+        var seconds = parseInt(strip.dataset.seconds || '0', 10);
+
+        function tick() {
+            if (seconds > 0) {
+                countdownEl.textContent = 'in ' + formatCountdown(seconds);
+                if (seconds <= 3600) {
+                    strip.classList.add('is-urgent');
+                    kickerEl.textContent = 'Starting soon — head off now';
+                }
+            } else {
+                countdownEl.textContent = 'now';
+                strip.classList.add('is-live');
+                kickerEl.textContent = 'Happening now';
+            }
+            seconds--;
+        }
+        tick();
+        setInterval(tick, 1000);
+    })();
+
     // ── Meetings / People panes ──────────────────────────────────────
     function showSheetPane(pane) {
         document.querySelectorAll('.sheet-tab').forEach(function (b) {
@@ -444,20 +499,20 @@
     }
 
     function joinFromShelf(id) {
-        fetch('/join/' + id, { method: 'POST' })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                if (data.error) return;
-                // Keep the matching card in the list below in sync.
-                var listBtn = document.querySelector('.meeting-card .join-btn[data-meeting-id="' + id + '"]');
-                if (listBtn) {
-                    listBtn.classList.toggle('joined', data.joined);
-                    var textEl = listBtn.querySelector('.join-btn-text');
-                    if (textEl) textEl.textContent = data.joined ? 'Joined' : 'Join';
-                    updateJoinedAvatars(listBtn, data);
-                }
-                retireShelfCard(id);
-            });
+        // Same commitment sheet as everywhere else — a shelf card is not a
+        // shortcut past the promise.
+        MetzJoin.request(id).then(function (data) {
+            if (!data) return;    // backed out of the sheet: keep the card
+            // Keep the matching card in the list below in sync.
+            var listBtn = document.querySelector('.meeting-card .join-btn[data-meeting-id="' + id + '"]');
+            if (listBtn) {
+                listBtn.classList.toggle('joined', data.joined);
+                var textEl = listBtn.querySelector('.join-btn-text');
+                if (textEl) textEl.textContent = data.joined ? 'Joined' : 'Join';
+                updateJoinedAvatars(listBtn, data);
+            }
+            retireShelfCard(id);
+        });
     }
 </script>
 
@@ -465,6 +520,5 @@
 
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script src="{{ url_for('static', filename='validation.js') }}"></script>
-<script src="{{ url_for('static', filename='time-utils.js') }}"></script>
 <script src="{{ url_for('static', filename='home.js') }}"></script>
 {% endblock %}

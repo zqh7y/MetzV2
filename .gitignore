@@ -8,6 +8,21 @@ metz-firebase.json
 app_data.db
 mysql_data/
 
+# Real user records (encrypted, but still production data — it does not
+# belong in the repository, and an encrypted blob is only as private as the
+# key in .env stays).
+app_data.json
+app_data.json.bak
+
+# Signing material. The Android debug keystore is the same on every machine
+# and unlocks nothing, but keystores as a class must never be committed —
+# a release one would let anyone ship an update as this app.
+*.keystore
+*.jks
+*.p12
+# Machine-specific SDK paths
+local.properties
+
 # Local runtime artifacts — regenerated on every run, not source
 *.log
 app_data.db-x-*.bin

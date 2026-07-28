@@ -4,6 +4,7 @@ import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
 import AuthLayout from "../components/AuthLayout";
 import AuthButton from "../components/AuthButton";
+import { ACCENTS } from "../styles/theme";
 
 export default function VerifyScreen({ route }) {
   const { email } = route.params;
@@ -56,5 +57,5 @@ const styles = StyleSheet.create({
     borderWidth: 2, borderColor: "#e0e0e0", borderRadius: 12, backgroundColor: "rgba(249,249,251,0.8)",
     paddingVertical: 14, marginBottom: 16,
   },
-  link: { textAlign: "center", color: "#3498db", marginTop: 18, fontWeight: "600" },
+  link: { textAlign: "center", color: ACCENTS.teal.accentStrong, marginTop: 18, fontWeight: "600" },
 });

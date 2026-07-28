@@ -52,10 +52,36 @@
         })();
     </script>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <!-- Loaded here, not per-page: the commitment sheet and the reminder strip
+         both need relative-time formatting, and they exist on every page. -->
+    <script src="{{ url_for('static', filename='time-utils.js') }}"></script>
     {% block extra_head %}{% endblock %}
 </head>
 <body>
     {% block content %}{% endblock %}
+
+    <!-- ── Commitment sheet ────────────────────────────────────────────────
+         Joining used to be one tap, which is why people joined things they
+         never went to. Every join now goes through these three steps: see
+         what you are signing up for, accept the terms, then confirm. Built
+         once here and shared by Home, the map panel, and the detail page. -->
+    <div class="commit-backdrop" id="commit-backdrop" hidden>
+        <div class="commit-sheet" role="dialog" aria-modal="true" aria-labelledby="commit-title">
+            <div class="commit-head">
+                <div class="commit-steps" id="commit-steps"></div>
+                <button type="button" class="commit-close" id="commit-close" aria-label="Cancel">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="18" height="18"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="commit-body" id="commit-body"></div>
+            <div class="commit-foot">
+                <button type="button" class="commit-btn commit-btn-ghost" id="commit-back">Back</button>
+                <button type="button" class="commit-btn commit-btn-primary" id="commit-next">Next</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="metz-toast" id="metz-toast" hidden></div>
 
     <script>
         // Attach the CSRF token to every same-origin state-changing fetch, so
@@ -82,11 +108,269 @@
             };
         })();
 
+        // ── Joining, the deliberate way ──────────────────────────────────
+        // The server refuses to join someone who hasn't promised anything: it
+        // answers with the meeting's details and a needs_commitment flag, and
+        // this module turns that into the three-step sheet. Leaving close to
+        // the start comes back the same way, as needs_bail_confirm.
+        var MetzJoin = (function () {
+            var backdrop = document.getElementById('commit-backdrop');
+            var stepsEl = document.getElementById('commit-steps');
+            var bodyEl = document.getElementById('commit-body');
+            var backBtn = document.getElementById('commit-back');
+            var nextBtn = document.getElementById('commit-next');
+            var closeBtn = document.getElementById('commit-close');
+            var toastEl = document.getElementById('metz-toast');
+
+            var flow = null;      // {steps, index, resolve, pledged}
+            var toastTimer;
+
+            function esc(v) {
+                return String(v === null || v === undefined ? '' : v)
+                    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+            }
+
+            function toast(message, tone) {
+                if (!toastEl) return;
+                clearTimeout(toastTimer);
+                toastEl.textContent = message;
+                toastEl.className = 'metz-toast' + (tone ? ' is-' + tone : '');
+                toastEl.hidden = false;
+                // Next frame, so the transition actually runs from the hidden state
+                requestAnimationFrame(function () { toastEl.classList.add('is-open'); });
+                toastTimer = setTimeout(function () {
+                    toastEl.classList.remove('is-open');
+                    setTimeout(function () { toastEl.hidden = true; }, 250);
+                }, 4200);
+            }
+
+            function post(meetingId, body) {
+                return fetch('/join/' + meetingId, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body || {})
+                }).then(function (r) { return r.json(); });
+            }
+
+            // ── Sheet plumbing ───────────────────────────────────────────
+            function open(steps) {
+                return new Promise(function (resolve) {
+                    flow = { steps: steps, index: 0, resolve: resolve, pledged: false };
+                    backdrop.hidden = false;
+                    requestAnimationFrame(function () { backdrop.classList.add('is-open'); });
+                    document.body.classList.add('commit-open');
+                    render();
+                });
+            }
+
+            function close(result) {
+                if (!flow) return;
+                var resolve = flow.resolve;
+                flow = null;
+                backdrop.classList.remove('is-open');
+                document.body.classList.remove('commit-open');
+                setTimeout(function () { backdrop.hidden = true; }, 220);
+                resolve(result);
+            }
+
+            function render() {
+                var step = flow.steps[flow.index];
+                bodyEl.innerHTML = step.html;
+                bodyEl.scrollTop = 0;
+
+                stepsEl.innerHTML = flow.steps.map(function (_, i) {
+                    return '<span class="commit-step-dot' + (i === flow.index ? ' is-active' : '')
+                         + (i < flow.index ? ' is-done' : '') + '"></span>';
+                }).join('');
+
+                backBtn.hidden = flow.index === 0;
+                nextBtn.textContent = step.cta || 'Next';
+                nextBtn.className = 'commit-btn ' + (step.danger ? 'commit-btn-danger' : 'commit-btn-primary');
+
+                // A step can gate the button on something in its own markup —
+                // the pledge tickbox is the reason this exists.
+                var gate = bodyEl.querySelector('[data-gate]');
+                if (gate) {
+                    nextBtn.disabled = !gate.checked;
+                    gate.addEventListener('change', function () { nextBtn.disabled = !gate.checked; });
+                } else {
+                    nextBtn.disabled = false;
+                }
+            }
+
+            nextBtn.addEventListener('click', function () {
+                if (!flow) return;
+                if (flow.index < flow.steps.length - 1) {
+                    flow.index++;
+                    render();
+                } else {
+                    close(true);
+                }
+            });
+
+            backBtn.addEventListener('click', function () {
+                if (!flow || flow.index === 0) return;
+                flow.index--;
+                render();
+            });
+
+            closeBtn.addEventListener('click', function () { close(false); });
+            backdrop.addEventListener('click', function (e) {
+                if (e.target === backdrop) close(false);
+            });
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && flow) close(false);
+            });
+
+            // ── Step content ─────────────────────────────────────────────
+            function whereLine(m) {
+                if (m.is_online) return '🌐 Online — the link unlocks ' + m.window_minutes + ' min before it starts';
+                return '📍 ' + esc(m.short_location || m.location || 'Location shared by the organiser');
+            }
+
+            function commitSteps(m) {
+                var when = formatTimeUntil(m.time);
+                var thresholdRow = m.min_attendees
+                    ? '<div class="commit-fact"><span class="commit-fact-icon">🎯</span><span>'
+                      + m.joined_count + ' of ' + m.min_attendees + ' needed — it only runs if enough people commit</span></div>'
+                    : '';
+                var waitlistRow = m.will_waitlist
+                    ? '<div class="commit-fact commit-fact-warn"><span class="commit-fact-icon">⏳</span><span>'
+                      + 'This one is full. You will join the waitlist and move up if someone drops out.</span></div>'
+                    : '';
+                var deadlineRow = m.join_deadline
+                    ? '<div class="commit-fact"><span class="commit-fact-icon">⌛</span><span>Sign-ups close '
+                      + esc(m.join_deadline) + '</span></div>'
+                    : '';
+                var record = m.reliability && m.reliability.score !== null
+                    ? '<p class="commit-record">Your record so far: <strong>' + m.reliability.score + '%</strong> — '
+                      + esc(m.reliability.label.toLowerCase()) + '.</p>'
+                    : '<p class="commit-record">This will be the first meeting on your attendance record.</p>';
+
+                return [
+                    {
+                        cta: 'Looks right',
+                        html:
+                            '<h3 class="commit-title" id="commit-title">What you\'re signing up for</h3>'
+                          + '<div class="commit-card">'
+                          +   '<span class="commit-card-badge">' + (m.is_online ? '🌐 Online' : '📍 In-Person') + '</span>'
+                          +   '<h4 class="commit-card-title">' + esc(m.title) + '</h4>'
+                          +   '<p class="commit-card-desc">' + esc(m.description) + '</p>'
+                          + '</div>'
+                          + '<div class="commit-facts">'
+                          +   '<div class="commit-fact"><span class="commit-fact-icon">🕐</span><span><strong>'
+                          +     esc(m.time) + '</strong><br>' + esc(when) + '</span></div>'
+                          +   '<div class="commit-fact"><span class="commit-fact-icon">'
+                          +     (m.is_online ? '🌐' : '📍') + '</span><span>' + whereLine(m).replace(/^..\s/, '') + '</span></div>'
+                          +   (m.organiser ? '<div class="commit-fact"><span class="commit-fact-icon">👤</span><span>Organised by '
+                          +     esc(m.organiser) + '</span></div>' : '')
+                          +   '<div class="commit-fact"><span class="commit-fact-icon">🤝</span><span>'
+                          +     m.joined_count + ' ' + (m.joined_count === 1 ? 'person has' : 'people have') + ' committed</span></div>'
+                          +   thresholdRow + deadlineRow + waitlistRow
+                          + '</div>'
+                    },
+                    {
+                        cta: 'I accept',
+                        html:
+                            '<h3 class="commit-title">The deal</h3>'
+                          + '<p class="commit-lead">People plan around who says they are coming. So joining here is a promise, not a bookmark.</p>'
+                          + '<ul class="commit-rules">'
+                          +   '<li><span class="commit-rule-icon">📅</span><span>Turn up at <strong>' + esc(m.time) + '</strong>'
+                          +     (m.is_online ? ', on the call' : ', at the place above') + '.</span></li>'
+                          +   '<li><span class="commit-rule-icon">🚪</span><span>Changed your mind? Leave <strong>more than '
+                          +     m.late_bail_hours + ' hours</strong> before the start and nothing happens.</span></li>'
+                          +   '<li><span class="commit-rule-icon">⚠️</span><span>Dropping out inside the last '
+                          +     m.late_bail_hours + ' hours counts as a <strong>no-show</strong> — too late for anyone to take your place.</span></li>'
+                          +   '<li><span class="commit-rule-icon">📊</span><span>Afterwards you confirm whether you went. '
+                          +     'Your attendance record is shown on your profile, where organisers can see it.</span></li>'
+                          + '</ul>'
+                          + record
+                          + '<label class="commit-pledge">'
+                          +   '<input type="checkbox" data-gate id="commit-pledge-box">'
+                          +   '<span>I understand, and I\'m planning to actually be there.</span>'
+                          + '</label>'
+                    },
+                    {
+                        cta: m.will_waitlist ? 'Put me on the waitlist' : "I'm in — count me in",
+                        html:
+                            '<h3 class="commit-title">Ready?</h3>'
+                          + '<div class="commit-final">'
+                          +   '<div class="commit-final-emoji">' + (m.is_online ? '🌐' : '🤝') + '</div>'
+                          +   '<p class="commit-final-line">You\'re about to commit to</p>'
+                          +   '<h4 class="commit-final-title">' + esc(m.title) + '</h4>'
+                          +   '<p class="commit-final-when">' + esc(m.time) + ' · ' + esc(when) + '</p>'
+                          + '</div>'
+                          + '<p class="commit-fineprint">Changed your mind? Cancelling now costs nothing.</p>'
+                    }
+                ];
+            }
+
+            function bailSteps(data) {
+                var m = data.meeting;
+                var headline = data.started
+                    ? 'This meeting has already started'
+                    : data.hours_left < 1
+                        ? 'This starts in minutes'
+                        : 'Only ' + data.hours_left + ' hours to go';
+                return [{
+                    cta: 'Leave anyway',
+                    danger: true,
+                    html:
+                        '<h3 class="commit-title commit-title-warn">' + esc(headline) + '</h3>'
+                      + '<div class="commit-card">'
+                      +   '<h4 class="commit-card-title">' + esc(m.title) + '</h4>'
+                      +   '<p class="commit-card-desc">' + esc(m.time) + '</p>'
+                      + '</div>'
+                      + '<p class="commit-lead">It\'s too late for someone else to take your place, so leaving now goes on '
+                      + 'your record as a <strong>no-show</strong>.</p>'
+                      + '<p class="commit-fineprint">If something genuinely came up, tell the organiser too — '
+                      + 'this only records what happened.</p>'
+                }];
+            }
+
+            // ── Public API ───────────────────────────────────────────────
+            // Resolves with the join result, or null when the user backed out.
+            function request(meetingId) {
+                return post(meetingId, {}).then(function (data) {
+                    if (data.error) { toast(data.error, 'bad'); return null; }
+
+                    if (data.needs_commitment) {
+                        return open(commitSteps(data.meeting)).then(function (ok) {
+                            if (!ok) return null;
+                            return post(meetingId, { pledge: true }).then(function (res) {
+                                if (res.error) { toast(res.error, 'bad'); return null; }
+                                toast(res.waitlisted
+                                    ? 'You\'re on the waitlist — we\'ll move you up if a place opens.'
+                                    : 'You\'re in. See you there.', 'good');
+                                return res;
+                            });
+                        });
+                    }
+
+                    if (data.needs_bail_confirm) {
+                        return open(bailSteps(data)).then(function (ok) {
+                            if (!ok) return null;
+                            return post(meetingId, { confirm_bail: true }).then(function (res) {
+                                if (res.error) { toast(res.error, 'bad'); return null; }
+                                toast('You left. This one counts as a no-show on your record.', 'bad');
+                                return res;
+                            });
+                        });
+                    }
+
+                    if (!data.joined) toast('You left this meeting.', '');
+                    return data;
+                });
+            }
+
+            return { request: request, toast: toast, esc: esc };
+        })();
+
         function toggleJoin(btn, meetingId) {
-            fetch('/join/' + meetingId, { method: 'POST' })
-                .then(function (r) { return r.json(); })
+            MetzJoin.request(meetingId)
                 .then(function (data) {
-                    if (data.error) return;
+                    if (!data) return;
                     btn.classList.toggle('joined', data.joined);
                     var textEl = btn.querySelector('.join-btn-text');
                     if (textEl) textEl.textContent = data.joined ? 'Joined' : 'Join';
@@ -102,8 +386,15 @@
                                 var idx = meeting.joined_uids.indexOf(CURRENT_UID);
                                 if (idx !== -1) meeting.joined_uids.splice(idx, 1);
                             }
+                            // Joining is what reveals an online meeting's link,
+                            // so the cached copy has to pick up the new view.
+                            if (data.link_view) {
+                                meeting.link_view = data.link_view;
+                                meeting.link = data.link_view.url;
+                            }
                         }
                     }
+                    if (typeof window.refreshInfoPanel === 'function') window.refreshInfoPanel(meetingId);
                 });
         }
 

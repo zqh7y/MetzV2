@@ -7,6 +7,7 @@ from flask import Blueprint, request, jsonify
 from data import (
     get_user, get_all_meetings, add_meeting, toggle_join_meeting,
     user_pass, delete_meeting, get_joined_users_preview, MEETINGS_DB,
+    generate_user_color, display_name_for, is_trusted, is_admin, get_reliability,
 )
 from utils.models import (
     InPersonMeeting, OnlineMeeting, AVAILABLE_TAGS,
@@ -14,6 +15,10 @@ from utils.models import (
 )
 
 from helpers import current_uid, serialize_meeting
+
+# Reuse the web's own threshold parsing and validation rather than writing a
+# second set of rules that could drift from it.
+from routes.create import parse_count, validate_threshold
 
 meeting_bp = Blueprint("meetings", __name__)
 
@@ -46,8 +51,15 @@ def create_meeting():
     emoji = (body.get("emoji") or "").strip()
     tags_in = [t for t in body.get("tags", []) if t in AVAILABLE_TAGS]
 
+    # "It only happens if enough people come" — the web's step 4. Without these
+    # the app could never create a threshold meeting at all.
+    min_attendees = parse_count(body.get("min_attendees", ""))
+    max_attendees = parse_count(body.get("max_attendees", ""))
+    join_deadline = (body.get("join_deadline") or "").strip()
+
     errors = validate_meeting_data(title, description, time, meeting_type,
                                     location_name=location_name, link=link)
+    errors += validate_threshold(min_attendees, max_attendees, join_deadline, time)
     if errors:
         return jsonify({"error": " | ".join(errors)}), 400
 
@@ -64,11 +76,15 @@ def create_meeting():
         new_meeting = InPersonMeeting(
             id=0, title=title, description=description, time=time,
             location=location_name, lat=lat, lng=lng, emoji=emoji, tags=tags_in,
+            min_attendees=min_attendees, max_attendees=max_attendees,
+            join_deadline=join_deadline,
         )
     else:
         new_meeting = OnlineMeeting(
             id=0, title=title, description=description, time=time,
             link=link, emoji=emoji, tags=tags_in,
+            min_attendees=min_attendees, max_attendees=max_attendees,
+            join_deadline=join_deadline,
         )
 
     add_meeting(new_meeting, creator_uid=uid)
@@ -78,11 +94,42 @@ def create_meeting():
 @meeting_bp.route("/api/meetings/<int:meeting_id>/join", methods=["POST"])
 def join_meeting(meeting_id):
     uid = current_uid()
-    result = toggle_join_meeting(uid, meeting_id)
+    # The commitment sheet and the late-bail warning are web-app screens for
+    # now, so the mobile client joins straight through rather than being told
+    # to show a sheet it doesn't have yet.
+    result = toggle_join_meeting(uid, meeting_id, pledge=True, confirm_bail=True)
     if result is None:
         return jsonify({"error": "not found"}), 404
     result["joined_preview"] = get_joined_users_preview(MEETINGS_DB[meeting_id].get("joined_uids", []))
     return jsonify(result)
+
+
+@meeting_bp.route("/api/meetings/<int:meeting_id>/attendees")
+def meeting_attendees(meeting_id):
+    """Everyone who has joined, not just the four-avatar preview.
+
+    serialize_meeting() only carries `joined_preview` (capped at 4, and with no
+    usernames), which is enough for a card but not for a "who's coming" list.
+    """
+    meeting = MEETINGS_DB.get(meeting_id)
+    if meeting is None:
+        return jsonify({"error": "not found"}), 404
+
+    attendees = []
+    for uid in meeting.get("joined_uids", []):
+        attendees.append({
+            "uid": uid,
+            "username": display_name_for(uid),
+            "color": generate_user_color(uid),
+            "initial": (display_name_for(uid) or uid)[:1].upper(),
+            "is_trusted": is_trusted(uid),
+            "is_admin": is_admin(uid),
+            "is_creator": uid == meeting.get("creator_uid"),
+            # The web's attendee rows carry a show-up rate; same source, so the
+            # two clients can't disagree about someone's record.
+            "reliability": get_reliability(uid),
+        })
+    return jsonify(attendees)
 
 
 @meeting_bp.route("/api/meetings/<int:meeting_id>/pass", methods=["POST"])

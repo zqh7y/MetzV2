@@ -2,10 +2,17 @@ import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import TrustBadge from "./TrustBadge";
+import MiniMap from "./MiniMap";
 import { FONTS } from "../styles/fonts";
+import { useTheme } from "../context/ThemeContext";
 
-// Same five-colour rotation the web shelf uses, so a meeting looks the
-// same on both clients.
+const CARD_WIDTH = 216;
+const CARD_PAD = 13;
+const MAP_HEIGHT = 104;   // .card-map on the web
+
+// Same five-colour rotation the web shelf uses (.card-color-0…4). These stay
+// hard-coded on both sides deliberately — they are a fixed decorative palette,
+// not theming, exactly as the stylesheet says.
 const GRADIENTS = [
   ["#667eea", "#764ba2"],
   ["#f093fb", "#f5576c"],
@@ -17,15 +24,36 @@ const GRADIENTS = [
 export default function ForYouCard({ meeting, index, onPress, onJoin, onPass }) {
   const isOnline = meeting.type === "OnlineMeeting";
   const colors = GRADIENTS[index % GRADIENTS.length];
+  const { theme, scheme, minimaps } = useTheme();
+
+  // Same rule as the web: only in-person meetings have somewhere to show, and
+  // the whole strip disappears when the "Live maps" preference is off.
+  const showMap =
+    minimaps !== "off" && !isOnline &&
+    typeof meeting.lat === "number" && typeof meeting.lng === "number";
 
   return (
     <TouchableOpacity activeOpacity={0.9} onPress={onPress}>
       <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.card}>
+        {showMap ? (
+          <MiniMap
+            lat={meeting.lat}
+            lng={meeting.lng}
+            // Full card width: the negative margins below pull this out past
+            // the card's padding, so sizing it to the content box left a gap
+            // on the right and threw the centred pin off to one side.
+            width={CARD_WIDTH}
+            height={MAP_HEIGHT}
+            accent={theme.accent}
+            dark={scheme === "dark"}
+            style={styles.map}
+          />
+        ) : null}
         <Text style={styles.badge}>{isOnline ? "🌐 Online" : "📍 In-Person"}</Text>
         <Text style={styles.title} numberOfLines={2}>{meeting.title}</Text>
         <Text style={styles.time}>{meeting.time}</Text>
         {isOnline ? (
-          <Text style={styles.place}>🔗 Online</Text>
+          <Text style={styles.place}>🌐 Online</Text>
         ) : meeting.short_location ? (
           <Text style={styles.place} numberOfLines={1}>📍 {meeting.short_location}</Text>
         ) : null}
@@ -52,10 +80,19 @@ export default function ForYouCard({ meeting, index, onPress, onJoin, onPass }) 
 }
 
 const styles = StyleSheet.create({
+  // Pulled out to the card's edges so the map spans it fully, the way the web's
+  // .card-map sits flush at the top of the card above the padded body.
+  map: {
+    marginHorizontal: -CARD_PAD,
+    marginTop: -CARD_PAD,
+    marginBottom: 10,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+  },
   card: {
-    width: 216,
+    width: CARD_WIDTH,
     borderRadius: 18,
-    padding: 13,
+    padding: CARD_PAD,
     marginRight: 12,
     shadowColor: "#000",
     shadowOpacity: 0.16,

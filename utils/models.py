@@ -23,9 +23,17 @@ class Meeting:
     #   cancelled - called off
     COMMIT_STATES = ("open", "gathering", "awaiting", "confirmed", "cancelled")
 
+    # Where a meeting is in its own timeline, worked out from `time`:
+    #   upcoming - more than JOIN_WINDOW_MINUTES away
+    #   soon     - inside the join window, hasn't started
+    #   live     - started, still within ASSUMED_DURATION_HOURS
+    #   ended    - over
+    PHASES = ("upcoming", "soon", "live", "ended")
+
     def __init__(self, id, title, description, time,
                  creator_uid=None, creator_username=None, joined_uids=None, emoji=None, tags=None, status=None,
-                 min_attendees=0, max_attendees=0, join_deadline="", commit_status=None, waitlist_uids=None):
+                 min_attendees=0, max_attendees=0, join_deadline="", commit_status=None, waitlist_uids=None,
+                 attendance=None, late_bails=None):
         self.id = id
         self.title = title
         self.description = description
@@ -44,6 +52,14 @@ class Meeting:
         self.join_deadline = join_deadline or ""          # "YYYY-MM-DD HH:MM"
         self.waitlist_uids = waitlist_uids or []
         self.commit_status = commit_status or ("gathering" if self.min_attendees else "open")
+
+        # ── Showing up ────────────────────────────────────────────────────
+        # attendance: uid -> "went" | "missed", filled in after the meeting by
+        # the attendee themselves or by the organiser. late_bails: uid -> ISO
+        # timestamp, written when someone leaves too close to the start to be
+        # replaced. Both feed the reliability score on a user's profile.
+        self.attendance = dict(attendance or {})
+        self.late_bails = dict(late_bails or {})
 
     @property
     def has_threshold(self):
@@ -91,6 +107,9 @@ class Meeting:
             "has_threshold": self.has_threshold,
             "spots_left": self.spots_left,
             "threshold_progress": self.threshold_progress,
+            "attendance": self.attendance,
+            "late_bails": self.late_bails,
+            "is_online": False,
         }
 
 
@@ -134,7 +153,7 @@ class OnlineMeeting(Meeting):
 
     def to_dict(self):
         d = super().to_dict()
-        d.update({"link": self.link, "lat": None, "lng": None})
+        d.update({"link": self.link, "lat": None, "lng": None, "is_online": True})
         return d
 
 
@@ -208,6 +227,9 @@ def meeting_from_dict(data):
         join_deadline=data.get("join_deadline", ""),
         commit_status=data.get("commit_status"),
         waitlist_uids=data.get("waitlist_uids", []),
+        # Meetings created before attendance tracking existed simply have none.
+        attendance=data.get("attendance", {}),
+        late_bails=data.get("late_bails", {}),
     )
     if data.get("type") == "InPersonMeeting":
         return InPersonMeeting(

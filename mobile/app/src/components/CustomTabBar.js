@@ -1,6 +1,7 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { View, Text, StyleSheet, Pressable, Animated } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTheme } from "../context/ThemeContext";
 
 const ICONS = {
   Home: { active: "🏠", inactive: "🏠" },
@@ -14,7 +15,7 @@ const LABELS = {
   Profile: "Profile",
 };
 
-function TabButton({ route, isFocused, onPress }) {
+function TabButton({ route, isFocused, onPress, styles }) {
   const lift = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
 
   useEffect(() => {
@@ -24,7 +25,7 @@ function TabButton({ route, isFocused, onPress }) {
   const translateY = lift.interpolate({ inputRange: [0, 1], outputRange: [0, -2] });
 
   return (
-    <Pressable onPress={onPress} style={styles.tabBtn} android_ripple={{ color: "#eee", radius: 38 }}>
+    <Pressable onPress={onPress} style={styles.tabBtn} android_ripple={{ color: styles.ripple.color, radius: 38 }}>
       <Animated.View style={{ alignItems: "center", transform: [{ translateY }] }}>
         <Text style={[styles.icon, { opacity: isFocused ? 1 : 0.45 }]}>{ICONS[route.name].active}</Text>
         <Text style={[styles.label, isFocused && styles.labelActive]}>{LABELS[route.name]}</Text>
@@ -36,6 +37,8 @@ function TabButton({ route, isFocused, onPress }) {
 
 export default function CustomTabBar({ state, navigation }) {
   const insets = useSafeAreaInsets();
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
 
   return (
     <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
@@ -49,20 +52,22 @@ export default function CustomTabBar({ state, navigation }) {
           }
         }
 
-        return <TabButton key={route.key} route={route} isFocused={isFocused} onPress={onPress} />;
+        return (
+          <TabButton key={route.key} route={route} isFocused={isFocused} onPress={onPress} styles={styles} />
+        );
       })}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t) => StyleSheet.create({
   bar: {
     flexDirection: "row",
-    backgroundColor: "#fff",
+    backgroundColor: t.surface,
     borderTopWidth: 1,
-    borderTopColor: "#eef0f3",
+    borderTopColor: t.border,
     paddingTop: 10,
-    shadowColor: "#000",
+    shadowColor: "#101428",
     shadowOpacity: 0.04,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: -2 },
@@ -70,7 +75,9 @@ const styles = StyleSheet.create({
   },
   tabBtn: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 4 },
   icon: { fontSize: 20, marginBottom: 3 },
-  label: { fontSize: 11, fontWeight: "600", color: "#9aa3ad" },
-  labelActive: { color: "#667eea", fontWeight: "700" },
-  dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: "#667eea", marginTop: 4 },
+  label: { fontSize: 11, fontWeight: "600", color: t.text3 },
+  labelActive: { color: t.accent, fontWeight: "700" },
+  dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: t.accent, marginTop: 4 },
+  // Not a rule of its own — just somewhere to keep the ripple colour themed
+  ripple: { color: t.surface3 },
 });

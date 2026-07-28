@@ -1,8 +1,13 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator } from "react-native";
 import { api } from "../api";
+import { FONTS } from "../styles/fonts";
+import { useTheme } from "../context/ThemeContext";
+import { RADIUS, SHADOW } from "../styles/theme";
 
 export default function AdminPendingScreen() {
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const [meetings, setMeetings] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -32,7 +37,7 @@ export default function AdminPendingScreen() {
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#667eea" />
+        <ActivityIndicator size="large" color={theme.accent} />
       </View>
     );
   }
@@ -67,18 +72,26 @@ export default function AdminPendingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f0f2f5", padding: 16 },
-  centered: { flex: 1, alignItems: "center", justifyContent: "center" },
-  header: { fontSize: 20, fontWeight: "800", color: "#2c3e50" },
-  subheader: { fontSize: 13, color: "#888", marginBottom: 14 },
-  card: { backgroundColor: "#fff", borderRadius: 14, padding: 14, marginBottom: 12 },
-  title: { fontSize: 16, fontWeight: "700", color: "#2c3e50" },
-  creator: { fontSize: 12, color: "#777", marginTop: 2 },
-  desc: { fontSize: 13, color: "#888", marginTop: 6 },
+const makeStyles = (t) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: t.bg, padding: 16 },
+  centered: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: t.bg },
+  header: { fontSize: 20, fontFamily: FONTS.heading, color: t.text },
+  subheader: { fontSize: 13, color: t.text2, marginBottom: 14 },
+  card: {
+    backgroundColor: t.surface,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: t.border,
+    padding: 14,
+    marginBottom: 12,
+    ...SHADOW.s1,
+  },
+  title: { fontSize: 16, fontFamily: FONTS.heading, color: t.text },
+  creator: { fontSize: 12, color: t.text2, marginTop: 2 },
+  desc: { fontSize: 13, color: t.text2, marginTop: 6, lineHeight: 18 },
   actionsRow: { flexDirection: "row", gap: 8, marginTop: 10 },
-  approveBtn: { flex: 1, backgroundColor: "#2ecc71", borderRadius: 8, paddingVertical: 9, alignItems: "center" },
-  declineBtn: { flex: 1, backgroundColor: "#e74c3c", borderRadius: 8, paddingVertical: 9, alignItems: "center" },
-  btnText: { color: "#fff", fontWeight: "700", fontSize: 13 },
-  empty: { textAlign: "center", color: "#999", marginTop: 60 },
+  approveBtn: { flex: 1, backgroundColor: t.status.good, borderRadius: 11, paddingVertical: 10, alignItems: "center" },
+  declineBtn: { flex: 1, backgroundColor: t.status.bad, borderRadius: 11, paddingVertical: 10, alignItems: "center" },
+  btnText: { color: "#fff", fontFamily: FONTS.accent, fontSize: 13 },
+  empty: { textAlign: "center", color: t.text3, marginTop: 60 },
 });

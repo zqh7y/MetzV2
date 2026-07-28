@@ -7,6 +7,8 @@ import { useAuth } from "../context/AuthContext";
 import TrustBadge from "../components/TrustBadge";
 import MeetingCard from "../components/MeetingCard";
 import { FONTS } from "../styles/fonts";
+import { useTheme } from "../context/ThemeContext";
+import { RADIUS, SHADOW } from "../styles/theme";
 
 /** "2026-07-25 14:30" -> Date, or null if the server sent something odd. */
 function parseTime(value) {
@@ -16,6 +18,8 @@ function parseTime(value) {
 }
 
 export default function ProfileScreen({ navigation }) {
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
   const { profile, refreshProfile, signOut } = useAuth();
   const [loading, setLoading] = useState(!profile);
@@ -75,7 +79,7 @@ export default function ProfileScreen({ navigation }) {
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#667eea" />
+        <ActivityIndicator size="large" color={theme.accent} />
       </View>
     );
   }
@@ -98,20 +102,23 @@ export default function ProfileScreen({ navigation }) {
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
       <View style={[styles.hero, { paddingTop: insets.top + 32 }]}>
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{profile.uid.slice(0, 2)}</Text>
+          <Text style={profile.avatar_emoji ? styles.avatarEmoji : styles.avatarText}>
+            {profile.avatar_emoji || profile.uid.slice(0, 2)}
+          </Text>
         </View>
         <View style={styles.nameRow}>
-          <Text style={styles.name}>{profile.username}</Text>
+          <Text style={styles.name}>{profile.display_name || profile.username}</Text>
           {profile.is_trusted ? <TrustBadge /> : null}
         </View>
         <Text style={styles.email}>{profile.email}</Text>
+        {profile.bio ? <Text style={styles.bio}>{profile.bio}</Text> : null}
       </View>
 
       <View style={styles.statsRow}>
-        <Stat number={profile.meetings_created} label="Created" />
-        <Stat number={profile.meetings_joined} label="Joined" />
-        <Stat number={profile.meetings_swiped} label="Seen" />
-        <Stat number={status.stats.participants} label="Signed Up" />
+        <Stat styles={styles} number={profile.meetings_created} label="Created" />
+        <Stat styles={styles} number={profile.meetings_joined} label="Joined" />
+        <Stat styles={styles} number={profile.meetings_swiped} label="Seen" />
+        <Stat styles={styles} number={status.stats.participants} label="Signed Up" />
       </View>
 
       <View style={styles.statusCard}>
@@ -214,7 +221,7 @@ export default function ProfileScreen({ navigation }) {
           autoCapitalize="none"
         />
         {searching ? (
-          <ActivityIndicator color="#667eea" style={{ marginTop: 12 }} />
+          <ActivityIndicator color={theme.accent} style={{ marginTop: 12 }} />
         ) : users.length ? (
           users.map((u) => (
             <TouchableOpacity
@@ -243,6 +250,12 @@ export default function ProfileScreen({ navigation }) {
 
       <View style={styles.actions}>
         {profile.is_admin && (
+          <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate("AdminDashboard")}>
+            <Text style={styles.actionBtnText}>🛠️  Developer Dashboard</Text>
+          </TouchableOpacity>
+        )}
+
+        {profile.is_admin && (
           <TouchableOpacity
             style={[styles.actionBtn, styles.urgentBtn]}
             onPress={() => navigation.navigate("AdminPending")}
@@ -260,6 +273,14 @@ export default function ProfileScreen({ navigation }) {
           <Text style={styles.actionBtnText}>+ Create a Meeting</Text>
         </TouchableOpacity>
 
+        <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate("EditProfile")}>
+          <Text style={styles.actionBtnText}>✏️  Edit Profile</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate("Settings")}>
+          <Text style={styles.actionBtnText}>⚙️  Settings</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity style={[styles.actionBtn, styles.logoutBtn]} onPress={signOut}>
           <Text style={styles.logoutBtnText}>Logout</Text>
         </TouchableOpacity>
@@ -268,7 +289,7 @@ export default function ProfileScreen({ navigation }) {
   );
 }
 
-function Stat({ number, label }) {
+function Stat({ number, label, styles }) {
   return (
     <View style={styles.stat}>
       <Text style={styles.statNumber}>{number}</Text>
@@ -277,52 +298,54 @@ function Stat({ number, label }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f0f2f5" },
+const makeStyles = (t) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: t.bg },
   centered: { flex: 1, alignItems: "center", justifyContent: "center" },
-  hero: { backgroundColor: "#667eea", paddingVertical: 32, alignItems: "center" },
+  hero: { backgroundColor: t.accent, paddingVertical: 32, alignItems: "center" },
   avatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: "rgba(255,255,255,0.25)", alignItems: "center", justifyContent: "center", marginBottom: 10 },
-  avatarText: { color: "#fff", fontFamily: FONTS.heading, fontSize: 16 },
+  avatarText: { color: t.surface, fontFamily: FONTS.heading, fontSize: 16 },
+  avatarEmoji: { fontSize: 34 },
+  bio: { color: "rgba(255,255,255,0.85)", fontSize: 13, marginTop: 8, textAlign: "center", paddingHorizontal: 32 },
   nameRow: { flexDirection: "row", alignItems: "center" },
-  name: { color: "#fff", fontSize: 20, fontFamily: FONTS.heading },
+  name: { color: t.surface, fontSize: 20, fontFamily: FONTS.heading },
   email: { color: "rgba(255,255,255,0.7)", fontSize: 12, marginTop: 2 },
-  statsRow: { flexDirection: "row", backgroundColor: "#fff", margin: 16, marginBottom: 0, borderRadius: 16, padding: 16, justifyContent: "space-around" },
+  statsRow: { flexDirection: "row", backgroundColor: t.surface, margin: 16, marginBottom: 0, borderRadius: 16, padding: 16, justifyContent: "space-around" },
   stat: { alignItems: "center" },
-  statNumber: { fontSize: 22, fontFamily: FONTS.accent, color: "#2c3e50" },
-  statLabel: { fontSize: 10, fontFamily: FONTS.bodySemi, color: "#aaa", textTransform: "uppercase", marginTop: 2 },
-  statusCard: { backgroundColor: "#fff", margin: 16, borderRadius: 18, padding: 18 },
+  statNumber: { fontSize: 22, fontFamily: FONTS.accent, color: t.text },
+  statLabel: { fontSize: 10, fontFamily: FONTS.bodySemi, color: t.text3, textTransform: "uppercase", marginTop: 2 },
+  statusCard: { backgroundColor: t.surface, margin: 16, borderRadius: 18, padding: 18 },
   statusHeader: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 14 },
-  statusEmoji: { width: 46, height: 46, borderRadius: 14, backgroundColor: "#667eea", alignItems: "center", justifyContent: "center" },
-  statusLabel: { fontSize: 10, fontFamily: FONTS.bodySemi, color: "#aaa", textTransform: "uppercase" },
-  statusName: { fontSize: 17, fontFamily: FONTS.heading, color: "#2c3e50" },
-  statusBlurb: { fontSize: 11, color: "#999" },
+  statusEmoji: { width: 46, height: 46, borderRadius: 14, backgroundColor: t.accent, alignItems: "center", justifyContent: "center" },
+  statusLabel: { fontSize: 10, fontFamily: FONTS.bodySemi, color: t.text3, textTransform: "uppercase" },
+  statusName: { fontSize: 17, fontFamily: FONTS.heading, color: t.text },
+  statusBlurb: { fontSize: 11, color: t.text3 },
   nextSection: { borderTopWidth: 1, borderTopColor: "#f0f1f3", paddingTop: 12 },
-  nextLabel: { fontSize: 12, fontWeight: "700", color: "#888", marginBottom: 8 },
+  nextLabel: { fontSize: 12, fontWeight: "700", color: t.text2, marginBottom: 8 },
   task: { flexDirection: "row", gap: 10, paddingVertical: 6, alignItems: "flex-start" },
-  taskCheck: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: "#dce1e7", alignItems: "center", justifyContent: "center", marginTop: 2 },
-  taskCheckDone: { backgroundColor: "#2ecc71", borderColor: "#2ecc71" },
-  taskCheckMark: { color: "#fff", fontSize: 10, fontWeight: "800" },
+  taskCheck: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: t.border, alignItems: "center", justifyContent: "center", marginTop: 2 },
+  taskCheckDone: { backgroundColor: t.status.good, borderColor: t.status.good },
+  taskCheckMark: { color: t.surface, fontSize: 10, fontWeight: "800" },
   taskLabel: { fontSize: 13, fontWeight: "600", color: "#444" },
-  taskLabelDone: { color: "#2ecc71" },
-  taskProgress: { fontSize: 11, color: "#aaa", marginTop: 1 },
-  taskBar: { height: 5, borderRadius: 3, backgroundColor: "#eee", marginTop: 4, overflow: "hidden" },
-  taskBarFill: { height: "100%", backgroundColor: "#667eea" },
-  maxed: { textAlign: "center", color: "#999", fontSize: 13 },
+  taskLabelDone: { color: t.status.good },
+  taskProgress: { fontSize: 11, color: t.text3, marginTop: 1 },
+  taskBar: { height: 5, borderRadius: 3, backgroundColor: t.border, marginTop: 4, overflow: "hidden" },
+  taskBarFill: { height: "100%", backgroundColor: t.accent },
+  maxed: { textAlign: "center", color: t.text3, fontSize: 13 },
   tierPills: { flexDirection: "row", flexWrap: "wrap", gap: 6, borderTopWidth: 1, borderTopColor: "#f0f1f3", paddingTop: 12, marginTop: 4 },
-  tierPill: { fontSize: 10, fontWeight: "700", color: "#aaa", backgroundColor: "#f5f6f8", borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4 },
-  tierPillUnlocked: { color: "#667eea", backgroundColor: "rgba(102,126,234,0.12)" },
-  section: { backgroundColor: "#fff", marginHorizontal: 16, marginTop: 16, borderRadius: 18, padding: 16 },
+  tierPill: { fontSize: 10, fontWeight: "700", color: t.text3, backgroundColor: t.surface2, borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4 },
+  tierPillUnlocked: { color: t.accent, backgroundColor: "rgba(102,126,234,0.12)" },
+  section: { backgroundColor: t.surface, marginHorizontal: 16, marginTop: 16, borderRadius: 18, padding: 16 },
   sectionHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 },
-  sectionTitle: { fontSize: 15, fontFamily: FONTS.heading, color: "#2c3e50", marginBottom: 10 },
+  sectionTitle: { fontSize: 15, fontFamily: FONTS.heading, color: t.text, marginBottom: 10 },
   sectionEmpty: { color: "#8b95a5", fontSize: 13, textAlign: "center", paddingVertical: 14 },
   segmented: { flexDirection: "row", backgroundColor: "#eef0f5", borderRadius: 12, padding: 3 },
   segBtn: { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6 },
-  segBtnActive: { backgroundColor: "#fff", shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 4, elevation: 1 },
+  segBtnActive: { backgroundColor: t.surface, shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 4, elevation: 1 },
   segText: { fontSize: 12, fontFamily: FONTS.bodySemi, color: "#7a8598" },
-  segTextActive: { color: "#2c3e50" },
+  segTextActive: { color: t.text },
   pastCard: { opacity: 0.62 },
   search: {
-    backgroundColor: "#f5f6f8", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11,
+    backgroundColor: t.surface2, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11,
     fontSize: 15, marginBottom: 12,
   },
   userRow: {
@@ -330,21 +353,21 @@ const styles = StyleSheet.create({
     padding: 12, marginBottom: 10, gap: 12,
   },
   userAvatar: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center" },
-  userAvatarText: { color: "#fff", fontWeight: "800", fontSize: 13 },
+  userAvatarText: { color: t.surface, fontWeight: "800", fontSize: 13 },
   userNameRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  userName: { fontWeight: "700", color: "#2c3e50", fontSize: 14 },
-  userUid: { fontSize: 11, color: "#aaa", marginTop: 2 },
+  userName: { fontWeight: "700", color: t.text, fontSize: 14 },
+  userUid: { fontSize: 11, color: t.text3, marginTop: 2 },
   chevron: { fontSize: 20, color: "#ccc" },
   actions: { padding: 16, gap: 10 },
-  actionBtn: { backgroundColor: "#fff", borderRadius: 14, paddingVertical: 14, paddingHorizontal: 18 },
-  actionBtnText: { fontFamily: FONTS.accentMedium, color: "#2c3e50", fontSize: 14 },
+  actionBtn: { backgroundColor: t.surface, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 18 },
+  actionBtnText: { fontFamily: FONTS.accentMedium, color: t.text, fontSize: 14 },
   urgentBtn: { backgroundColor: "#ff6262", flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  urgentBtnText: { fontFamily: FONTS.accentMedium, color: "#fff", fontSize: 14 },
-  pendingBadge: { backgroundColor: "#fff", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
+  urgentBtnText: { fontFamily: FONTS.accentMedium, color: t.surface, fontSize: 14 },
+  pendingBadge: { backgroundColor: t.surface, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
   pendingBadgeText: { color: "#ff6262", fontFamily: FONTS.accent, fontSize: 12 },
   logoutBtn: {},
-  logoutBtnText: { fontFamily: FONTS.accentMedium, color: "#e74c3c", fontSize: 14 },
-  errorText: { color: "#888", fontSize: 14, marginBottom: 14 },
-  retryBtn: { backgroundColor: "#667eea", borderRadius: 20, paddingVertical: 10, paddingHorizontal: 24 },
-  retryBtnText: { color: "#fff", fontFamily: FONTS.accentMedium },
+  logoutBtnText: { fontFamily: FONTS.accentMedium, color: t.status.bad, fontSize: 14 },
+  errorText: { color: t.text2, fontSize: 14, marginBottom: 14 },
+  retryBtn: { backgroundColor: t.accent, borderRadius: 20, paddingVertical: 10, paddingHorizontal: 24 },
+  retryBtnText: { color: t.surface, fontFamily: FONTS.accentMedium },
 });

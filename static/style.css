@@ -5092,3 +5092,728 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     transition: background 0.18s;
 }
 .drawer-logout:hover { background: rgba(231, 76, 60, 0.16); }
+
+/* ═══ Showing up ═════════════════════════════════════════════════════════
+   Everything that turns a join into a commitment rather than a bookmark:
+   the three-step sheet, the "Next up" reminder, the gated call box, the
+   attendance record and check-in. */
+
+/* ─── Toast ─────────────────────────────────────────────────────────── */
+.metz-toast {
+    position: fixed;
+    left: 50%;
+    bottom: 28px;
+    z-index: 4000;
+    transform: translate(-50%, 16px);
+    max-width: min(440px, calc(100vw - 32px));
+    padding: 13px 18px;
+    border-radius: var(--radius);
+    background: var(--nav-bg);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
+    box-shadow: var(--shadow-3);
+    opacity: 0;
+    transition: opacity 0.22s var(--ease-out), transform 0.22s var(--ease-out);
+}
+.metz-toast.is-open { opacity: 1; transform: translate(-50%, 0); }
+.metz-toast.is-good { background: #0f7b5f; }
+.metz-toast.is-bad { background: #a8342a; }
+
+/* ─── Commitment sheet ──────────────────────────────────────────────── */
+.commit-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 3500;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    background: rgba(12, 16, 26, 0.55);
+    backdrop-filter: blur(3px);
+    opacity: 0;
+    transition: opacity 0.2s var(--ease-out);
+}
+.commit-backdrop.is-open { opacity: 1; }
+/* `display: flex` above outranks the browser's [hidden] rule, so the closed
+   backdrop would otherwise sit invisibly over the page and swallow every
+   click on Home. Spell the hidden state out. */
+.commit-backdrop[hidden] { display: none; }
+body.commit-open { overflow: hidden; }
+
+.commit-sheet {
+    display: flex;
+    flex-direction: column;
+    width: min(520px, 100%);
+    max-height: min(88vh, 760px);
+    background: var(--surface);
+    border-radius: 22px 22px 0 0;
+    box-shadow: var(--shadow-3);
+    transform: translateY(24px);
+    transition: transform 0.26s var(--ease-out);
+}
+.commit-backdrop.is-open .commit-sheet { transform: translateY(0); }
+
+@media (min-width: 620px) {
+    .commit-backdrop { align-items: center; }
+    .commit-sheet { border-radius: 22px; }
+}
+
+.commit-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 18px 6px;
+}
+.commit-steps { display: flex; gap: 6px; }
+.commit-step-dot {
+    width: 22px;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--surface-3);
+    transition: background 0.2s;
+}
+.commit-step-dot.is-done { background: var(--accent-soft-2); }
+.commit-step-dot.is-active { background: var(--accent); }
+
+.commit-close {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border: none;
+    border-radius: 50%;
+    background: var(--surface-2);
+    color: var(--text-2);
+    cursor: pointer;
+}
+.commit-close:hover { background: var(--surface-3); color: var(--text); }
+
+.commit-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px 20px 4px;
+}
+
+.commit-title {
+    margin: 4px 0 12px;
+    font-family: 'Poppins', sans-serif;
+    font-size: 21px;
+    font-weight: 800;
+    color: var(--text);
+}
+.commit-title-warn { color: #c0392b; }
+
+.commit-lead {
+    margin: 0 0 14px;
+    font-size: 14.5px;
+    line-height: 1.55;
+    color: var(--text-2);
+}
+
+.commit-card {
+    padding: 14px 16px;
+    border-radius: var(--radius);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+}
+.commit-card-badge {
+    display: inline-block;
+    margin-bottom: 8px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+    font-size: 11.5px;
+    font-weight: 700;
+}
+.commit-card-title {
+    margin: 0 0 6px;
+    font-family: 'Poppins', sans-serif;
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text);
+}
+.commit-card-desc {
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--text-2);
+}
+
+.commit-facts {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 14px;
+}
+.commit-fact {
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+    padding: 10px 4px;
+    font-size: 14px;
+    line-height: 1.45;
+    color: var(--text);
+    border-bottom: 1px solid var(--border);
+}
+.commit-fact:last-child { border-bottom: none; }
+.commit-fact-icon { flex: none; font-size: 15px; }
+.commit-fact-warn { color: #b9770e; }
+
+.commit-rules {
+    margin: 0 0 16px;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.commit-rules li {
+    display: flex;
+    gap: 11px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--text);
+}
+.commit-rule-icon { flex: none; }
+
+.commit-record {
+    margin: 0 0 14px;
+    padding: 11px 14px;
+    border-radius: 12px;
+    background: var(--accent-soft);
+    font-size: 13.5px;
+    color: var(--accent-deep);
+}
+
+.commit-pledge {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 14.5px;
+    font-weight: 600;
+    line-height: 1.45;
+    color: var(--text);
+    cursor: pointer;
+    transition: border-color 0.18s, background 0.18s;
+}
+.commit-pledge:has(input:checked) {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+}
+.commit-pledge input {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    margin-top: 1px;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+.commit-final {
+    padding: 22px 16px;
+    text-align: center;
+    border-radius: var(--radius);
+    background: var(--surface-2);
+}
+.commit-final-emoji { font-size: 40px; line-height: 1; }
+.commit-final-line {
+    margin: 12px 0 4px;
+    font-size: 13px;
+    color: var(--text-2);
+}
+.commit-final-title {
+    margin: 0 0 6px;
+    font-family: 'Poppins', sans-serif;
+    font-size: 19px;
+    font-weight: 800;
+    color: var(--text);
+}
+.commit-final-when {
+    margin: 0;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 13.5px;
+    color: var(--text-2);
+}
+.commit-fineprint {
+    margin: 12px 0 0;
+    font-size: 12.5px;
+    text-align: center;
+    color: var(--text-3);
+}
+
+.commit-foot {
+    display: flex;
+    gap: 10px;
+    padding: 14px 20px calc(16px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--border);
+}
+.commit-btn {
+    flex: 1;
+    padding: 14px 18px;
+    border: none;
+    border-radius: 13px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.15s var(--spring), opacity 0.15s, background 0.18s;
+}
+.commit-btn:active { transform: scale(0.97); }
+.commit-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.commit-btn-primary { background: var(--accent); color: var(--accent-on); }
+.commit-btn-primary:hover:not(:disabled) { background: var(--accent-strong); }
+.commit-btn-danger { background: #c0392b; color: #fff; }
+.commit-btn-danger:hover:not(:disabled) { background: #a93226; }
+.commit-btn-ghost {
+    flex: 0 0 32%;
+    background: var(--surface-2);
+    color: var(--text-2);
+}
+.commit-btn-ghost:hover { background: var(--surface-3); }
+
+/* ─── "Next up" reminder ────────────────────────────────────────────── */
+.nextup {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0 0 12px;
+    padding: 13px 15px;
+    border-radius: var(--radius);
+    border: 1px solid var(--accent-soft-2);
+    background: linear-gradient(135deg, var(--accent-soft), transparent 70%), var(--surface);
+    text-decoration: none;
+    box-shadow: var(--shadow-1);
+}
+.nextup-left { flex: 1; min-width: 0; }
+.nextup-kicker {
+    display: block;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: var(--accent-strong);
+}
+.nextup-title {
+    display: block;
+    margin: 3px 0 2px;
+    font-family: 'Poppins', sans-serif;
+    font-size: 15.5px;
+    font-weight: 700;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.nextup-meta {
+    display: block;
+    font-size: 12.5px;
+    color: var(--text-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.nextup-right { flex: none; text-align: right; }
+.nextup-countdown {
+    display: block;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--accent-strong);
+}
+.nextup-go {
+    display: block;
+    margin-top: 2px;
+    font-size: 11.5px;
+    color: var(--text-3);
+}
+
+/* Loud state: inside the last hour, or already running */
+.nextup.is-urgent,
+.nextup.is-live,
+.nextup-soon,
+.nextup-live {
+    border-color: rgba(224, 122, 45, 0.4);
+    background: linear-gradient(135deg, rgba(224, 122, 45, 0.16), transparent 70%), var(--surface);
+    animation: nextup-pulse 2.4s ease-in-out infinite;
+}
+.nextup.is-urgent .nextup-kicker,
+.nextup.is-live .nextup-kicker,
+.nextup.is-urgent .nextup-countdown,
+.nextup.is-live .nextup-countdown { color: #c0651f; }
+
+@keyframes nextup-pulse {
+    0%, 100% { box-shadow: var(--shadow-1); }
+    50% { box-shadow: 0 0 0 4px rgba(224, 122, 45, 0.14); }
+}
+:root[data-motion="reduced"] .nextup { animation: none; }
+
+/* Cards for something you committed to that is about to start */
+.meeting-card.is-soon { border-color: rgba(224, 122, 45, 0.45); }
+.card-soon-chip {
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(224, 122, 45, 0.14);
+    color: #c0651f;
+    font-size: 11px;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+/* ─── Meeting detail page ───────────────────────────────────────────── */
+.detail-page {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 18px 16px calc(40px + env(safe-area-inset-bottom, 0px));
+    min-height: 100vh;
+}
+.detail-back {
+    display: inline-block;
+    margin-bottom: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-2);
+    text-decoration: none;
+}
+.detail-back:hover { color: var(--text); }
+
+.detail-hero {
+    padding: 18px 18px 20px;
+    border-radius: var(--radius-lg);
+    background: linear-gradient(135deg, var(--accent-soft), transparent 65%), var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-1);
+}
+.detail-title {
+    margin: 10px 0 8px;
+    font-family: 'Poppins', sans-serif;
+    font-size: 25px;
+    font-weight: 800;
+    line-height: 1.2;
+    color: var(--text);
+}
+.detail-when {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 12px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 14px;
+    color: var(--text);
+}
+.detail-when-rel { color: var(--accent-strong); font-weight: 700; }
+.detail-organiser {
+    display: inline-block;
+    margin-top: 10px;
+    font-size: 13.5px;
+    color: var(--text-2);
+    text-decoration: none;
+}
+.detail-organiser:hover { color: var(--accent-strong); }
+
+.detail-notice {
+    margin-top: 12px;
+    padding: 12px 15px;
+    border-radius: var(--radius);
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: 1.45;
+}
+.detail-notice-good { background: rgba(15, 123, 95, 0.12); color: #0f7b5f; }
+.detail-notice-warn { background: rgba(224, 122, 45, 0.14); color: #b9770e; }
+.detail-notice-bad { background: rgba(192, 57, 43, 0.12); color: #c0392b; }
+
+.detail-section {
+    margin-top: 14px;
+    padding: 16px 18px;
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    border: 1px solid var(--border);
+}
+.detail-section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 10px;
+    font-family: 'Poppins', sans-serif;
+    font-size: 15.5px;
+    font-weight: 700;
+    color: var(--text);
+}
+.detail-count {
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--surface-3);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 12px;
+    color: var(--text-2);
+}
+.detail-desc, .detail-location {
+    margin: 0 0 8px;
+    font-size: 14.5px;
+    line-height: 1.55;
+    color: var(--text-2);
+}
+.detail-map-link {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--accent-strong);
+    text-decoration: none;
+}
+.detail-empty, .detail-waitlist {
+    margin: 6px 0 0;
+    font-size: 13.5px;
+    color: var(--text-3);
+}
+.info-detail-link {
+    display: block;
+    margin-top: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent-strong);
+    text-decoration: none;
+}
+
+/* The gated join-call block — an online meeting's whole reason to exist */
+.callbox {
+    margin-top: 14px;
+    padding: 22px 18px;
+    border-radius: var(--radius-lg);
+    text-align: center;
+    border: 1px solid var(--border);
+    background: var(--surface);
+}
+.callbox.is-hidden { background: var(--surface-2); }
+.callbox.is-live {
+    border-color: var(--accent);
+    background: linear-gradient(135deg, var(--accent-soft), transparent 70%), var(--surface);
+    box-shadow: 0 0 0 4px var(--accent-soft);
+}
+.callbox-icon { font-size: 34px; line-height: 1; }
+.callbox-title {
+    margin: 10px 0 6px;
+    font-family: 'Poppins', sans-serif;
+    font-size: 16.5px;
+    font-weight: 700;
+    color: var(--text);
+}
+.callbox-sub, .callbox-countdown { margin: 0; font-size: 13.5px; color: var(--text-2); }
+.callbox-countdown {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--accent-strong);
+}
+.callbox-btn {
+    display: inline-block;
+    margin: 12px 0 10px;
+    padding: 14px 26px;
+    border-radius: 13px;
+    background: var(--accent);
+    color: var(--accent-on);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 15.5px;
+    font-weight: 700;
+    text-decoration: none;
+    box-shadow: var(--shadow-2);
+}
+.callbox-btn:hover { background: var(--accent-strong); }
+.callbox-url {
+    margin: 8px 0 0;
+    font-size: 11.5px;
+    color: var(--text-3);
+    word-break: break-all;
+}
+
+/* Attendees + the organiser's attendance marking */
+.attendee-list { display: flex; flex-direction: column; }
+.attendee-row {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--border);
+}
+.attendee-row:last-child { border-bottom: none; }
+.attendee-face {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    overflow: hidden;
+    color: #fff;
+    font-weight: 700;
+    text-decoration: none;
+}
+.attendee-face img { width: 100%; height: 100%; object-fit: cover; }
+.attendee-info { flex: 1; min-width: 0; }
+.attendee-name {
+    display: block;
+    font-size: 14.5px;
+    font-weight: 600;
+    color: var(--text);
+    text-decoration: none;
+}
+.attendee-name:hover { color: var(--accent-strong); }
+.attendee-record { display: block; font-size: 12px; color: var(--text-2); }
+.attendee-record-new { color: var(--text-3); }
+
+.attendance-toggle { display: flex; gap: 6px; flex: none; }
+.att-btn {
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface-2);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-3);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.att-went.is-on { background: rgba(15, 123, 95, 0.15); border-color: #0f7b5f; color: #0f7b5f; }
+.att-missed.is-on { background: rgba(192, 57, 43, 0.13); border-color: #c0392b; color: #c0392b; }
+
+.attendance-mark {
+    flex: none;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 700;
+}
+.attendance-mark.is-went { background: rgba(15, 123, 95, 0.13); color: #0f7b5f; }
+.attendance-mark.is-missed { background: rgba(192, 57, 43, 0.12); color: #c0392b; }
+
+.detail-actions { margin-top: 16px; }
+.detail-join-btn {
+    width: 100%;
+    padding: 16px;
+    border: none;
+    border-radius: var(--radius);
+    background: var(--accent);
+    color: var(--accent-on);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: var(--shadow-2);
+    transition: transform 0.15s var(--spring), background 0.18s;
+}
+.detail-join-btn:active { transform: scale(0.98); }
+.detail-join-btn.joined {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-2);
+    box-shadow: var(--shadow-1);
+}
+.detail-join-hint {
+    margin: 8px 0 0;
+    font-size: 12.5px;
+    text-align: center;
+    color: var(--text-3);
+}
+.detail-delete-btn {
+    width: 100%;
+    padding: 13px;
+    border: 1px solid rgba(192, 57, 43, 0.3);
+    border-radius: var(--radius);
+    background: rgba(192, 57, 43, 0.06);
+    color: #c0392b;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+/* ─── Attendance record + check-in ──────────────────────────────────── */
+.reliability-card {
+    margin: 0 14px 14px;
+    padding: 16px 18px;
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-1);
+}
+.reliability-main { display: flex; align-items: center; gap: 16px; }
+.reliability-score {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 38px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--text-3);
+}
+.reliability-pct { font-size: 20px; }
+.reliability-card.is-good .reliability-score { color: #0f7b5f; }
+.reliability-card.is-mixed .reliability-score { color: #b9770e; }
+.reliability-card.is-poor .reliability-score { color: #c0392b; }
+.reliability-title {
+    font-family: 'Poppins', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+}
+.reliability-label { font-size: 13px; color: var(--text-2); }
+.reliability-breakdown {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+}
+.reliability-chip {
+    padding: 4px 11px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-2);
+}
+.reliability-chip.is-went { color: #0f7b5f; background: rgba(15, 123, 95, 0.1); }
+.reliability-chip.is-missed { color: #c0392b; background: rgba(192, 57, 43, 0.09); }
+.reliability-chip.is-pending { color: #b9770e; background: rgba(224, 122, 45, 0.12); }
+
+.checkin-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    text-decoration: none;
+}
+.checkin-row:last-child { border-bottom: none; }
+.checkin-row.is-answered { opacity: 0.6; }
+.checkin-row-body { flex: 1; min-width: 0; }
+.checkin-row-title {
+    display: block;
+    font-size: 14.5px;
+    font-weight: 600;
+    color: var(--text);
+    text-decoration: none;
+}
+.checkin-row-when { display: block; font-size: 12.5px; color: var(--text-2); }
+.checkin-row-go { flex: none; font-size: 13px; font-weight: 600; color: var(--accent-strong); }
+
+.checkin-actions { display: flex; gap: 8px; flex: none; }
+.checkin-btn {
+    padding: 9px 14px;
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    background: var(--surface-2);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-2);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.checkin-yes:hover { background: rgba(15, 123, 95, 0.12); border-color: #0f7b5f; color: #0f7b5f; }
+.checkin-no:hover { background: rgba(192, 57, 43, 0.1); border-color: #c0392b; color: #c0392b; }
+.checkin-answered { font-size: 13px; font-weight: 700; color: var(--text-2); }
+.checkin-result { margin: 10px 0 0; font-size: 13.5px; color: var(--text-2); }
+.checkin-result.is-done { color: #0f7b5f; font-weight: 600; }
+.checkin-done { margin: 0; font-size: 14px; color: var(--text-2); }
+.checkin-box .checkin-actions { margin-top: 12px; }

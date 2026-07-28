@@ -34,6 +34,23 @@
         {% endif %}
     </div>
 
+    <!-- Attendance record — what an organiser wants to know before counting on someone -->
+    <div class="reliability-card {% if reliability.score is none %}is-empty{% elif reliability.score >= 70 %}is-good{% elif reliability.score >= 40 %}is-mixed{% else %}is-poor{% endif %}">
+        <div class="reliability-main">
+            <div class="reliability-score">
+                {% if reliability.score is none %}—{% else %}{{ reliability.score }}<span class="reliability-pct">%</span>{% endif %}
+            </div>
+            <div class="reliability-text">
+                <div class="reliability-title">Show-up rate</div>
+                <div class="reliability-label">{{ reliability.label }}</div>
+            </div>
+        </div>
+        <div class="reliability-breakdown">
+            <span class="reliability-chip is-went">✓ {{ reliability.went }} went</span>
+            <span class="reliability-chip is-missed">✕ {{ reliability.missed }} missed</span>
+        </div>
+    </div>
+
     <!-- Account status -->
     <div class="account-status-card">
         <div class="account-status-header">

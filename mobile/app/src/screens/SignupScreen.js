@@ -4,6 +4,7 @@ import { api } from "../api";
 import AuthLayout from "../components/AuthLayout";
 import AuthField from "../components/AuthField";
 import AuthButton from "../components/AuthButton";
+import { ACCENTS } from "../styles/theme";
 
 export default function SignupScreen({ navigation }) {
   const [email, setEmail] = useState("");
@@ -56,5 +57,5 @@ export default function SignupScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  link: { textAlign: "center", color: "#3498db", marginTop: 18, fontWeight: "600" },
+  link: { textAlign: "center", color: ACCENTS.teal.accentStrong, marginTop: 18, fontWeight: "600" },
 });

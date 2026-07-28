@@ -1,0 +1,297 @@
+{% extends "base.html" %}
+
+{% block title %}{{ meeting.title }}{% endblock %}
+
+{% block content %}
+<div class="detail-page"
+     data-meeting-id="{{ meeting.id }}"
+     data-time="{{ meeting.time }}"
+     data-window="{{ window_minutes }}">
+
+    <a href="/" class="detail-back">← Back</a>
+
+    <!-- Header -->
+    <div class="detail-hero {% if is_online %}is-online{% endif %}">
+        <span class="meeting-card-type-badge {% if is_online %}badge-type-online{% else %}badge-type-inperson{% endif %}">
+            {{ '🌐 Online' if is_online else '📍 In-Person' }}
+        </span>
+        <h1 class="detail-title">{{ meeting.title }}</h1>
+        <div class="detail-when">
+            <span class="detail-when-abs">🕐 {{ meeting.time }}</span>
+            <span class="detail-when-rel" id="detail-countdown" data-time="{{ meeting.time }}"></span>
+        </div>
+        {% if meeting.creator_username %}
+        <a class="detail-organiser" href="/user/{{ meeting.creator_uid }}">
+            👤 {{ meeting.creator_username }}{% if creator_is_trusted %}<span class="trust-badge" title="Trusted creator">★</span>{% endif %}
+        </a>
+        {% endif %}
+    </div>
+
+    {% if meeting.status == 'pending' %}
+    <div class="detail-notice detail-notice-warn">
+        ⏳ This meeting is still awaiting admin review, so nobody else can see it yet.
+    </div>
+    {% endif %}
+    {% if meeting.commit_status == 'cancelled' %}
+    <div class="detail-notice detail-notice-bad">
+        🚫 This meeting was called off by the organiser.
+    </div>
+    {% elif meeting.commit_status == 'confirmed' and meeting.has_threshold %}
+    <div class="detail-notice detail-notice-good">
+        ✅ Confirmed — enough people committed, it's happening.
+    </div>
+    {% endif %}
+
+    <!-- The join-call block: the whole point of an online meeting, and the
+         reason the link is not just printed on a card for anyone to grab. -->
+    {% if is_online %}
+    <div class="callbox {% if link and link.live %}is-live{% elif link and link.visible %}is-locked{% else %}is-hidden{% endif %}" id="callbox">
+        {# Branch on what the server says this viewer may see, not on `joined`:
+           the organiser can always reach their own call without joining it. #}
+        {% if not link or not link.visible %}
+        <div class="callbox-icon">🔒</div>
+        <h3 class="callbox-title">The call link is for people who committed</h3>
+        <p class="callbox-sub">Join this meeting and the link appears here.</p>
+        {% elif link and link.live %}
+        <div class="callbox-icon">🎥</div>
+        <h3 class="callbox-title">The call is open</h3>
+        <a class="callbox-btn" href="{{ link.url }}" target="_blank" rel="noopener noreferrer">Join the call →</a>
+        <p class="callbox-url">{{ link.url }}</p>
+        {% elif phase == 'ended' %}
+        <div class="callbox-icon">🏁</div>
+        <h3 class="callbox-title">This call has finished</h3>
+        <p class="callbox-url">{{ link.url if link else '' }}</p>
+        {% else %}
+        <div class="callbox-icon">⏳</div>
+        <h3 class="callbox-title">
+            {% if joined %}You're in — the call opens{% else %}Your call opens{% endif %} {{ window_minutes }} min before the start
+        </h3>
+        <p class="callbox-countdown" id="callbox-countdown" data-opens-in="{{ link.opens_in if link else 0 }}"></p>
+        <p class="callbox-url">{{ link.url if link else '' }}</p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Where -->
+    {% if not is_online and meeting.location %}
+    <div class="detail-section">
+        <h3 class="detail-section-title">📍 Where</h3>
+        <p class="detail-location">{{ meeting.location }}</p>
+        <a class="detail-map-link"
+           href="https://www.openstreetmap.org/?mlat={{ meeting.lat }}&mlon={{ meeting.lng }}#map=17/{{ meeting.lat }}/{{ meeting.lng }}"
+           target="_blank" rel="noopener noreferrer">Open in maps →</a>
+    </div>
+    {% endif %}
+
+    <!-- What -->
+    <div class="detail-section">
+        <h3 class="detail-section-title">📝 What it is</h3>
+        <p class="detail-desc">{{ meeting.description }}</p>
+        {% if meeting.tags %}
+        <div class="meeting-card-tags">
+            {% for t in meeting.tags %}<span class="meeting-card-tag">{{ t }}</span>{% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Threshold -->
+    {% if meeting.has_threshold %}
+    <div class="detail-section">
+        <h3 class="detail-section-title">🎯 It only happens if enough people come</h3>
+        <div class="threshold {% if meeting.commit_status == 'confirmed' %}is-confirmed{% elif meeting.commit_status == 'cancelled' %}is-cancelled{% endif %}">
+            <div class="threshold-top">
+                <span class="threshold-label">{{ meeting.joined_uids|length }} of {{ meeting.min_attendees }} committed</span>
+                {% if meeting.join_deadline %}<span class="threshold-deadline">by {{ meeting.join_deadline }}</span>{% endif %}
+            </div>
+            <div class="threshold-bar">
+                <div class="threshold-bar-fill" style="width: {{ meeting.threshold_progress }}%;"></div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Who -->
+    <div class="detail-section">
+        <h3 class="detail-section-title">
+            🤝 Who's coming <span class="detail-count">{{ attendees|length }}</span>
+        </h3>
+
+        {% if attendees %}
+        <div class="attendee-list" id="attendee-list">
+            {% for a in attendees %}
+            <div class="attendee-row" data-uid="{{ a.uid }}">
+                <a class="attendee-face" href="/user/{{ a.uid }}"
+                   {% if not a.profile_picture %}style="background: {{ a.color }};"{% endif %}>
+                    {% if a.profile_picture %}<img src="{{ a.profile_picture }}" alt="">
+                    {% elif a.avatar_emoji %}<span>{{ a.avatar_emoji }}</span>
+                    {% else %}<span>{{ a.initial }}</span>{% endif %}
+                </a>
+                <div class="attendee-info">
+                    <a class="attendee-name" href="/user/{{ a.uid }}">{{ a.username }}{% if a.is_trusted %}<span class="trust-badge" title="Trusted user">★</span>{% endif %}</a>
+                    {% if a.reliability.score is not none %}
+                    <span class="attendee-record" title="{{ a.reliability.went }} attended · {{ a.reliability.missed }} missed">
+                        {{ a.reliability.score }}% show-up rate
+                    </span>
+                    {% else %}
+                    <span class="attendee-record attendee-record-new">No record yet</span>
+                    {% endif %}
+                </div>
+
+                {% if checkin_open and is_host %}
+                <!-- Organiser's verdict, only once the meeting is actually over -->
+                <div class="attendance-toggle" data-uid="{{ a.uid }}">
+                    <button type="button" class="att-btn att-went {% if a.attendance == 'went' %}is-on{% endif %}"
+                            onclick="markAttendance('{{ a.uid }}', 'went', this)" title="Turned up">✓</button>
+                    <button type="button" class="att-btn att-missed {% if a.attendance == 'missed' %}is-on{% endif %}"
+                            onclick="markAttendance('{{ a.uid }}', 'missed', this)" title="No-show">✕</button>
+                </div>
+                {% elif a.attendance %}
+                <span class="attendance-mark {% if a.attendance == 'went' %}is-went{% else %}is-missed{% endif %}">
+                    {{ '✓ Went' if a.attendance == 'went' else '✕ No-show' }}
+                </span>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="detail-empty">Nobody has committed yet. Be the first.</p>
+        {% endif %}
+
+        {% if meeting.waitlist_uids %}
+        <p class="detail-waitlist">⏳ {{ meeting.waitlist_uids|length }} on the waitlist</p>
+        {% endif %}
+    </div>
+
+    <!-- Check-in: the other half of making a join mean something -->
+    {% if checkin_open and joined %}
+    <div class="detail-section checkin-box" id="checkin-box">
+        <h3 class="detail-section-title">✅ Did you go?</h3>
+        {% if my_attendance %}
+        <p class="checkin-done" id="checkin-done">
+            {{ "You said you went to this one." if my_attendance == 'went' else "You said you missed this one." }}
+        </p>
+        {% else %}
+        <p class="detail-desc">This meeting is over. Answering honestly is what keeps everyone's record worth reading.</p>
+        <div class="checkin-actions">
+            <button type="button" class="checkin-btn checkin-yes" onclick="checkIn('went')">I went</button>
+            <button type="button" class="checkin-btn checkin-no" onclick="checkIn('missed')">I didn't make it</button>
+        </div>
+        <p class="checkin-result" id="checkin-result" hidden></p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Join / leave -->
+    {% if phase != 'ended' and meeting.commit_status != 'cancelled' %}
+    <div class="detail-actions">
+        <button type="button"
+                class="detail-join-btn join-btn {% if joined %}joined{% endif %}"
+                id="detail-join-btn"
+                data-meeting-id="{{ meeting.id }}"
+                onclick="toggleJoinDetail(this)">
+            <span class="join-btn-text">
+                {% if joined %}You're going — tap to leave{% elif waitlisted %}On the waitlist — tap to leave{% else %}Join this meeting{% endif %}
+            </span>
+        </button>
+        {% if not joined and not waitlisted %}
+        <p class="detail-join-hint">You'll be asked to confirm you can actually make it.</p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if is_creator or is_admin %}
+    <div class="detail-actions">
+        <button type="button" class="detail-delete-btn"
+                onclick="deleteMeeting({{ meeting.id }}, null); window.location.href='/';">
+            Delete this meeting
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    var DETAIL_ID = {{ meeting.id }};
+
+    // ── Countdowns ───────────────────────────────────────────────────
+    function tickDetailCountdown() {
+        var el = document.getElementById('detail-countdown');
+        if (el) el.textContent = formatTimeUntil(el.dataset.time);
+
+        var box = document.getElementById('callbox-countdown');
+        if (box) {
+            var left = parseInt(box.dataset.opensIn || '0', 10);
+            if (left <= 0) {
+                // The window just opened — reload so the real link block renders
+                window.location.reload();
+                return;
+            }
+            box.textContent = 'Opens in ' + formatCountdown(left);
+            box.dataset.opensIn = String(left - 1);
+        }
+    }
+    tickDetailCountdown();
+    setInterval(tickDetailCountdown, 1000);
+
+    // ── Join / leave ─────────────────────────────────────────────────
+    function toggleJoinDetail(btn) {
+        MetzJoin.request(DETAIL_ID).then(function (data) {
+            if (!data) return;
+            // Joining reveals the call link and changes the attendee list, so
+            // the simplest correct thing is to re-render the page.
+            window.location.reload();
+        });
+    }
+
+    // ── Check-in ─────────────────────────────────────────────────────
+    function checkIn(status) {
+        fetch('/meeting/' + DETAIL_ID + '/checkin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: status })
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                var result = document.getElementById('checkin-result');
+                if (data.error) {
+                    result.hidden = false;
+                    result.textContent = data.error;
+                    return;
+                }
+                var box = document.getElementById('checkin-box');
+                box.querySelector('.checkin-actions').remove();
+                result.hidden = false;
+                result.className = 'checkin-result is-done';
+                result.textContent = status === 'went'
+                    ? 'Logged — thanks. Your show-up rate is now ' + data.reliability.score + '%.'
+                    : 'Logged. Being honest about a miss is better than pretending.';
+            });
+    }
+
+    // ── Organiser marking who turned up ──────────────────────────────
+    function markAttendance(uid, status, btn) {
+        var group = btn.parentElement;
+        // Tapping the mark that is already on clears it back to undecided
+        var next = btn.classList.contains('is-on') ? 'clear' : status;
+
+        fetch('/meeting/' + DETAIL_ID + '/attendance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ uid: uid, status: next })
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.error) { MetzJoin.toast(data.error, 'bad'); return; }
+                group.querySelectorAll('.att-btn').forEach(function (b) { b.classList.remove('is-on'); });
+                if (data.status === 'went') group.querySelector('.att-went').classList.add('is-on');
+                if (data.status === 'missed') group.querySelector('.att-missed').classList.add('is-on');
+
+                var row = group.closest('.attendee-row');
+                var record = row.querySelector('.attendee-record');
+                if (record && data.reliability.score !== null) {
+                    record.textContent = data.reliability.score + '% show-up rate';
+                    record.classList.remove('attendee-record-new');
+                }
+            });
+    }
+</script>
+{% endblock %}

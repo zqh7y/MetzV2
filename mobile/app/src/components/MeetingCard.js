@@ -1,16 +1,24 @@
-import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Linking } from "react-native";
+import React, { useMemo } from "react";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import TrustBadge from "./TrustBadge";
 import TagChip from "./TagChip";
 import AnimatedPressable from "./AnimatedPressable";
 import { FONTS } from "../styles/fonts";
+import { useTheme } from "../context/ThemeContext";
+import { CARD_ACCENTS, RADIUS, SHADOW } from "../styles/theme";
 
-export default function MeetingCard({ meeting, onPress, onJoin, onDelete }) {
+// Mirrors .meeting-card in static/style.css: a coloured accent rail, a type
+// badge and relative time on top, then title, tags, description, and a footer
+// holding the joined count and the Join button.
+export default function MeetingCard({ meeting, index = 0, onPress, onJoin, onDelete }) {
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const isOnline = meeting.type === "OnlineMeeting";
+  const rail = CARD_ACCENTS[index % CARD_ACCENTS.length];
 
   return (
     <AnimatedPressable style={styles.card} onPress={onPress} scaleTo={0.98}>
-      <View style={[styles.accent, { backgroundColor: isOnline ? "#764ba2" : "#667eea" }]} />
+      <View style={[styles.accent, { backgroundColor: rail }]} />
       <View style={styles.body}>
         <View style={styles.topRow}>
           <Text style={[styles.badge, isOnline ? styles.badgeOnline : styles.badgeInPerson]}>
@@ -38,10 +46,11 @@ export default function MeetingCard({ meeting, onPress, onJoin, onDelete }) {
 
         <Text style={styles.desc} numberOfLines={2}>{meeting.description}</Text>
 
-        {isOnline && meeting.link ? (
-          <TouchableOpacity onPress={() => Linking.openURL(meeting.link)}>
-            <Text style={styles.link}>🔗 Join meeting →</Text>
-          </TouchableOpacity>
+        {/* An online meeting's link is never printed on a card — the server
+            only hands it to people who joined, and the detail screen decides
+            whether the call is open yet. */}
+        {isOnline ? (
+          <Text style={styles.address}>🌐 Online</Text>
         ) : meeting.short_location ? (
           <Text style={styles.address}>📍 {meeting.short_location}</Text>
         ) : null}
@@ -68,39 +77,48 @@ export default function MeetingCard({ meeting, onPress, onJoin, onDelete }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t) => StyleSheet.create({
   card: {
     flexDirection: "row",
-    backgroundColor: "#fff",
-    borderRadius: 14,
+    backgroundColor: t.surface,
+    borderRadius: RADIUS.base,
+    borderWidth: 1,
+    borderColor: t.border,
     marginBottom: 12,
     overflow: "hidden",
-    shadowColor: "#000",
-    shadowOpacity: 0.07,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    ...SHADOW.s1,
   },
   accent: { width: 5 },
   body: { flex: 1, padding: 12 },
   topRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
-  badge: { fontSize: 10, fontWeight: "700", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, textTransform: "uppercase" },
-  badgeInPerson: { backgroundColor: "#e8f4fd", color: "#2980b9" },
-  badgeOnline: { backgroundColor: "#f0ebff", color: "#764ba2" },
-  time: { fontSize: 11, color: "#999" },
-  title: { fontSize: 16, fontFamily: FONTS.heading, color: "#2c3e50", marginBottom: 4 },
+  badge: {
+    fontSize: 10,
+    fontFamily: FONTS.accent,
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    overflow: "hidden",
+  },
+  badgeInPerson: { backgroundColor: t.accentSoft, color: t.accentStrong },
+  badgeOnline: { backgroundColor: t.surface3, color: t.text2 },
+  time: { fontSize: 11, color: t.text3, fontFamily: FONTS.accentMedium },
+  title: { fontSize: 16, fontFamily: FONTS.heading, color: t.text, marginBottom: 4 },
   creatorRow: { flexDirection: "row", alignItems: "center", marginBottom: 4 },
-  creator: { fontSize: 12, color: "#777" },
+  creator: { fontSize: 12, color: t.text2 },
   tagsRow: { flexDirection: "row", flexWrap: "wrap", marginBottom: 4 },
-  desc: { fontSize: 13, color: "#777", marginBottom: 6 },
-  link: { fontSize: 13, fontWeight: "700", color: "#3498db", marginBottom: 6 },
-  address: { fontSize: 12, color: "#888", marginBottom: 6 },
+  desc: { fontSize: 13, color: t.text2, marginBottom: 6, lineHeight: 18 },
+  address: { fontSize: 12, color: t.text3, marginBottom: 6 },
   footerRow: { flexDirection: "row", alignItems: "center", marginTop: 4 },
-  joinedCount: { fontSize: 12, color: "#888", fontFamily: FONTS.accentMedium },
-  joinBtn: { borderRadius: 16, paddingHorizontal: 14, paddingVertical: 6, backgroundColor: "#eef0ff" },
-  joinBtnActive: { backgroundColor: "#667eea" },
-  joinBtnText: { fontSize: 12, fontFamily: FONTS.accent, color: "#667eea" },
-  joinBtnTextActive: { color: "#fff" },
+  joinedCount: { fontSize: 12, color: t.text3, fontFamily: FONTS.accentMedium },
+  joinBtn: {
+    borderRadius: RADIUS.pill,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    backgroundColor: t.accent,
+  },
+  joinBtnActive: { backgroundColor: t.surface3 },
+  joinBtnText: { fontSize: 12, fontFamily: FONTS.accent, color: t.accentOn },
+  joinBtnTextActive: { color: t.text2 },
   deleteBtn: { marginLeft: 8, padding: 6 },
-  deleteBtnText: { color: "#e74c3c", fontWeight: "700" },
+  deleteBtnText: { color: t.status.bad, fontFamily: FONTS.accent },
 });

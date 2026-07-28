@@ -19,3 +19,18 @@ function formatTimeUntil(timeStr) {
 
     return parts.join(' and ') + ' left till start';
 }
+
+// A ticking clock rather than a rounded phrase: used where the point is to
+// feel the time draining away (the "Next up" reminder, the call unlock).
+function formatCountdown(totalSeconds) {
+    totalSeconds = Math.max(0, Math.floor(totalSeconds));
+    var days = Math.floor(totalSeconds / 86400);
+    var hours = Math.floor((totalSeconds % 86400) / 3600);
+    var minutes = Math.floor((totalSeconds % 3600) / 60);
+    var seconds = totalSeconds % 60;
+
+    if (days > 0) return days + 'd ' + hours + 'h ' + minutes + 'm';
+    if (hours > 0) return hours + 'h ' + minutes + 'm';
+    if (minutes > 0) return minutes + 'm ' + seconds + 's';
+    return seconds + 's';
+}

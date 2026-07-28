@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import AuthLayout from "../components/AuthLayout";
 import AuthField from "../components/AuthField";
 import AuthButton from "../components/AuthButton";
+import { ACCENTS } from "../styles/theme";
 
 export default function LoginScreen({ navigation }) {
   const { signIn } = useAuth();
@@ -58,5 +59,5 @@ export default function LoginScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  link: { textAlign: "center", color: "#3498db", marginTop: 18, fontWeight: "600" },
+  link: { textAlign: "center", color: ACCENTS.teal.accentStrong, marginTop: 18, fontWeight: "600" },
 });

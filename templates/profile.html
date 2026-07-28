@@ -62,6 +62,65 @@
         </div>
     </div>
 
+    <!-- Attendance record — the number that makes a join mean something -->
+    <div class="reliability-card {% if reliability.score is none %}is-empty{% elif reliability.score >= 70 %}is-good{% elif reliability.score >= 40 %}is-mixed{% else %}is-poor{% endif %}">
+        <div class="reliability-main">
+            <div class="reliability-score">
+                {% if reliability.score is none %}—{% else %}{{ reliability.score }}<span class="reliability-pct">%</span>{% endif %}
+            </div>
+            <div class="reliability-text">
+                <div class="reliability-title">Show-up rate</div>
+                <div class="reliability-label">{{ reliability.label }}</div>
+            </div>
+        </div>
+        <div class="reliability-breakdown">
+            <span class="reliability-chip is-went">✓ {{ reliability.went }} went</span>
+            <span class="reliability-chip is-missed">✕ {{ reliability.missed }} missed</span>
+            {% if reliability.pending %}
+            <span class="reliability-chip is-pending">⏳ {{ reliability.pending }} to confirm</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Meetings that have finished and are still waiting on an answer -->
+    {% if needs_checkin %}
+    <div class="profile-section checkin-section">
+        <h3 class="profile-section-title">✅ Did you go?</h3>
+        <p class="settings-hint">These are over. Confirm what happened — this is what your show-up rate is built from.</p>
+
+        {% for m in needs_checkin %}
+        <div class="checkin-row" id="checkin-row-{{ m.id }}">
+            <div class="checkin-row-body">
+                <a class="checkin-row-title" href="/meeting/{{ m.id }}">{{ m.title }}</a>
+                <span class="checkin-row-when">{{ m.time }}</span>
+            </div>
+            <div class="checkin-actions">
+                <button type="button" class="checkin-btn checkin-yes" onclick="checkIn({{ m.id }}, 'went')">I went</button>
+                <button type="button" class="checkin-btn checkin-no" onclick="checkIn({{ m.id }}, 'missed')">I missed it</button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Organiser's side of the same job -->
+    {% if needs_attendance %}
+    <div class="profile-section checkin-section">
+        <h3 class="profile-section-title">📋 Mark who turned up</h3>
+        <p class="settings-hint">Meetings you organised that are over. Marking attendance is what keeps other people's records accurate.</p>
+
+        {% for m in needs_attendance %}
+        <a class="checkin-row" href="/meeting/{{ m.id }}">
+            <div class="checkin-row-body">
+                <span class="checkin-row-title">{{ m.title }}</span>
+                <span class="checkin-row-when">{{ m.time }} · {{ m.joined_uids|length }} joined</span>
+            </div>
+            <span class="checkin-row-go">Mark →</span>
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+
     <!-- Account status -->
     <div class="account-status-card">
         <div class="account-status-header">
@@ -178,7 +237,9 @@
                     {% if meeting.location %}
                     <span class="meeting-card-address">📍 {{ short_locations.get(meeting.id) }}</span>
                     {% elif meeting.link %}
-                    <a href="{{ meeting.link }}" target="_blank" class="joined-row-link">🔗 Join meeting →</a>
+                    <!-- Straight to the detail page rather than the raw link:
+                         that page is what decides whether the call is open yet. -->
+                    <a href="/meeting/{{ meeting.id }}" class="joined-row-link">🌐 Open the call page →</a>
                     {% endif %}
                     {% if joined_previews.get(meeting.id) %}
                     <div class="joined-avatars">
@@ -270,7 +331,6 @@
     {% include 'nav.html' %}
 </div>
 
-<script src="{{ url_for('static', filename='time-utils.js') }}"></script>
 <script>
     document.querySelectorAll('.meeting-card-time[data-time]').forEach(function (el) {
         el.title = el.getAttribute('data-time');
@@ -311,6 +371,31 @@
         decide(id, 'extend', when.trim());
     }
 
+    // ── Check-in ─────────────────────────────────────────────────────
+    function checkIn(id, status) {
+        fetch('/meeting/' + id + '/checkin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: status })
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.error) { MetzJoin.toast(data.error, 'bad'); return; }
+                var row = document.getElementById('checkin-row-' + id);
+                if (row) {
+                    row.classList.add('is-answered');
+                    row.querySelector('.checkin-actions').innerHTML =
+                        '<span class="checkin-answered">' + (status === 'went' ? '✓ Went' : '✕ Missed') + '</span>';
+                }
+                MetzJoin.toast(
+                    status === 'went'
+                        ? 'Logged. Show-up rate: ' + data.reliability.score + '%.'
+                        : 'Logged honestly — that counts for something too.',
+                    status === 'went' ? 'good' : ''
+                );
+            });
+    }
+
     // ── My Meetings ──────────────────────────────────────────────────
     function showJoined(which) {
         document.getElementById('seg-upcoming').classList.toggle('active', which === 'upcoming');
@@ -320,7 +405,10 @@
     }
 
     function leaveMeeting(id) {
-        fetch('/join/' + id, { method: 'POST' }).then(function () {
+        // Goes through MetzJoin so leaving something that starts in a few
+        // hours has to get past the no-show warning first.
+        MetzJoin.request(id).then(function (data) {
+            if (!data || data.joined) return;
             var card = document.getElementById('joined-card-' + id);
             if (!card) return;
             var list = card.parentElement;

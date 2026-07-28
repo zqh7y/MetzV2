@@ -58,10 +58,19 @@ export const api = {
 
   getJoined: () => request("/api/joined"),
 
+  getAttendees: (id) => request(`/api/meetings/${id}/attendees`),
+
   getProfile: () => request("/api/profile"),
+  updateProfile: (payload) => request("/api/profile", { method: "POST", body: payload }),
   getUser: (uid) => request(`/api/users/${uid}`),
   toggleTrust: (uid) => request(`/api/users/${uid}/trust`, { method: "POST" }),
   searchUsers: (q) => request(`/api/search_users?q=${encodeURIComponent(q)}`),
+
+  getDashboard: () => request("/api/admin/dashboard"),
+  banUser: (uid) => request(`/api/admin/users/${uid}/ban`, { method: "POST" }),
+  setTrust: (uid) => request(`/api/admin/users/${uid}/trust`, { method: "POST" }),
+  deleteUser: (uid) => request(`/api/admin/users/${uid}`, { method: "DELETE" }),
+  adminDeleteMeeting: (id) => request(`/api/admin/meetings/${id}`, { method: "DELETE" }),
 
   getPending: () => request("/api/admin/pending"),
   approveMeeting: (id) => request(`/api/admin/meetings/${id}/approve`, { method: "POST" }),

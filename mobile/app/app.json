@@ -3,6 +3,7 @@
     "name": "Metz",
     "slug": "metz-mobile",
     "version": "1.0.0",
+    "scheme": "metz",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "splash": {
@@ -24,7 +25,8 @@
     "extra": {
       "eas": {
         "projectId": "1cdc7ba7-3838-4174-8376-80bebcf16925"
-      }
+      },
+      "apiUrl": "http://10.0.0.1:5051"
     },
     "owner": "justariel",
     "plugins": [

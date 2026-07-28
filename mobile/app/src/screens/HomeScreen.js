@@ -3,15 +3,19 @@ import {
   View, Text, FlatList, StyleSheet, TextInput, ActivityIndicator,
   RefreshControl, Animated, PanResponder, TouchableOpacity, useWindowDimensions,
 } from "react-native";
-import { Map, Camera, GeoJSONSource, Layer, UserLocation } from "@maplibre/maplibre-react-native";
+import { Map, Camera, GeoJSONSource, Layer, UserLocation, MAPS_AVAILABLE } from "../components/MapShim";
+import WebMap from "../components/WebMap";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
 import MeetingCard from "../components/MeetingCard";
 import ForYouCard from "../components/ForYouCard";
+import HomeDrawer, { MenuButton } from "../components/HomeDrawer";
+import useMyLocation from "../hooks/useMyLocation";
 import { FONTS } from "../styles/fonts";
+import { useTheme } from "../context/ThemeContext";
+import { RADIUS, SHADOW } from "../styles/theme";
 
-const MAP_STYLE = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";
 const DEFAULT_CENTER = [35.2137, 31.7683]; // [lng, lat] — MapLibre order
 // Reuse a fontstack the basemap already ships glyphs for, or labels don't draw.
 const LABEL_FONT = ["Montserrat Medium", "Open Sans Bold", "Noto Sans Regular",
@@ -20,12 +24,24 @@ const FOR_YOU_LIMIT = 12;
 // Sheet height left visible at "peek" — enough to clear the tab bar and still
 // show the title and search box above it.
 const PEEK_VISIBLE = 215;
-const CLUSTER_COLOR = ["step", ["get", "point_count"], "#667eea", 10, "#7b5fd6", 30, "#f5576c"];
 
 export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { height: screenH } = useWindowDimensions();
-  const { uid, refreshProfile } = useAuth();
+  const { uid, profile, refreshProfile, signOut } = useAuth();
+  const { theme, sheet: sheetPref, reduceMotion, comfortable } = useTheme();
+  const styles = useMemo(() => makeStyles(theme, comfortable), [theme, comfortable]);
+
+  // Home has no bottom bar on the web either — the hamburger drawer replaced it
+  const [menuOpen, setMenuOpen] = useState(false);
+  const pendingCount = profile?.pending_review_count || 0;
+
+  // Pins and clusters follow the accent, the way the web's refreshMapAccent()
+  // recolours them when the accent preference changes.
+  const clusterColor = useMemo(
+    () => ["step", ["get", "point_count"], theme.accent, 10, theme.accentStrong, 30, theme.accentDeep],
+    [theme]
+  );
 
   const [meetings, setMeetings] = useState([]);
   const [search, setSearch] = useState("");
@@ -34,6 +50,7 @@ export default function HomeScreen({ navigation }) {
 
   const cameraRef = useRef(null);
   const sourceRef = useRef(null);
+  const webMapRef = useRef(null);
 
   // ─── Data ──────────────────────────────────────────────────────────────
   const load = useCallback(async () => {
@@ -108,22 +125,29 @@ export default function HomeScreen({ navigation }) {
   }), [screenH]);
 
   const STATE_ORDER = ["peek", "half", "full"];
-  const [sheetState, setSheetState] = useState("peek");
-  const translateY = useRef(new Animated.Value(tops.peek)).current;
-  const currentTop = useRef(tops.peek);
-  const dragStart = useRef(tops.peek);
+  // Where the sheet sits when Home opens is a saved preference on the web
+  // (data-sheet), so honour the same setting here instead of always peeking.
+  const initialSheet = STATE_ORDER.includes(sheetPref) ? sheetPref : "peek";
+  const [sheetState, setSheetState] = useState(initialSheet);
+  const translateY = useRef(new Animated.Value(tops[initialSheet])).current;
+  const currentTop = useRef(tops[initialSheet]);
+  const dragStart = useRef(tops[initialSheet]);
 
   const snapTo = useCallback((state) => {
     const to = tops[state];
     currentTop.current = to;
     setSheetState(state);
+    if (reduceMotion) {
+      translateY.setValue(to);
+      return;
+    }
     Animated.spring(translateY, {
       toValue: to,
       useNativeDriver: true,
       bounciness: 2,
       speed: 14,
     }).start();
-  }, [tops, translateY]);
+  }, [tops, translateY, reduceMotion]);
 
   // Keep the sheet honest if the window changes (rotation, split view)
   useEffect(() => {
@@ -189,22 +213,67 @@ export default function HomeScreen({ navigation }) {
   function focusMeeting(meeting) {
     if (meeting.lat && meeting.lng) {
       snapTo("peek"); // otherwise the sheet covers the pin
-      cameraRef.current?.flyTo({ center: [meeting.lng, meeting.lat], zoom: 15, duration: 900 });
+      const camera = MAPS_AVAILABLE ? cameraRef.current : webMapRef.current;
+      camera?.flyTo({ center: [meeting.lng, meeting.lat], zoom: 15, duration: 900 });
     }
     navigation.navigate("MeetingDetail", { meeting });
   }
 
+  // "You are here". The web draws the same marker with the user's avatar
+  // colour and initial, so pass those through rather than a generic dot.
+  const myPosition = useMyLocation();
+  const me = useMemo(() => {
+    if (!myPosition) return null;
+    const name = profile?.display_name || profile?.username || uid || "";
+    return {
+      lat: myPosition.latitude,
+      lng: myPosition.longitude,
+      color: profile?.profile_color,
+      initial: name ? name.slice(0, 1).toUpperCase() : "",
+    };
+  }, [myPosition, profile, uid]);
+
+  // The WebView map takes a plain marker list rather than GeoJSON.
+  const webMarkers = useMemo(
+    () =>
+      meetings
+        .filter((m) => typeof m.lat === "number" && typeof m.lng === "number")
+        .map((m) => ({
+          id: m.id,
+          lat: m.lat,
+          lng: m.lng,
+          title: m.title,
+          kind: m.is_online ? "online" : "inperson",
+        })),
+    [meetings]
+  );
+
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#667eea" />
+        <ActivityIndicator size="large" color={theme.accent} />
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <Map style={StyleSheet.absoluteFill} mapStyle={MAP_STYLE} attribution compass logo={false}>
+      {!MAPS_AVAILABLE ? (
+        <WebMap
+          ref={webMapRef}
+          style={StyleSheet.absoluteFill}
+          theme={theme}
+          center={DEFAULT_CENTER}
+          zoom={11}
+          markers={webMarkers}
+          me={me}
+          onMarkerPress={(id) => {
+            const meeting = meetings.find((m) => m.id === id);
+            if (meeting) navigation.navigate("MeetingDetail", { meeting });
+          }}
+        />
+      ) : (
+      <Map style={StyleSheet.absoluteFill} mapStyle={theme.mapStyle} attribution compass logo={false}>
         <Camera
           ref={cameraRef}
           initialViewState={{ center: DEFAULT_CENTER, zoom: 11 }}
@@ -226,7 +295,7 @@ export default function HomeScreen({ navigation }) {
             type="circle"
             filter={["has", "point_count"]}
             paint={{
-              "circle-color": CLUSTER_COLOR,
+              "circle-color": clusterColor,
               "circle-radius": ["step", ["get", "point_count"], 26, 10, 32, 30, 38],
               "circle-opacity": 0.25,
               "circle-blur": 0.6,
@@ -237,10 +306,10 @@ export default function HomeScreen({ navigation }) {
             type="circle"
             filter={["has", "point_count"]}
             paint={{
-              "circle-color": CLUSTER_COLOR,
+              "circle-color": clusterColor,
               "circle-radius": ["step", ["get", "point_count"], 18, 10, 23, 30, 28],
               "circle-stroke-width": 3,
-              "circle-stroke-color": "#ffffff",
+              "circle-stroke-color": theme.surface,
             }}
           />
           <Layer
@@ -252,17 +321,17 @@ export default function HomeScreen({ navigation }) {
               "text-font": LABEL_FONT,
               "text-size": 13,
             }}
-            paint={{ "text-color": "#ffffff" }}
+            paint={{ "text-color": theme.accentOn }}
           />
           <Layer
             id="meeting-pins"
             type="circle"
             filter={["!", ["has", "point_count"]]}
             paint={{
-              "circle-color": ["case", ["==", ["get", "kind"], "online"], "#00c2b8", "#6a4bc4"],
+              "circle-color": ["case", ["==", ["get", "kind"], "online"], theme.accentStrong, theme.accent],
               "circle-radius": 9,
               "circle-stroke-width": 3,
-              "circle-stroke-color": "#ffffff",
+              "circle-stroke-color": theme.surface,
             }}
           />
           <Layer
@@ -279,17 +348,16 @@ export default function HomeScreen({ navigation }) {
               "text-optional": true,
             }}
             paint={{
-              "text-color": "#3c4663",
-              "text-halo-color": "rgba(255,255,255,0.92)",
+              "text-color": theme.mapLabel,
+              "text-halo-color": theme.mapLabelHalo,
               "text-halo-width": 1.6,
             }}
           />
         </GeoJSONSource>
       </Map>
+      )}
 
-      <View style={[styles.titlePill, { top: insets.top + 12 }]}>
-        <Text style={styles.titlePillText}>📍  Explore Nearby</Text>
-      </View>
+      <MenuButton onPress={() => setMenuOpen(true)} showDot={!!profile?.is_admin && pendingCount > 0} />
 
       <Animated.View style={[styles.sheet, { height: screenH - tops.full, transform: [{ translateY }] }]}>
         <View style={styles.grabberArea} {...panResponder.panHandlers}>
@@ -306,7 +374,7 @@ export default function HomeScreen({ navigation }) {
         <TextInput
           style={styles.search}
           placeholder="Search meetings..."
-          placeholderTextColor="#9aa3ad"
+          placeholderTextColor={theme.text3}
           value={search}
           onChangeText={setSearch}
         />
@@ -344,9 +412,10 @@ export default function HomeScreen({ navigation }) {
               </View>
             ) : null
           }
-          renderItem={({ item }) => (
+          renderItem={({ item, index }) => (
             <MeetingCard
               meeting={item}
+              index={index}
               onPress={() => focusMeeting(item)}
               onJoin={() => handleJoin(item)}
             />
@@ -355,20 +424,35 @@ export default function HomeScreen({ navigation }) {
           contentContainerStyle={{ paddingBottom: 24 + insets.bottom }}
         />
       </Animated.View>
+
+      {/* Last child, so it slides over the sheet as well as the map */}
+      <HomeDrawer
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        navigation={navigation}
+        activeRoute="Home"
+        isAdmin={!!profile?.is_admin}
+        pendingCount={pendingCount}
+        onLogout={signOut}
+      />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#eef1f5" },
-  centered: { flex: 1, alignItems: "center", justifyContent: "center" },
+// `comfortable` is the density preference: the web widens the sheet gutter and
+// the search box at :root[data-density="comfortable"], and this matches it.
+const makeStyles = (t, comfortable = false) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: t.bg },
+  centered: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: t.bg },
+  // The web's brand pill in the top-left of the map (see .home-menu-btn)
   titlePill: {
     position: "absolute",
     left: 16,
-    backgroundColor: "rgba(28,28,46,0.72)",
-    borderRadius: 20,
+    backgroundColor: t.navBg,
+    borderRadius: RADIUS.pill,
     paddingHorizontal: 14,
     paddingVertical: 7,
+    ...SHADOW.s2,
   },
   titlePillText: { color: "#fff", fontSize: 12, fontFamily: FONTS.accent },
   sheet: {
@@ -376,29 +460,42 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     top: 0,
-    backgroundColor: "#fff",
+    backgroundColor: t.surface,
     borderTopLeftRadius: 26,
     borderTopRightRadius: 26,
-    paddingHorizontal: 16,
-    shadowColor: "#000",
+    paddingHorizontal: comfortable ? 22 : 16,
+    shadowColor: "#101428",
     shadowOpacity: 0.16,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: -6 },
     elevation: 14,
   },
   grabberArea: { paddingVertical: 10, alignItems: "center" },
-  grabber: { width: 42, height: 5, borderRadius: 3, backgroundColor: "#d3d8e2" },
+  grabber: { width: 42, height: 5, borderRadius: 3, backgroundColor: t.surface3 },
   sheetHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
-  panelTitle: { fontSize: 17, fontFamily: FONTS.heading, color: "#2c3e50" },
-  newBtn: { backgroundColor: "#2ecc71", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7 },
-  newBtnText: { color: "#fff", fontSize: 13, fontFamily: FONTS.accent },
+  panelTitle: { fontSize: 17, fontFamily: FONTS.heading, color: t.text },
+  // .create-btn-small: accent pill, not the old standalone green
+  newBtn: {
+    backgroundColor: t.accent,
+    borderRadius: RADIUS.pill,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  newBtnText: { color: t.accentOn, fontSize: 13, fontFamily: FONTS.accent },
   search: {
-    backgroundColor: "#f5f6f8", borderRadius: 14, paddingHorizontal: 16, paddingVertical: 11,
-    fontSize: 15, marginBottom: 12,
+    backgroundColor: t.surface2,
+    borderWidth: 1,
+    borderColor: t.border,
+    color: t.text,
+    borderRadius: RADIUS.base,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    fontSize: 15,
+    marginBottom: 12,
   },
   shelf: { marginBottom: 14 },
   shelfHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8 },
-  shelfTitle: { fontSize: 15, fontFamily: FONTS.heading, color: "#2c3e50" },
-  shelfHint: { fontSize: 11, color: "#8b95a5", fontWeight: "600" },
-  empty: { textAlign: "center", color: "#999", marginTop: 40 },
+  shelfTitle: { fontSize: 15, fontFamily: FONTS.heading, color: t.text },
+  shelfHint: { fontSize: 11, color: t.text3, fontWeight: "600" },
+  empty: { textAlign: "center", color: t.text3, marginTop: 40 },
 });
