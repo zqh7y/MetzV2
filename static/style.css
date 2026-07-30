@@ -141,124 +141,384 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     transform: scale(0.96);
 }
 
-/* --- Animated mixed-color background for login/signup --- */
-.auth-page {
+/* ═══ Authentication ══════════════════════════════════════════════════════
+   A split shell: a brand panel carrying the animated gradient and what the
+   product actually does, beside a calm column holding the form. On a phone
+   the panel is dropped and the form takes the screen.
+   ────────────────────────────────────────────────────────────────────── */
+
+.auth {
     min-height: 100vh;
-    width: 100%;
+    min-height: 100dvh;
+    display: grid;
+    grid-template-columns: 1fr;
+    background: var(--bg);
+}
+
+/* ── Brand panel ─────────────────────────────────────────────────────── */
+.auth-aside {
+    position: relative;
+    overflow: hidden;
     display: flex;
-    align-items: center;
+    flex-direction: column;
     justify-content: center;
-    padding: 24px;
-    background: linear-gradient(-45deg, var(--accent), var(--accent-strong), #f093fb, #f5576c, #4facfe, #43e97b, #38f9d7, #fee140);
+    gap: 30px;
+    padding: 40px 32px;
+    color: #fff;
+    background: linear-gradient(-45deg,
+        var(--accent), var(--accent-strong), #4facfe, #43e97b, #38f9d7, var(--accent));
     background-size: 400% 400%;
-    animation: gradientFlow 20s ease infinite;
+    animation: gradientFlow 22s ease infinite;
 }
 
 @keyframes gradientFlow {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
+    0%   { background-position: 0% 50%; }
+    50%  { background-position: 100% 50%; }
     100% { background-position: 0% 50%; }
 }
 
-.auth-page .container {
-    margin: 0;
-    width: 100%;
-    max-width: 420px;
-    background: rgba(255, 255, 255, 0.82);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.45);
-    border-radius: 24px;
-    box-shadow: 0 20px 60px rgba(31, 38, 135, 0.25);
-    padding: 40px 36px;
-    animation: authCardIn 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+/* Soft bloom so the flat gradient reads as depth rather than paint. */
+.auth-aside::after {
+    content: "";
+    position: absolute;
+    inset: -30%;
+    background: radial-gradient(closest-side, rgba(255,255,255,0.22), transparent 70%);
+    pointer-events: none;
 }
 
-@keyframes authCardIn {
-    from { opacity: 0; transform: translateY(16px) scale(0.98); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
-}
+.auth-aside > * { position: relative; z-index: 1; }
 
-/* --- Brand header --- */
 .auth-brand {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    margin-bottom: 18px;
+    gap: 12px;
 }
 
 .auth-brand-logo {
-    width: 52px;
-    height: 52px;
-    border-radius: 16px;
-    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-    color: #fff;
-    font-size: 24px;
+    display: grid;
+    place-items: center;
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    font-family: "Poppins", sans-serif;
     font-weight: 800;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 8px 20px var(--accent-glow);
-    margin-bottom: 10px;
+    font-size: 22px;
+    color: #fff;
 }
 
 .auth-brand-name {
-    font-size: 15px;
+    font-family: "Poppins", sans-serif;
     font-weight: 800;
-    letter-spacing: 1.5px;
+    font-size: 17px;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+}
+
+.auth-pitch {
+    margin: 0;
+    font-family: "Poppins", sans-serif;
+    font-weight: 700;
+    font-size: clamp(24px, 3.2vw, 38px);
+    line-height: 1.18;
+    letter-spacing: -0.4px;
+    max-width: 15ch;
+}
+
+.auth-points {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    max-width: 42ch;
+}
+
+.auth-point {
+    display: flex;
+    align-items: flex-start;
+    gap: 13px;
+}
+
+.auth-point-icon {
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 11px;
+    background: rgba(255, 255, 255, 0.16);
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    font-size: 16px;
+}
+
+.auth-point-title {
+    display: block;
+    font-weight: 700;
+    font-size: 14.5px;
+    margin-bottom: 2px;
+}
+
+.auth-point-desc {
+    display: block;
+    font-size: 13px;
+    line-height: 1.45;
+    color: rgba(255, 255, 255, 0.86);
+}
+
+/* ── Form column ─────────────────────────────────────────────────────── */
+.auth-main {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 22px 44px;
+    background: var(--bg);
+}
+
+.auth-card {
+    width: 100%;
+    max-width: 400px;
+    animation: authCardIn 0.55s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@keyframes authCardIn {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: none; }
+}
+
+.auth-title {
+    margin: 0 0 6px;
+    font-family: "Poppins", sans-serif;
+    font-weight: 800;
+    font-size: 27px;
+    letter-spacing: -0.4px;
+    color: var(--text);
+}
+
+.auth-subtitle {
+    margin: 0 0 26px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--text-2);
+}
+
+/* ── Fields ──────────────────────────────────────────────────────────── */
+.auth-field { margin-bottom: 16px; }
+
+.auth-label {
+    display: block;
+    margin-bottom: 7px;
+    font-size: 12.5px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    color: var(--text-2);
+}
+
+.auth-input-wrap { position: relative; }
+
+.auth-input-icon {
+    position: absolute;
+    top: 50%;
+    left: 14px;
+    transform: translateY(-50%);
+    display: grid;
+    place-items: center;
+    color: var(--text-3);
+    pointer-events: none;
+    transition: color 0.18s;
+}
+
+.auth-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 14px 14px 14px 44px;
+    font-size: 15px;
+    font-family: inherit;
+    color: var(--text);
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
+}
+
+.auth-input::placeholder { color: var(--text-3); }
+
+.auth-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+.auth-input-wrap:focus-within .auth-input-icon { color: var(--accent); }
+
+/* Room for the reveal button so long passwords never sit under it. */
+.auth-input.has-toggle { padding-right: 48px; }
+
+.auth-reveal {
+    position: absolute;
+    top: 50%;
+    right: 6px;
+    transform: translateY(-50%);
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: none;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--text-3);
+    cursor: pointer;
+    transition: color 0.18s, background 0.18s;
+}
+.auth-reveal:hover { color: var(--text); background: var(--surface-2); }
+.auth-reveal:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* ── Password strength (signup) ──────────────────────────────────────── */
+.auth-strength {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-top: 9px;
+    /* Reserves its own line so the button never jumps when it appears. */
+    min-height: 16px;
+}
+
+.auth-strength-track {
+    /* A span, so it needs blockifying before height/width mean anything.
+       (It gets that free as a flex item; the fill inside it does not.) */
+    display: block;
+    flex: 1;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--surface-3);
+    overflow: hidden;
+}
+
+.auth-strength-fill {
+    display: block;
+    height: 100%;
+    width: 0;
+    border-radius: 3px;
+    background: #e74c3c;
+    transition: width 0.25s, background 0.25s;
+}
+
+.auth-strength-label {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--text-3);
+    min-width: 6ch;
+}
+
+.auth-strength[data-level="1"] .auth-strength-fill { width: 25%; }
+.auth-strength[data-level="2"] .auth-strength-fill { width: 50%;  background: #e0a51a; }
+.auth-strength[data-level="3"] .auth-strength-fill { width: 75%;  background: #3fa96b; }
+.auth-strength[data-level="4"] .auth-strength-fill { width: 100%; background: #0f7b5f; }
+
+/* ── Error ───────────────────────────────────────────────────────────── */
+.auth-error {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(231, 76, 60, 0.35);
+    border-left-width: 4px;
+    background: rgba(231, 76, 60, 0.08);
+    color: #c0392b;
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: 1.45;
+}
+.auth-error-icon { flex-shrink: 0; line-height: 1.3; }
+
+/* ── Submit ──────────────────────────────────────────────────────────── */
+.auth-submit {
+    width: 100%;
+    margin-top: 4px;
+    padding: 15px 18px;
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 15.5px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    color: #fff;
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    box-shadow: 0 10px 24px var(--accent-glow);
+    transition: transform 0.15s, box-shadow 0.2s, filter 0.2s;
+}
+.auth-submit:hover { filter: brightness(1.06); transform: translateY(-1px); }
+.auth-submit:active { transform: scale(0.985); }
+.auth-submit[disabled] { opacity: 0.65; cursor: default; transform: none; }
+
+.auth-alt {
+    margin: 22px 0 0;
+    text-align: center;
+    font-size: 13.5px;
+    color: var(--text-2);
+}
+.auth-alt a { color: var(--accent); font-weight: 700; text-decoration: none; }
+.auth-alt a:hover { text-decoration: underline; }
+
+.auth-legal {
+    margin: 26px 0 0;
+    text-align: center;
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: var(--text-3);
+}
+.auth-legal a { color: var(--text-2); text-decoration: underline; }
+
+/* ── Compact brand, phone only ───────────────────────────────────────── */
+.auth-mini-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 26px;
+}
+.auth-mini-logo {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+    color: #fff;
+    font-family: "Poppins", sans-serif;
+    font-weight: 800;
+    font-size: 19px;
+    box-shadow: 0 6px 16px var(--accent-glow);
+}
+.auth-mini-name {
+    font-family: "Poppins", sans-serif;
+    font-weight: 800;
+    font-size: 15px;
+    letter-spacing: 1.4px;
     text-transform: uppercase;
     color: var(--text);
 }
 
-.auth-page .container h2 {
-    margin-bottom: 6px;
-    font-size: 26px;
-    font-weight: 800;
-    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+@media (max-width: 899px) {
+    .auth-aside { display: none; }
 }
 
-.auth-subtitle {
-    text-align: center;
-    color: var(--text-2);
-    font-size: 13.5px;
-    margin-bottom: 26px;
+@media (min-width: 900px) {
+    .auth { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); }
+    .auth-aside { padding: 56px clamp(40px, 5vw, 76px); gap: 38px; }
+    .auth-main { padding: 56px 40px; }
+    .auth-mini-brand { display: none; }
 }
 
-.auth-page .container input[type="email"],
-.auth-page .container input[type="password"] {
-    border-radius: 10px;
-    border: 1.5px solid rgba(220, 225, 231, 0.8);
-    background: rgba(255, 255, 255, 0.6);
-    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
-}
-
-.auth-page .container input[type="email"]:focus,
-.auth-page .container input[type="password"]:focus {
-    border-color: var(--accent);
-    background: var(--surface);
-    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.14);
-}
-
-.auth-page .container .btn-primary {
-    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-    border-radius: 10px;
-    letter-spacing: 0.3px;
-    box-shadow: 0 8px 20px var(--accent-glow);
-    transition: transform 0.15s, box-shadow 0.2s, filter 0.2s;
-}
-
-.auth-page .container .btn-primary:hover {
-    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-    filter: brightness(1.08);
-    transform: translateY(-2px);
-    box-shadow: 0 12px 26px rgba(102, 126, 234, 0.45);
-}
-
-.auth-page .container .btn-primary:active {
-    transform: scale(0.96);
+@media (min-width: 1440px) {
+    .auth-card { max-width: 420px; }
 }
 
 /* --- Auth / form pages (login, signup, create) --- */
@@ -5817,3 +6077,608 @@ body.commit-open { overflow: hidden; }
 .checkin-result.is-done { color: #0f7b5f; font-weight: 600; }
 .checkin-done { margin: 0; font-size: 14px; color: var(--text-2); }
 .checkin-box .checkin-actions { margin-top: 12px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DESKTOP LAYOUT
+   ═══════════════════════════════════════════════════════════════════════════
+   Everything above is written mobile-first, which on a wide monitor left a
+   narrow column of content stranded in the middle of an empty page. Nothing
+   here changes phone layout: every rule is inside a min-width query, so the
+   mobile design stays exactly as it was.
+
+   Two ideas do most of the work:
+     · pages get a centred max-width and become multi-column, so sections sit
+       beside each other instead of stacking into a long thin ribbon;
+     · Home stops being a bottom sheet over a map and becomes a real side
+       panel with the map filling the rest of the window.
+   ────────────────────────────────────────────────────────────────────────── */
+
+@media (min-width: 900px) {
+    :root {
+        --page-max: 1180px;
+        --page-gap: 20px;
+    }
+
+    /* ── Shared page shell ──────────────────────────────────────────────── */
+    .profile-page,
+    .settings-page,
+    .dash-page,
+    .detail-page {
+        max-width: var(--page-max);
+        margin-inline: auto;
+        padding-inline: 24px;
+        /* The floating nav pill no longer needs a phone-sized runway. */
+        padding-bottom: 120px;
+    }
+
+
+    /* ── Create ─────────────────────────────────────────────────────────── */
+    .container.create-container {
+        max-width: 760px;
+        margin-top: 32px;
+    }
+
+    /* ── Profile ────────────────────────────────────────────────────────── */
+    /* Hero spans the full width; everything below it pairs up. */
+    .profile-page .profile-section,
+    .settings-page .profile-section {
+        margin-inline: 0;
+    }
+
+    .profile-sections-grid,
+    .settings-page .settings-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--page-gap);
+        align-items: start;
+    }
+
+    /* A section that carries a list wants the taller column to itself. */
+    .profile-sections-grid > .is-wide,
+    .settings-page .settings-grid > .is-wide {
+        grid-column: 1 / -1;
+    }
+
+    .profile-actions {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
+    }
+
+    /* ── Settings ───────────────────────────────────────────────────────── */
+    .settings-header { max-width: none; }
+
+    /* ── Meeting detail ─────────────────────────────────────────────────── */
+    /* The sections are laid out as siblings rather than being moved into a
+       sidebar, so the template keeps one order and one set of Jinja blocks. */
+    .detail-page .detail-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--page-gap);
+        align-items: start;
+    }
+
+    /* The attendee list and the join button both want the full width. */
+    .detail-page .detail-grid > .is-wide { grid-column: 1 / -1; }
+
+    /* ── Dashboard ──────────────────────────────────────────────────────── */
+    .dash-page { max-width: 1320px; }
+
+    .stat-grid {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    }
+
+    .dash-cards-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: var(--page-gap);
+        align-items: start;
+    }
+
+    /* The user and meeting panes are already tables — they just needed a
+       wider page to spread into, which .dash-page above now gives them. */
+
+    /* ── Home: side panel instead of a bottom sheet ─────────────────────── */
+    .sheet {
+        /* The drag handler writes translateY() inline for the phone sheet;
+           on desktop the panel is docked, so that has to lose. */
+        transform: none !important;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        right: auto;
+        height: 100vh;
+        height: 100dvh;
+        width: min(440px, 38vw);
+        border-radius: 0 22px 22px 0;
+        box-shadow: 14px 0 44px rgba(16, 20, 40, 0.16);
+    }
+
+    /* The grabber is a touch affordance with nothing left to drag. */
+    .sheet-grabber { display: none; }
+    .sheet-scroll { padding-top: 18px; }
+
+    /* Map takes the rest of the window rather than hiding behind the panel. */
+    #map {
+        left: min(440px, 38vw);
+        width: auto;
+    }
+
+    /* The floating brand button belongs over the map, not under the panel. */
+    .home-menu-btn,
+    .map-menu-btn:not(.on-page) { left: calc(min(440px, 38vw) + 18px); }
+
+    /* Detail panel opens against the right edge, clear of the side panel. */
+    .map-info-panel.open { max-width: 420px; }
+
+    /* For You cards can breathe now there is a column to fill. */
+    .foryou-row { gap: 14px; }
+}
+
+@media (min-width: 1400px) {
+    /* On very wide screens keep the panel from becoming a canyon. */
+    .sheet { width: 460px; }
+    #map { left: 460px; }
+    .home-menu-btn,
+    .map-menu-btn:not(.on-page) { left: 478px; }
+}
+
+
+/* ── Drawer button on ordinary pages ─────────────────────────────────────
+   Home floats this over the map, where a dark translucent pill reads well.
+   The other pages have a light background behind it and their own header
+   underneath, so it gets a surface treatment and the pages get enough room
+   at the top not to sit under it. */
+.map-menu-btn.on-page {
+    background: var(--surface);
+    border-color: var(--border);
+    color: var(--text);
+    box-shadow: 0 4px 16px rgba(16, 20, 40, 0.12);
+}
+.map-menu-btn.on-page:hover { background: var(--surface-2); }
+.map-menu-btn.on-page .map-menu-brand { color: var(--text); }
+
+.profile-page,
+.settings-page,
+.dash-page,
+.detail-page,
+.container.create-container {
+    padding-top: 62px;
+}
+
+/* The bottom bar is gone, so pages no longer need to reserve a runway for it.
+   (These override the earlier padding-bottom rules written for that bar.) */
+.profile-page,
+.settings-page,
+.dash-page { padding-bottom: 40px; }
+
+/* ═══ Activity ════════════════════════════════════════════════════════════
+   One list of everything that currently wants something from the user.
+   ────────────────────────────────────────────────────────────────────── */
+
+.act-page {
+    min-height: 100vh;
+    background: var(--bg);
+    padding: 62px 16px 40px;
+}
+
+.act-header { margin-bottom: 20px; }
+
+.act-title-main {
+    margin: 0;
+    font-family: "Poppins", sans-serif;
+    font-weight: 800;
+    font-size: 25px;
+    letter-spacing: -0.3px;
+    color: var(--text);
+}
+
+.act-sub {
+    margin: 4px 0 0;
+    font-size: 13.5px;
+    color: var(--text-2);
+}
+
+.act-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg, 18px);
+    padding: 16px;
+    margin-bottom: 14px;
+}
+
+/* The one section that is genuinely asking for something gets the accent. */
+.act-section-urgent { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+.act-section-title {
+    margin: 0 0 10px;
+    font-family: "Poppins", sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--text);
+}
+
+.act-note {
+    margin: 0 0 10px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--text-3);
+}
+
+.act-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 12px;
+    border-radius: 13px;
+    background: var(--surface-2);
+    border: 1px solid transparent;
+    text-decoration: none;
+    color: inherit;
+    margin-bottom: 8px;
+    transition: transform 0.15s, border-color 0.15s, background 0.15s;
+}
+.act-item:last-child { margin-bottom: 0; }
+.act-item:hover { transform: translateX(2px); border-color: var(--border); background: var(--surface-3); }
+
+.act-item.is-urgent { border-color: rgba(231, 76, 60, 0.4); background: rgba(231, 76, 60, 0.07); }
+.act-item.is-good   { border-color: rgba(15, 123, 95, 0.35); }
+.act-item.is-bad    { opacity: 0.72; }
+
+.act-emoji {
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    font-size: 18px;
+}
+
+.act-body { flex: 1; min-width: 0; }
+
+.act-title {
+    display: block;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.act-meta {
+    display: block;
+    margin-top: 2px;
+    font-size: 11.5px;
+    color: var(--text-3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.act-dot { margin: 0 5px; }
+
+.act-go { flex-shrink: 0; font-size: 20px; color: var(--text-3); }
+
+.act-empty {
+    margin: 0;
+    padding: 14px 0;
+    text-align: center;
+    font-size: 13.5px;
+    color: var(--text-3);
+}
+.act-empty a { color: var(--accent); font-weight: 700; text-decoration: none; }
+.act-empty a:hover { text-decoration: underline; }
+
+
+/* ═══ Explore ═════════════════════════════════════════════════════════════
+   The list view of the same meetings the map shows, with the filters a map
+   cannot offer.
+   ────────────────────────────────────────────────────────────────────── */
+
+.exp-page {
+    min-height: 100vh;
+    background: var(--bg);
+    padding: 62px 16px 40px;
+}
+
+.exp-header { margin-bottom: 16px; }
+
+.exp-title {
+    margin: 0;
+    font-family: "Poppins", sans-serif;
+    font-weight: 800;
+    font-size: 25px;
+    letter-spacing: -0.3px;
+    color: var(--text);
+}
+
+.exp-sub { margin: 4px 0 0; font-size: 13.5px; color: var(--text-2); }
+
+.exp-filters {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg, 18px);
+    padding: 14px;
+    margin-bottom: 16px;
+}
+
+.exp-search-wrap { position: relative; margin-bottom: 12px; }
+
+.exp-search-icon {
+    position: absolute;
+    top: 50%;
+    left: 13px;
+    transform: translateY(-50%);
+    display: grid;
+    place-items: center;
+    color: var(--text-3);
+    pointer-events: none;
+}
+
+.exp-search {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px 14px 12px 42px;
+    font-size: 14.5px;
+    font-family: inherit;
+    color: var(--text);
+    background: var(--surface-2);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+}
+.exp-search:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+.exp-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+
+.exp-chip {
+    padding: 8px 14px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-2);
+    background: var(--surface-2);
+    border: 1.5px solid var(--border);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.exp-chip:hover { border-color: var(--accent); }
+.exp-chip.is-on {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-on, #fff);
+}
+
+.exp-selects {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 10px;
+}
+
+.exp-select-wrap { display: flex; flex-direction: column; gap: 4px; flex: 1 1 150px; }
+
+.exp-select-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    color: var(--text-3);
+}
+
+.exp-select-wrap select {
+    width: 100%;
+    padding: 10px 12px;
+    font-family: inherit;
+    font-size: 13.5px;
+    color: var(--text);
+    background: var(--surface-2);
+    border: 1.5px solid var(--border);
+    border-radius: 11px;
+    cursor: pointer;
+}
+.exp-select-wrap select:focus { outline: none; border-color: var(--accent); }
+
+.exp-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-2);
+    cursor: pointer;
+    padding-bottom: 10px;
+}
+.exp-toggle input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+
+.exp-clear {
+    display: inline-block;
+    margin-top: 12px;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--accent);
+    text-decoration: none;
+}
+.exp-clear:hover { text-decoration: underline; }
+
+/* ── Results ─────────────────────────────────────────────────────────── */
+.exp-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+}
+
+.exp-card {
+    display: flex;
+    flex-direction: column;
+    padding: 15px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg, 18px);
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.16s, box-shadow 0.16s, border-color 0.16s;
+}
+.exp-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent);
+    box-shadow: 0 10px 26px rgba(16, 20, 40, 0.10);
+}
+
+.exp-card-top { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
+
+.exp-card-badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 9px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+}
+.exp-card-badge.is-online { background: rgba(79, 172, 254, 0.16); color: #2b6ef5; }
+
+.exp-card-joined {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 9px;
+    border-radius: 999px;
+    background: rgba(15, 123, 95, 0.12);
+    color: #0f7b5f;
+}
+
+.exp-card-title {
+    margin: 0 0 4px;
+    font-family: "Poppins", sans-serif;
+    font-weight: 700;
+    font-size: 16px;
+    line-height: 1.3;
+    color: var(--text);
+}
+
+.exp-card-when { font-size: 12.5px; font-weight: 600; color: var(--accent-strong); }
+.exp-card-where { margin-top: 2px; font-size: 12.5px; color: var(--text-3); }
+
+.exp-card-desc {
+    margin: 9px 0 0;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--text-2);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.exp-card-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+
+.exp-card-tag {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 9px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--text-2);
+}
+
+.exp-card-threshold { margin-top: 11px; }
+
+.exp-threshold-bar {
+    display: block;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--surface-3);
+    overflow: hidden;
+}
+
+.exp-threshold-fill {
+    display: block;
+    height: 100%;
+    border-radius: 3px;
+    background: var(--accent);
+}
+.exp-card-threshold.is-confirmed .exp-threshold-fill { background: #0f7b5f; }
+
+.exp-threshold-text {
+    display: block;
+    margin-top: 5px;
+    font-size: 11.5px;
+    color: var(--text-3);
+}
+
+.exp-card-foot {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-top: 13px;
+    padding-top: 11px;
+    border-top: 1px solid var(--border);
+}
+
+.exp-faces { display: flex; }
+
+.exp-face {
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    margin-right: -7px;
+    border-radius: 50%;
+    border: 2px solid var(--surface);
+    font-size: 10px;
+    font-weight: 700;
+    color: #fff;
+}
+
+.exp-card-count { font-size: 12px; color: var(--text-3); }
+.exp-card-host { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--text-2); }
+
+/* ── Empty ───────────────────────────────────────────────────────────── */
+.exp-empty {
+    text-align: center;
+    padding: 54px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg, 18px);
+}
+.exp-empty-icon { font-size: 34px; }
+.exp-empty-title {
+    margin: 12px 0 4px;
+    font-family: "Poppins", sans-serif;
+    font-weight: 700;
+    font-size: 17px;
+    color: var(--text);
+}
+.exp-empty-text { margin: 0 0 16px; font-size: 13.5px; color: var(--text-3); }
+.exp-empty-btn {
+    display: inline-block;
+    padding: 11px 22px;
+    border-radius: 12px;
+    background: var(--accent);
+    color: var(--accent-on, #fff);
+    font-weight: 700;
+    font-size: 14px;
+    text-decoration: none;
+}
+
+/* ── Desktop ─────────────────────────────────────────────────────────── */
+@media (min-width: 900px) {
+    .act-page,
+    .exp-page {
+        max-width: var(--page-max, 1180px);
+        margin-inline: auto;
+        padding-inline: 24px;
+    }
+
+    /* Activity reads as one column; two would split a single to-do list. */
+    .act-page { max-width: 780px; }
+
+    .exp-grid { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+    .exp-filters { padding: 18px; }
+}

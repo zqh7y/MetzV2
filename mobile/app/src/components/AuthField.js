@@ -1,31 +1,117 @@
-import React, { useMemo } from "react";
-import { Text, TextInput, View, StyleSheet } from "react-native";
+import React, { useMemo, useState } from "react";
+import { Text, TextInput, View, Pressable, StyleSheet } from "react-native";
 import { useTheme } from "../context/ThemeContext";
+import { FONTS } from "../styles/fonts";
+import { EyeIcon, LockIcon, MailIcon } from "./AuthIcons";
 
-export default function AuthField({ label, ...inputProps }) {
+const ICONS = { mail: MailIcon, lock: LockIcon };
+
+/**
+ * .auth-field from templates/auth_base.html: a label, an input carrying a
+ * leading icon, and — on password fields — the reveal button.
+ *
+ * `icon` picks the leading glyph; `reveal` adds the toggle and starts the
+ * field masked, matching the web's `type="password"` plus `.auth-reveal`.
+ */
+export default function AuthField({ label, icon = "mail", reveal = false, children, ...inputProps }) {
   const { theme } = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
+  const [focused, setFocused] = useState(false);
+  const [shown, setShown] = useState(false);
+
+  const Icon = ICONS[icon] || MailIcon;
+  // .auth-input-wrap:focus-within .auth-input-icon { color: var(--accent) }
+  const iconColor = focused ? theme.accent : theme.text3;
 
   return (
-    <View style={styles.group}>
+    <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
-      <TextInput style={styles.input} placeholderTextColor={theme.text3} {...inputProps} />
+
+      {/* box-shadow: 0 0 0 4px var(--accent-soft) on focus. A transparent ring
+          is always present and pulled back out with a negative margin, so
+          gaining focus tints it instead of nudging the layout. */}
+      <View style={[styles.ring, focused && styles.ringFocused]}>
+        <View style={[styles.box, focused && styles.boxFocused]}>
+          <View style={styles.iconSlot}>
+            <Icon size={18} color={iconColor} />
+          </View>
+
+          <TextInput
+            style={styles.input}
+            placeholderTextColor={theme.text3}
+            secureTextEntry={reveal && !shown}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            {...inputProps}
+          />
+
+          {reveal ? (
+            <Pressable
+              onPress={() => setShown((v) => !v)}
+              style={styles.reveal}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel={shown ? "Hide password" : "Show password"}
+              accessibilityState={{ selected: shown }}
+            >
+              <EyeIcon size={18} color={shown ? theme.text : theme.text3} />
+            </Pressable>
+          ) : null}
+        </View>
+      </View>
+
+      {/* Signup hangs its strength meter inside the same .auth-field. */}
+      {children}
     </View>
   );
 }
 
 const makeStyles = (t) => StyleSheet.create({
-  group: { marginBottom: 16 },
-  label: { fontSize: 13, fontWeight: "600", color: t.text2, marginBottom: 6 },
-  input: {
-    width: "100%",
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    fontSize: 15,
+  field: { marginBottom: 16 },
+  label: {
+    fontSize: 12.5,
+    fontFamily: FONTS.bodySemi,
+    letterSpacing: 0.2,
+    color: t.text2,
+    marginBottom: 7,
+  },
+
+  ring: { borderWidth: 4, borderColor: "transparent", borderRadius: 16, margin: -4 },
+  ringFocused: { borderColor: t.accentSoft },
+
+  box: {
+    flexDirection: "row",
+    alignItems: "center",
+    // 14px padding top and bottom around a 15px line, plus the 1.5px borders —
+    // the web input measures 49px, so it is pinned rather than re-derived.
+    height: 49,
     borderWidth: 1.5,
-    borderColor: t.scheme === "dark" ? "rgba(255,255,255,0.12)" : "rgba(220,225,231,0.8)",
-    borderRadius: 10,
-    backgroundColor: t.scheme === "dark" ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.6)",
+    borderColor: t.border,
+    borderRadius: 12,
+    backgroundColor: t.surface,
+  },
+  boxFocused: { borderColor: t.accent },
+
+  // padding-left: 44px on .auth-input, with the icon sitting at left: 14px.
+  iconSlot: { width: 44, paddingLeft: 14, justifyContent: "center" },
+
+  input: {
+    flex: 1,
+    paddingVertical: 0,
+    paddingRight: 6,
+    fontSize: 15,
+    fontFamily: FONTS.body,
     color: t.text,
+    includeFontPadding: false,
+  },
+
+  // .auth-reveal { width: 36; height: 36; right: 6; border-radius: 9 }
+  reveal: {
+    width: 36,
+    height: 36,
+    marginRight: 6,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

@@ -6,12 +6,25 @@ from flask import Blueprint, request, jsonify
 from data import (
     get_user, is_admin, is_trusted, set_trusted, get_account_status,
     get_all_meetings, search_users, generate_user_color, update_profile,
+    get_reliability,
     PROFILE_EMOJIS, MAX_DISPLAY_NAME, MAX_BIO,
 )
+
+from routes.activity import pending_action_count
 
 from helpers import current_uid, require_admin
 
 profile_bp = Blueprint("profile", __name__)
+
+
+def _public_reliability(record):
+    """The attendance record as other people are allowed to see it.
+
+    Settled counts are public — they are the point of the score. "pending" is
+    not: it says how many finished meetings someone still owes an answer on,
+    which is a prompt for the owner rather than a fact about their record.
+    """
+    return {k: v for k, v in record.items() if k != "pending"}
 
 
 @profile_bp.route("/api/profile")
@@ -41,6 +54,14 @@ def profile():
         "meetings_joined": len(user.get("joined_meeting_ids", [])),
         "meetings_swiped": len(user.get("swiped_ids", [])),
         "account_status": get_account_status(uid),
+        # Your own record carries the "to confirm" count as well, because the
+        # web shows it here and nowhere else — it is a prompt to go and settle
+        # them, which only means anything to the person who owns them.
+        "reliability": get_reliability(uid),
+        # Drives the Activity badge in the drawer. Comes from the same helper
+        # the web's context processor uses, so the badge and the Activity screen
+        # can never disagree about how many things are waiting.
+        "action_count": pending_action_count(uid),
         "pending_review_count": len(get_all_meetings(status="pending")) if is_admin(uid) else 0,
     })
 
@@ -95,6 +116,14 @@ def user_profile(uid):
         "joined_at": user.get("joined_at"),
         "last_online": user.get("last_online"),
         "account_status": get_account_status(uid),
+        # What an organiser wants to know before counting on someone.
+        #
+        # user_profile.html prints only went/missed for other people, keeping
+        # "to confirm" to the owner. The template gets the whole dict and
+        # chooses what to render; an API cannot lean on that, since anything
+        # sent is readable regardless of what the client draws — so the
+        # pending count is dropped here rather than merely left unrendered.
+        "reliability": _public_reliability(get_reliability(uid)),
     })
 
 

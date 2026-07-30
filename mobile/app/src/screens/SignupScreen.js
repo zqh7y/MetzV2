@@ -1,11 +1,12 @@
 import React, { useState } from "react";
-import { Text, TouchableOpacity, StyleSheet } from "react-native";
 import { api } from "../api";
 import AuthLayout from "../components/AuthLayout";
 import AuthField from "../components/AuthField";
 import AuthButton from "../components/AuthButton";
-import { ACCENTS } from "../styles/theme";
+import AuthStrength from "../components/AuthStrength";
+import AuthAlt from "../components/AuthAlt";
 
+// Copy, field order and button labels track templates/signup.html.
 export default function SignupScreen({ navigation }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -28,34 +29,51 @@ export default function SignupScreen({ navigation }) {
   return (
     <AuthLayout
       title="Create your account"
-      subtitle="Join Metz and start meeting people nearby"
+      subtitle="Takes a minute. We'll email you a code to confirm it's you."
       error={error}
       footer={
-        <TouchableOpacity onPress={() => navigation.navigate("Login")}>
-          <Text style={styles.link}>Already have an account? Login</Text>
-        </TouchableOpacity>
+        <AuthAlt
+          text="Already have an account?"
+          linkText="Log in"
+          onPress={() => navigation.navigate("Login")}
+        />
       }
     >
       <AuthField
         label="Email"
+        icon="mail"
         placeholder="you@example.com"
-        autoCapitalize="none"
         keyboardType="email-address"
+        textContentType="emailAddress"
+        autoComplete="email"
+        autoCapitalize="none"
+        autoCorrect={false}
+        autoFocus
         value={email}
         onChangeText={setEmail}
       />
       <AuthField
         label="Password"
+        icon="lock"
+        reveal
         placeholder="At least 8 characters"
-        secureTextEntry
+        textContentType="newPassword"
+        autoComplete="new-password"
+        autoCapitalize="none"
+        autoCorrect={false}
         value={password}
         onChangeText={setPassword}
+        onSubmitEditing={handleSignup}
+        returnKeyType="go"
+      >
+        <AuthStrength value={password} />
+      </AuthField>
+      <AuthButton
+        label="Create account"
+        busyLabel="Creating account…"
+        onPress={handleSignup}
+        loading={loading}
       />
-      <AuthButton label="Sign Up" onPress={handleSignup} loading={loading} />
     </AuthLayout>
   );
 }
-
-const styles = StyleSheet.create({
-  link: { textAlign: "center", color: ACCENTS.teal.accentStrong, marginTop: 18, fontWeight: "600" },
-});

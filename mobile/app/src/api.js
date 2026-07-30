@@ -58,6 +58,20 @@ export const api = {
 
   getJoined: () => request("/api/joined"),
 
+  // Explore takes the same query string the web page uses, so a set of filters
+  // means the same thing on both.
+  getExplore: (params = {}) => {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== "" && value !== null && value !== undefined && value !== false) {
+        query.set(key, value === true ? "1" : String(value));
+      }
+    });
+    const qs = query.toString();
+    return request(`/api/explore${qs ? `?${qs}` : ""}`);
+  },
+  getActivity: () => request("/api/activity"),
+
   getAttendees: (id) => request(`/api/meetings/${id}/attendees`),
 
   getProfile: () => request("/api/profile"),

@@ -1,14 +1,18 @@
-import React, { useState } from "react";
-import { Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
+import React, { useMemo, useState } from "react";
+import { TextInput, StyleSheet } from "react-native";
 import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
 import AuthLayout from "../components/AuthLayout";
 import AuthButton from "../components/AuthButton";
-import { ACCENTS } from "../styles/theme";
+import AuthAlt from "../components/AuthAlt";
+import { FONTS } from "../styles/fonts";
+import { useTheme } from "../context/ThemeContext";
 
 export default function VerifyScreen({ route }) {
   const { email } = route.params;
   const { signIn } = useAuth();
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -32,15 +36,17 @@ export default function VerifyScreen({ route }) {
       subtitle={`We sent a 4-digit code to ${email}`}
       error={error}
       footer={
-        <TouchableOpacity onPress={() => api.resendVerify(email)}>
-          <Text style={styles.link}>Resend code</Text>
-        </TouchableOpacity>
+        <AuthAlt
+          text="Didn't get it?"
+          linkText="Resend code"
+          onPress={() => api.resendVerify(email)}
+        />
       }
     >
       <TextInput
         style={styles.codeInput}
         placeholder="0000"
-        placeholderTextColor="#c7ccd1"
+        placeholderTextColor={theme.text3}
         keyboardType="number-pad"
         maxLength={4}
         value={code}
@@ -51,11 +57,11 @@ export default function VerifyScreen({ route }) {
   );
 }
 
-const styles = StyleSheet.create({
+// Same surface/border tokens as .auth-input, just sized for a 4-digit code.
+const makeStyles = (t) => StyleSheet.create({
   codeInput: {
-    fontSize: 28, fontWeight: "800", color: "#2c3e50", textAlign: "center", letterSpacing: 8,
-    borderWidth: 2, borderColor: "#e0e0e0", borderRadius: 12, backgroundColor: "rgba(249,249,251,0.8)",
+    fontSize: 28, fontFamily: FONTS.headingExtra, color: t.text, textAlign: "center", letterSpacing: 8,
+    borderWidth: 1.5, borderColor: t.border, borderRadius: 12, backgroundColor: t.surface,
     paddingVertical: 14, marginBottom: 16,
   },
-  link: { textAlign: "center", color: ACCENTS.teal.accentStrong, marginTop: 18, fontWeight: "600" },
 });

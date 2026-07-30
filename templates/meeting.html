@@ -42,6 +42,10 @@
     </div>
     {% endif %}
 
+    <!-- Sections pair into two columns on a desktop; on a phone this wrapper
+         carries no styles and they stack exactly as before. -->
+    <div class="detail-grid">
+
     <!-- The join-call block: the whole point of an online meeting, and the
          reason the link is not just printed on a card for anyone to grab. -->
     {% if is_online %}
@@ -111,7 +115,7 @@
     {% endif %}
 
     <!-- Who -->
-    <div class="detail-section">
+    <div class="detail-section is-wide">
         <h3 class="detail-section-title">
             🤝 Who's coming <span class="detail-count">{{ attendees|length }}</span>
         </h3>
@@ -183,7 +187,7 @@
 
     <!-- Join / leave -->
     {% if phase != 'ended' and meeting.commit_status != 'cancelled' %}
-    <div class="detail-actions">
+    <div class="detail-actions is-wide">
         <button type="button"
                 class="detail-join-btn join-btn {% if joined %}joined{% endif %}"
                 id="detail-join-btn"
@@ -200,13 +204,15 @@
     {% endif %}
 
     {% if is_creator or is_admin %}
-    <div class="detail-actions">
+    <div class="detail-actions is-wide">
         <button type="button" class="detail-delete-btn"
                 onclick="deleteMeeting({{ meeting.id }}, null); window.location.href='/';">
             Delete this meeting
         </button>
     </div>
     {% endif %}
+
+    </div><!-- /.detail-grid -->
 </div>
 
 <script>

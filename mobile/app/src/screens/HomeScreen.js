@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import {
   View, Text, FlatList, StyleSheet, TextInput, ActivityIndicator,
   RefreshControl, Animated, PanResponder, TouchableOpacity, useWindowDimensions,
@@ -10,8 +10,11 @@ import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
 import MeetingCard from "../components/MeetingCard";
 import ForYouCard from "../components/ForYouCard";
+import SectionRule from "../components/SectionRule";
 import HomeDrawer, { MenuButton } from "../components/HomeDrawer";
+import { SearchIcon, SparkleIcon, MapPinIcon, GlobeIcon } from "../components/NavIcons";
 import useMyLocation from "../hooks/useMyLocation";
+import { distanceToMeeting, formatDistance } from "../utils/distance";
 import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
 import { RADIUS, SHADOW } from "../styles/theme";
@@ -67,27 +70,70 @@ export default function HomeScreen({ navigation }) {
     load();
   }, [load]);
 
-  async function handleJoin(meeting) {
-    await api.joinMeeting(meeting.id);
-    load();
-    refreshProfile();
-  }
+  /**
+   * Join, and show it immediately.
+   *
+   * This used to await the request and then refetch every meeting before
+   * anything on screen changed, so a tap sat dead for a round trip plus a full
+   * list rebuild — the request itself is only a few milliseconds, so almost
+   * all of that delay was self-inflicted. The row now flips first and the
+   * network follows; if the server refuses, the change is rolled back.
+   */
+  const applyLocal = useCallback((id, patch) => {
+    setMeetings((prev) => prev.map((m) => (m.id === id ? { ...m, ...patch } : m)));
+  }, []);
+
+  const handleJoin = useCallback(async (meeting) => {
+    const joining = !meeting.is_joined;
+    const before = { is_joined: meeting.is_joined, joined_count: meeting.joined_count };
+    applyLocal(meeting.id, {
+      is_joined: joining,
+      joined_count: Math.max(0, (meeting.joined_count || 0) + (joining ? 1 : -1)),
+    });
+    try {
+      await api.joinMeeting(meeting.id);
+      // Reconcile in the background: the server may also have moved the
+      // meeting's commit status now the count changed. Nothing awaits this,
+      // so it never blocks the tap.
+      load();
+      refreshProfile();
+    } catch (e) {
+      applyLocal(meeting.id, before);
+    }
+  }, [applyLocal, load, refreshProfile]);
 
   // Both actions mark the meeting as seen, so it drops off the shelf either way
-  async function handlePass(meeting) {
-    setMeetings((prev) => prev.map((m) => (m.id === meeting.id ? { ...m, is_seen: true } : m)));
-    await api.passMeeting(meeting.id);
-  }
+  const handlePass = useCallback(async (meeting) => {
+    applyLocal(meeting.id, { is_seen: true });
+    try {
+      await api.passMeeting(meeting.id);
+    } catch (e) {
+      applyLocal(meeting.id, { is_seen: false });
+    }
+  }, [applyLocal]);
 
-  async function handleShelfJoin(meeting) {
-    setMeetings((prev) => prev.map((m) => (m.id === meeting.id ? { ...m, is_seen: true } : m)));
-    await api.joinMeeting(meeting.id);
-    load();
-    refreshProfile();
-  }
+  const handleShelfJoin = useCallback(async (meeting) => {
+    applyLocal(meeting.id, {
+      is_seen: true,
+      is_joined: true,
+      joined_count: (meeting.joined_count || 0) + 1,
+    });
+    try {
+      await api.joinMeeting(meeting.id);
+      load();
+      refreshProfile();
+    } catch (e) {
+      applyLocal(meeting.id, { is_seen: false, is_joined: false, joined_count: meeting.joined_count });
+    }
+  }, [applyLocal, load, refreshProfile]);
+
+  // The box keeps `search` so every keystroke paints at once; the list filters
+  // off the deferred copy, so a slow re-render lags a frame behind the caret
+  // instead of blocking it.
+  const deferredSearch = useDeferredValue(search);
 
   const filtered = useMemo(() => {
-    const words = search.toLowerCase().trim().split(/\s+/).filter(Boolean);
+    const words = deferredSearch.toLowerCase().trim().split(/\s+/).filter(Boolean);
     if (!words.length) return meetings;
     return meetings.filter((m) => {
       const haystack = [m.title, m.description, m.location, m.link, m.creator_username, (m.tags || []).join(" ")]
@@ -95,7 +141,7 @@ export default function HomeScreen({ navigation }) {
         .toLowerCase();
       return words.every((w) => haystack.includes(w));
     });
-  }, [meetings, search]);
+  }, [meetings, deferredSearch]);
 
   // "For You": everything not joined or passed yet, minus your own meetings
   const forYou = useMemo(
@@ -103,17 +149,37 @@ export default function HomeScreen({ navigation }) {
     [meetings, uid]
   );
 
+  /**
+   * What the map actually plots, and nothing else.
+   *
+   * Joining a meeting rewrites the `meetings` array, which used to hand both
+   * map layers a brand-new list every time — so a single tap tore down and
+   * rebuilt every pin, label and cluster on screen. None of what a marker
+   * draws (position, title, kind) changes when you join, so the identity is
+   * keyed to those fields: the arrays below are only rebuilt when something a
+   * pin can actually show has changed.
+   */
+  const plottable = useMemo(
+    () => filtered.filter((m) => m.lat && m.lng),
+    [filtered]
+  );
+  const markerKey = useMemo(
+    () => plottable.map((m) => `${m.id}:${m.lat}:${m.lng}:${m.title}:${m.is_online ? 1 : 0}`).join("|"),
+    [plottable]
+  );
+  // plottable is intentionally not a dependency — markerKey is what decides
+  // whether anything a marker renders has moved.
+  const stableMarkers = useMemo(() => plottable, [markerKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const geojson = useMemo(() => ({
     type: "FeatureCollection",
-    features: filtered
-      .filter((m) => m.lat && m.lng)
-      .map((m) => ({
-        type: "Feature",
-        id: m.id,
-        properties: { id: m.id, title: m.title, kind: m.type === "OnlineMeeting" ? "online" : "inperson" },
-        geometry: { type: "Point", coordinates: [m.lng, m.lat] },
-      })),
-  }), [filtered]);
+    features: stableMarkers.map((m) => ({
+      type: "Feature",
+      id: m.id,
+      properties: { id: m.id, title: m.title, kind: m.type === "OnlineMeeting" ? "online" : "inperson" },
+      geometry: { type: "Point", coordinates: [m.lng, m.lat] },
+    })),
+  }), [stableMarkers]);
 
   // ─── Bottom sheet ──────────────────────────────────────────────────────
   // Three snap points; the map stays full-screen behind and is told via camera
@@ -166,9 +232,11 @@ export default function HomeScreen({ navigation }) {
     onPanResponderRelease: (_, g) => {
       const end = Math.min(tops.peek, Math.max(tops.full, dragStart.current + g.dy));
       if (Math.abs(g.dy) < 6) {
-        // A tap, not a drag: step to the next size, wrapping at the top
-        const i = STATE_ORDER.indexOf(sheetState);
-        snapTo(STATE_ORDER[(i + 1) % STATE_ORDER.length]);
+        // A tap, not a drag. This used to step peek → half → full, which meant
+        // two taps to read the list and a third to get back — so a tap now
+        // goes straight to full, and taps again to dismiss. Dragging still
+        // gives you the middle stop.
+        snapTo(sheetState === "full" ? "peek" : "full");
         return;
       }
       const nearest = STATE_ORDER.reduce((best, s) =>
@@ -210,14 +278,14 @@ export default function HomeScreen({ navigation }) {
     if (meeting) navigation.navigate("MeetingDetail", { meeting });
   }
 
-  function focusMeeting(meeting) {
+  const focusMeeting = useCallback((meeting) => {
     if (meeting.lat && meeting.lng) {
       snapTo("peek"); // otherwise the sheet covers the pin
       const camera = MAPS_AVAILABLE ? cameraRef.current : webMapRef.current;
       camera?.flyTo({ center: [meeting.lng, meeting.lat], zoom: 15, duration: 900 });
     }
     navigation.navigate("MeetingDetail", { meeting });
-  }
+  }, [snapTo, navigation]);
 
   // "You are here". The web draws the same marker with the user's avatar
   // colour and initial, so pass those through rather than a generic dot.
@@ -233,20 +301,115 @@ export default function HomeScreen({ navigation }) {
     };
   }, [myPosition, profile, uid]);
 
-  // The WebView map takes a plain marker list rather than GeoJSON.
+  // ─── Nearby list: ordered by distance, grouped by whether there is one ──
+  // A meeting you can walk to is worth more than one three towns over, so the
+  // list is sorted by how far away it is. Online meetings have no coordinates
+  // (the API stores lat/lng null), so they can never earn a place in that
+  // order — rather than let them fall silently to the bottom, they get their
+  // own heading. This is the same Infinity-sorts-last rule the web uses in
+  // sortMeetingsByDistance(), just made visible.
+  const rows = useMemo(() => {
+    const located = [];
+    const remote = [];
+    filtered.forEach((m) => {
+      if (m.lat && m.lng) located.push(m);
+      else remote.push(m);
+    });
+
+    // Without a fix there is no distance to sort by, so the original order
+    // stands and the heading drops the "near you" claim it can't back up.
+    if (myPosition) {
+      located.sort((a, b) => distanceToMeeting(myPosition, a) - distanceToMeeting(myPosition, b));
+    }
+
+    const out = [];
+    let cardIndex = 0;
+
+    if (located.length) {
+      out.push({
+        key: "rule-near",
+        rule: true,
+        Icon: MapPinIcon,
+        label: myPosition ? "Near you" : "In person",
+        count: located.length,
+        note: myPosition ? "Closest first" : "Turn on location to sort by distance",
+        tone: "near",
+      });
+      located.forEach((m) => {
+        const km = distanceToMeeting(myPosition, m);
+        out.push({
+          key: `m-${m.id}`,
+          meeting: m,
+          index: cardIndex++,
+          distance: Number.isFinite(km) ? formatDistance(km) : "",
+        });
+      });
+    }
+
+    if (remote.length) {
+      out.push({
+        key: "rule-remote",
+        rule: true,
+        Icon: GlobeIcon,
+        label: "Anywhere",
+        count: remote.length,
+        note: "No travel needed",
+        tone: "far",
+      });
+      remote.forEach((m) => {
+        out.push({ key: `m-${m.id}`, meeting: m, index: cardIndex++, distance: "" });
+      });
+    }
+
+    return out;
+  }, [filtered, myPosition]);
+
+  // The WebView map takes a plain marker list rather than GeoJSON. Built from
+  // the same stable set, so a join no longer re-injects setMarkers() and makes
+  // Leaflet rebuild its whole cluster tree.
   const webMarkers = useMemo(
     () =>
-      meetings
-        .filter((m) => typeof m.lat === "number" && typeof m.lng === "number")
-        .map((m) => ({
-          id: m.id,
-          lat: m.lat,
-          lng: m.lng,
-          title: m.title,
-          kind: m.is_online ? "online" : "inperson",
-        })),
-    [meetings]
+      stableMarkers.map((m) => ({
+        id: m.id,
+        lat: m.lat,
+        lng: m.lng,
+        title: m.title,
+        kind: m.is_online ? "online" : "inperson",
+      })),
+    [stableMarkers]
   );
+
+  // Defined once rather than inline, so every row keeps the same function
+  // identity between renders and the memo on MeetingCard actually holds.
+  const renderRow = useCallback(({ item }) => (
+    item.rule ? (
+      <SectionRule
+        Icon={item.Icon}
+        label={item.label}
+        count={item.count}
+        note={item.note}
+        tone={item.tone}
+      />
+    ) : (
+      <MeetingCard
+        meeting={item.meeting}
+        index={item.index}
+        distance={item.distance}
+        onPress={focusMeeting}
+        onJoin={handleJoin}
+      />
+    )
+  ), [focusMeeting, handleJoin]);
+
+  const renderShelfCard = useCallback(({ item, index }) => (
+    <ForYouCard
+      meeting={item}
+      index={index}
+      onPress={focusMeeting}
+      onJoin={handleShelfJoin}
+      onPass={handlePass}
+    />
+  ), [focusMeeting, handleShelfJoin, handlePass]);
 
   if (loading) {
     return (
@@ -365,24 +528,50 @@ export default function HomeScreen({ navigation }) {
         </View>
 
         <View style={styles.sheetHeader}>
-          <Text style={styles.panelTitle}>Nearby Meetings</Text>
+          {/*
+            The title is the tap target for opening the sheet, rather than the
+            whole header row: a PanResponder over the row would claim the touch
+            before "+ New" ever saw it.
+          */}
+          <TouchableOpacity
+            style={styles.titleWrap}
+            activeOpacity={0.6}
+            onPress={() => snapTo(sheetState === "full" ? "peek" : "full")}
+          >
+            <Text style={styles.panelTitle}>Nearby Meetings</Text>
+            {/* The count is the answer to "is it worth opening this" — worth
+                having in the header rather than only implied by the scrollbar. */}
+            <Text style={styles.panelCount}>
+              {filtered.length}{search.trim() ? ` of ${meetings.length}` : ""}
+            </Text>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.newBtn} onPress={() => navigation.navigate("Create")}>
             <Text style={styles.newBtnText}>+ New</Text>
           </TouchableOpacity>
         </View>
 
-        <TextInput
-          style={styles.search}
-          placeholder="Search meetings..."
-          placeholderTextColor={theme.text3}
-          value={search}
-          onChangeText={setSearch}
-        />
+        <View style={styles.searchWrap}>
+          <SearchIcon size={16} color={theme.text3} />
+          <TextInput
+            style={styles.search}
+            placeholder="Search meetings…"
+            placeholderTextColor={theme.text3}
+            value={search}
+            onChangeText={setSearch}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          {search ? (
+            <TouchableOpacity onPress={() => setSearch("")} hitSlop={10}>
+              <Text style={styles.searchClear}>✕</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
 
         <FlatList
-          data={filtered}
+          data={rows}
           style={{ height: listHeight }}
-          keyExtractor={(m) => String(m.id)}
+          keyExtractor={(row) => row.key}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />
@@ -391,7 +580,10 @@ export default function HomeScreen({ navigation }) {
             forYou.length ? (
               <View style={styles.shelf}>
                 <View style={styles.shelfHead}>
-                  <Text style={styles.shelfTitle}>✨ For You</Text>
+                  <View style={styles.shelfTitleWrap}>
+                    <SparkleIcon size={15} color={theme.accent} />
+                    <Text style={styles.shelfTitle}>For You</Text>
+                  </View>
                   <Text style={styles.shelfHint}>Not seen yet · {forYou.length} left</Text>
                 </View>
                 <FlatList
@@ -399,27 +591,26 @@ export default function HomeScreen({ navigation }) {
                   data={forYou}
                   keyExtractor={(m) => `foryou-${m.id}`}
                   showsHorizontalScrollIndicator={false}
-                  renderItem={({ item, index }) => (
-                    <ForYouCard
-                      meeting={item}
-                      index={index}
-                      onPress={() => focusMeeting(item)}
-                      onJoin={() => handleShelfJoin(item)}
-                      onPass={() => handlePass(item)}
-                    />
-                  )}
+                  renderItem={renderShelfCard}
+                  // Every card mounts a tile-fetching MiniMap, so only the
+                  // ones near the viewport are worth building up front.
+                  removeClippedSubviews
+                  initialNumToRender={3}
+                  maxToRenderPerBatch={3}
+                  windowSize={5}
                 />
               </View>
             ) : null
           }
-          renderItem={({ item, index }) => (
-            <MeetingCard
-              meeting={item}
-              index={index}
-              onPress={() => focusMeeting(item)}
-              onJoin={() => handleJoin(item)}
-            />
-          )}
+          renderItem={renderRow}
+          // Rows are cheap and the list is short, but these keep the sheet
+          // responsive while it is being dragged: offscreen rows detach, and
+          // the first paint stops at what actually fits.
+          removeClippedSubviews
+          initialNumToRender={6}
+          maxToRenderPerBatch={6}
+          updateCellsBatchingPeriod={50}
+          windowSize={7}
           ListEmptyComponent={<Text style={styles.empty}>No meetings match your search.</Text>}
           contentContainerStyle={{ paddingBottom: 24 + insets.bottom }}
         />
@@ -433,6 +624,7 @@ export default function HomeScreen({ navigation }) {
         activeRoute="Home"
         isAdmin={!!profile?.is_admin}
         pendingCount={pendingCount}
+        activityCount={profile?.action_count || 0}
         onLogout={signOut}
       />
     </View>
@@ -473,7 +665,18 @@ const makeStyles = (t, comfortable = false) => StyleSheet.create({
   grabberArea: { paddingVertical: 10, alignItems: "center" },
   grabber: { width: 42, height: 5, borderRadius: 3, backgroundColor: t.surface3 },
   sheetHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
+  titleWrap: { flexDirection: "row", alignItems: "center", gap: 8 },
   panelTitle: { fontSize: 17, fontFamily: FONTS.heading, color: t.text },
+  panelCount: {
+    fontSize: 11,
+    fontFamily: FONTS.accent,
+    color: t.text3,
+    backgroundColor: t.surface2,
+    borderRadius: RADIUS.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    overflow: "hidden",
+  },
   // .create-btn-small: accent pill, not the old standalone green
   newBtn: {
     backgroundColor: t.accent,
@@ -482,19 +685,30 @@ const makeStyles = (t, comfortable = false) => StyleSheet.create({
     paddingVertical: 7,
   },
   newBtnText: { color: t.accentOn, fontSize: 13, fontFamily: FONTS.accent },
-  search: {
+  searchWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
     backgroundColor: t.surface2,
     borderWidth: 1,
     borderColor: t.border,
-    color: t.text,
     borderRadius: RADIUS.base,
-    paddingHorizontal: 16,
-    paddingVertical: 11,
-    fontSize: 15,
+    paddingHorizontal: 14,
     marginBottom: 12,
   },
+  search: {
+    flex: 1,
+    color: t.text,
+    paddingVertical: 11,
+    fontSize: 15,
+    includeFontPadding: false,
+  },
+  searchClear: { color: t.text3, fontSize: 13, paddingHorizontal: 2 },
   shelf: { marginBottom: 14 },
-  shelfHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8 },
+  // Centred, not baseline-aligned: the title is a row (icon + text) rather than
+  // a bare Text, and a View has no baseline to align the hint against.
+  shelfHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
+  shelfTitleWrap: { flexDirection: "row", alignItems: "center", gap: 6 },
   shelfTitle: { fontSize: 15, fontFamily: FONTS.heading, color: t.text },
   shelfHint: { fontSize: 11, color: t.text3, fontWeight: "600" },
   empty: { textAlign: "center", color: t.text3, marginTop: 40 },

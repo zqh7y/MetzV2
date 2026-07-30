@@ -1,12 +1,12 @@
 import React, { useState } from "react";
-import { Text, TouchableOpacity, StyleSheet } from "react-native";
 import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
 import AuthLayout from "../components/AuthLayout";
 import AuthField from "../components/AuthField";
 import AuthButton from "../components/AuthButton";
-import { ACCENTS } from "../styles/theme";
+import AuthAlt from "../components/AuthAlt";
 
+// Copy, field order and button labels track templates/login.html.
 export default function LoginScreen({ navigation }) {
   const { signIn } = useAuth();
   const [email, setEmail] = useState("");
@@ -30,34 +30,44 @@ export default function LoginScreen({ navigation }) {
   return (
     <AuthLayout
       title="Welcome back"
-      subtitle="Log in to discover meetups near you"
+      subtitle="Log in to pick up where you left off."
       error={error}
       footer={
-        <TouchableOpacity onPress={() => navigation.navigate("Signup")}>
-          <Text style={styles.link}>Don't have an account? Sign up</Text>
-        </TouchableOpacity>
+        <AuthAlt
+          text="New here?"
+          linkText="Create an account"
+          onPress={() => navigation.navigate("Signup")}
+        />
       }
     >
       <AuthField
         label="Email"
+        icon="mail"
         placeholder="you@example.com"
-        autoCapitalize="none"
         keyboardType="email-address"
+        textContentType="username"
+        autoComplete="email"
+        autoCapitalize="none"
+        autoCorrect={false}
+        autoFocus
         value={email}
         onChangeText={setEmail}
       />
       <AuthField
         label="Password"
+        icon="lock"
+        reveal
         placeholder="Your password"
-        secureTextEntry
+        textContentType="password"
+        autoComplete="current-password"
+        autoCapitalize="none"
+        autoCorrect={false}
         value={password}
         onChangeText={setPassword}
+        onSubmitEditing={handleLogin}
+        returnKeyType="go"
       />
-      <AuthButton label="Login" onPress={handleLogin} loading={loading} />
+      <AuthButton label="Log in" busyLabel="Logging in…" onPress={handleLogin} loading={loading} />
     </AuthLayout>
   );
 }
-
-const styles = StyleSheet.create({
-  link: { textAlign: "center", color: ACCENTS.teal.accentStrong, marginTop: 18, fontWeight: "600" },
-});

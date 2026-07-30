@@ -47,6 +47,9 @@
             {{ stat('📊', stats.engagement.avg_per_meeting, 'Avg / meeting') }}
         </div>
 
+        <!-- Side by side on a desktop, stacked on a phone. -->
+        <div class="dash-cards-grid">
+
         <div class="dash-card">
             <h3 class="dash-card-title">Meetings breakdown</h3>
             <div class="dash-bars">
@@ -101,6 +104,8 @@
             </div>
         </div>
         {% endif %}
+
+        </div><!-- /.dash-cards-grid -->
     </div>
 
     <!-- ─────────── USERS ─────────── -->
@@ -209,8 +214,8 @@
         <p class="dash-none" id="meeting-none" hidden>No meetings match that filter.</p>
     </div>
 
-    {% set active_page = 'profile' %}
-    {% include 'nav.html' %}
+    {% set active_page = 'dashboard' %}
+    {% include 'home_menu.html' %}
 </div>
 
 <script>

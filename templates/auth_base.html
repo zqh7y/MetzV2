@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{#
+  Shared shell for login and signup.
+
+  Both screens were duplicated markup that had already started to drift, so the
+  layout, brand panel and legal footer live here once and each page fills in
+  only its title, subtitle and fields.
+#}
+
+{% block content %}
+<div class="auth">
+
+    <!-- Brand panel. Hidden below 900px, where the form takes the screen. -->
+    <aside class="auth-aside">
+        <div class="auth-brand">
+            <span class="auth-brand-logo">M</span>
+            <span class="auth-brand-name">Metz</span>
+        </div>
+
+        <h1 class="auth-pitch">{% block pitch %}Meet people nearby.{% endblock %}</h1>
+
+        <ul class="auth-points">
+            <li class="auth-point">
+                <span class="auth-point-icon">📍</span>
+                <span>
+                    <span class="auth-point-title">See what's happening around you</span>
+                    <span class="auth-point-desc">Every meetup on one map, with the ones you haven't seen yet picked out for you.</span>
+                </span>
+            </li>
+            <li class="auth-point">
+                <span class="auth-point-icon">🤝</span>
+                <span>
+                    <span class="auth-point-title">Know who actually turns up</span>
+                    <span class="auth-point-desc">Everyone has a show-up rate, so joining something means something.</span>
+                </span>
+            </li>
+            <li class="auth-point">
+                <span class="auth-point-icon">🎯</span>
+                <span>
+                    <span class="auth-point-title">Plans that only run if enough people come</span>
+                    <span class="auth-point-desc">Set a minimum and nobody has to wonder whether it's really on.</span>
+                </span>
+            </li>
+        </ul>
+    </aside>
+
+    <!-- Form column -->
+    <main class="auth-main">
+        <div class="auth-card">
+
+            <!-- Stands in for the brand panel on a phone -->
+            <div class="auth-mini-brand">
+                <span class="auth-mini-logo">M</span>
+                <span class="auth-mini-name">Metz</span>
+            </div>
+
+            <h2 class="auth-title">{% block auth_title %}{% endblock %}</h2>
+            <p class="auth-subtitle">{% block auth_subtitle %}{% endblock %}</p>
+
+            {% if message %}
+            <div class="auth-error" role="alert">
+                <span class="auth-error-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" width="17" height="17">
+                        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12.5"/><line x1="12" y1="16.5" x2="12.01" y2="16.5"/>
+                    </svg>
+                </span>
+                <span>{{ message }}</span>
+            </div>
+            {% endif %}
+
+            {% block auth_form %}{% endblock %}
+
+            <p class="auth-alt">{% block auth_alt %}{% endblock %}</p>
+
+            <p class="auth-legal">
+                By continuing you agree to how Metz handles your data, described in the
+                <a href="/privacy">privacy policy</a>.
+            </p>
+        </div>
+    </main>
+</div>
+
+<script>
+(function () {
+    // Reveal toggle. The button is added by the template rather than injected
+    // here so it still exists (and stays inert) if this script fails to run.
+    document.querySelectorAll('.auth-reveal').forEach(function (btn) {
+        var input = document.getElementById(btn.dataset.for);
+        if (!input) return;
+        btn.addEventListener('click', function () {
+            var show = input.type === 'password';
+            input.type = show ? 'text' : 'password';
+            btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+            btn.setAttribute('aria-pressed', String(show));
+            // Keep the caret where it was rather than dumping it at the start.
+            var end = input.value.length;
+            input.focus();
+            input.setSelectionRange(end, end);
+        });
+    });
+
+    // Signup only: a rough strength read, purely advisory. The real rules are
+    // enforced server-side — this just stops "12345678" feeling acceptable.
+    var pw = document.getElementById('password');
+    var meter = document.getElementById('pw-strength');
+    if (pw && meter) {
+        var label = meter.querySelector('.auth-strength-label');
+        var WORDS = ['', 'Weak', 'Fair', 'Good', 'Strong'];
+
+        pw.addEventListener('input', function () {
+            var v = pw.value;
+            if (!v) { meter.removeAttribute('data-level'); label.textContent = ''; return; }
+            var score = 0;
+            if (v.length >= 8) score++;
+            if (v.length >= 12) score++;
+            if (/[a-z]/.test(v) && /[A-Z]/.test(v)) score++;
+            if (/\d/.test(v) && /[^A-Za-z0-9]/.test(v)) score++;
+            score = Math.max(1, Math.min(4, score));
+            meter.setAttribute('data-level', String(score));
+            label.textContent = WORDS[score];
+        });
+    }
+
+    // Stop double submits creating two accounts on a slow connection.
+    document.querySelectorAll('form[data-auth-form]').forEach(function (form) {
+        form.addEventListener('submit', function () {
+            var btn = form.querySelector('.auth-submit');
+            if (!btn) return;
+            btn.disabled = true;
+            btn.textContent = btn.dataset.busy || 'Please wait…';
+        });
+    });
+})();
+</script>
+{% endblock %}

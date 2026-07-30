@@ -10,6 +10,9 @@
         <h2 class="settings-title">Settings</h2>
     </div>
 
+    <!-- Two columns on a desktop, plain stacked blocks on a phone. -->
+    <div class="settings-grid">
+
     <!-- Theme -->
     <div class="profile-section">
         <h3 class="profile-section-title">🎨 Appearance</h3>
@@ -129,6 +132,8 @@
         </div>
     </div>
 
+    </div><!-- /.settings-grid -->
+
     <div class="profile-actions">
         <button type="button" class="profile-action-btn" onclick="resetPrefs()">↺ Reset to defaults</button>
         <a href="/profile" class="profile-action-btn">← Back to Profile</a>
@@ -144,8 +149,8 @@
         </a>
     </div>
 
-    {% set active_page = 'profile' %}
-    {% include 'nav.html' %}
+    {% set active_page = 'settings' %}
+    {% include 'home_menu.html' %}
 </div>
 
 <script>

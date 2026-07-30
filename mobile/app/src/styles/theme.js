@@ -119,6 +119,17 @@ export const SHADOW = {
 // palette, not theming, exactly as the stylesheet comment says.
 export const CARD_ACCENTS = ["#667eea", "#0d9c8a", "#f5576c", "#e08c1a", "#7b5fd6"];
 
+// The same five as ramps (.card-color-0…4 on the web). Shared rather than
+// redeclared per component, so the For You shelf and the list cards below it
+// colour the same meeting the same way.
+export const CARD_GRADIENTS = [
+  ["#667eea", "#764ba2"],
+  ["#f093fb", "#f5576c"],
+  ["#4facfe", "#00f2fe"],
+  ["#43e97b", "#38f9d7"],
+  ["#fa709a", "#fee140"],
+];
+
 /**
  * Build the palette for a given scheme + accent choice.
  * Screens read `theme.accent`, `theme.surface`, … rather than hex codes.

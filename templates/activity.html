@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}Activity{% endblock %}
+
+{% macro card(m, tone='') %}
+<a class="act-item {{ tone }}" href="/meeting/{{ m.id }}">
+    <span class="act-emoji">{{ m.emoji }}</span>
+    <span class="act-body">
+        <span class="act-title">{{ m.title }}</span>
+        <span class="act-meta">
+            <span class="act-when" data-time="{{ m.time }}">{{ m.time }}</span>
+            {% if m.where %}<span class="act-dot">·</span><span>{{ m.where }}</span>{% endif %}
+            <span class="act-dot">·</span><span>{{ m.joined_count }} going</span>
+        </span>
+    </span>
+    <span class="act-go">›</span>
+</a>
+{% endmacro %}
+
+{% block content %}
+<div class="act-page">
+
+    <header class="act-header">
+        <h1 class="act-title-main">Activity</h1>
+        <p class="act-sub">
+            {% if action_count %}
+                {{ action_count }} thing{{ 's' if action_count != 1 }} waiting on you.
+            {% else %}
+                Nothing needs you right now.
+            {% endif %}
+        </p>
+    </header>
+
+    <!-- ── Needs you ─────────────────────────────────────────────────── -->
+    {% if needs_checkin or needs_attendance or needs_decision %}
+    <section class="act-section act-section-urgent">
+        <h2 class="act-section-title">🔔 Needs you</h2>
+
+        {% if needs_decision %}
+        <p class="act-note">Your meeting didn't reach its minimum. Decide whether it still runs.</p>
+        {% for m in needs_decision %}{{ card(m, 'is-urgent') }}{% endfor %}
+        {% endif %}
+
+        {% if needs_checkin %}
+        <p class="act-note">These are over. Saying what happened is what your show-up rate is built from.</p>
+        {% for m in needs_checkin %}{{ card(m) }}{% endfor %}
+        {% endif %}
+
+        {% if needs_attendance %}
+        <p class="act-note">You organised these. Marking who turned up keeps everyone else's record honest.</p>
+        {% for m in needs_attendance %}{{ card(m) }}{% endfor %}
+        {% endif %}
+    </section>
+    {% endif %}
+
+    <!-- ── Coming up ─────────────────────────────────────────────────── -->
+    <section class="act-section">
+        <h2 class="act-section-title">📅 Coming up</h2>
+        {% if coming_up %}
+            {% for m in coming_up %}{{ card(m) }}{% endfor %}
+        {% else %}
+            <p class="act-empty">
+                Nothing in the next week.
+                <a href="/explore">Find something to join →</a>
+            </p>
+        {% endif %}
+    </section>
+
+    <!-- ── Status changes ────────────────────────────────────────────── -->
+    {% if settled %}
+    <section class="act-section">
+        <h2 class="act-section-title">🎯 Threshold results</h2>
+        {% for m in settled %}
+            {{ card(m, 'is-good' if m.commit_status == 'confirmed' else 'is-bad') }}
+        {% endfor %}
+    </section>
+    {% endif %}
+
+    {% if waitlisted %}
+    <section class="act-section">
+        <h2 class="act-section-title">⏳ You're on the waitlist</h2>
+        <p class="act-note">You move up automatically if someone drops out.</p>
+        {% for m in waitlisted %}{{ card(m) }}{% endfor %}
+    </section>
+    {% endif %}
+
+    {% if waiting %}
+    <section class="act-section">
+        <h2 class="act-section-title">🕓 Waiting for approval</h2>
+        <p class="act-note">Meetings you created that an admin hasn't reviewed yet.</p>
+        {% for m in waiting %}{{ card(m) }}{% endfor %}
+    </section>
+    {% endif %}
+
+    {% set active_page = 'activity' %}
+    {% include 'home_menu.html' %}
+</div>
+
+<script>
+    // Absolute times are already printed; add the relative one beside them.
+    document.querySelectorAll('.act-when[data-time]').forEach(function (el) {
+        var rel = formatTimeUntil(el.dataset.time);
+        if (rel) el.textContent = el.dataset.time + ' · ' + rel;
+    });
+</script>
+{% endblock %}

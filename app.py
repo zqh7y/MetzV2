@@ -15,6 +15,8 @@ from routes.meeting_actions import (pass_route, join_route, delete_route, decide
 from routes.meeting import meeting_route
 from routes.profile import profile_route, user_profile_route, toggle_trust_route, edit_profile_route
 from routes.settings import settings_route
+from routes.activity import activity_route, pending_action_count
+from routes.explore import explore_route
 from routes.verify import verify_route, resend_verification_route
 from routes.admin import pending_route, approve_route, decline_route, dashboard_route, ban_route, delete_user_route, set_trust_route
 
@@ -97,6 +99,22 @@ def healthz():
     return jsonify({"status": "ok"})
 
 
+@app.route("/privacy")
+def privacy():
+    """Public privacy policy.
+
+    Deliberately outside the login gate: Google Play requires a URL that
+    reviewers (and anyone deciding whether to install) can open without an
+    account, and it is linked from the store listing.
+    """
+    from datetime import date
+    return render_template(
+        "privacy.html",
+        updated=date.today().strftime("%d %B %Y"),
+        contact_email=os.environ.get("CONTACT_EMAIL", "ytevil68@gmail.com"),
+    )
+
+
 @app.before_request
 def update_last_online():
     if "user" in session:
@@ -113,7 +131,11 @@ def inject_nav_notifications():
     so admins see a notification dot without each route wiring it through."""
     uid = session.get("user", {}).get("uid", "")
     count = len(get_all_meetings(status="pending")) if is_admin(uid) else 0
-    return {"nav_pending_count": count}
+    return {
+        "nav_pending_count": count,
+        # Drives the Activity badge in the drawer on every page.
+        "nav_action_count": pending_action_count(uid) if uid else 0,
+    }
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -189,6 +211,16 @@ def profile():
 @app.route("/profile/edit", methods=["GET", "POST"])
 def profile_edit():
     return edit_profile_route()
+
+
+@app.route("/activity")
+def activity():
+    return activity_route()
+
+
+@app.route("/explore")
+def explore():
+    return explore_route()
 
 
 @app.route("/settings")

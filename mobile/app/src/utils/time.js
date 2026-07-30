@@ -43,3 +43,64 @@ export function formatCountdown(totalSeconds) {
   if (minutes > 0) return `${minutes}m ${seconds}s`;
   return `${seconds}s`;
 }
+
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const pad = (n) => String(n).padStart(2, "0");
+
+/**
+ * "Today · 18:00" / "Tomorrow · 09:30" / "Fri 31 Jul · 18:00".
+ *
+ * Cards were printing the stored string verbatim — "2026-06-11 08:00" — which
+ * is a database value, not a date anyone reads. Today and tomorrow are named
+ * because that is the distinction worth making at a glance; the year is dropped
+ * unless it differs from the current one.
+ */
+export function formatWhen(timeStr) {
+  const at = parseTime(timeStr);
+  if (!at) return timeStr || "";
+
+  const now = new Date();
+  const sameDay = (a, b) =>
+    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+
+  const tomorrow = new Date(now);
+  tomorrow.setDate(now.getDate() + 1);
+
+  const clock = `${pad(at.getHours())}:${pad(at.getMinutes())}`;
+  if (sameDay(at, now)) return `Today · ${clock}`;
+  if (sameDay(at, tomorrow)) return `Tomorrow · ${clock}`;
+
+  const year = at.getFullYear() === now.getFullYear() ? "" : ` ${at.getFullYear()}`;
+  return `${DAYS[at.getDay()]} ${at.getDate()} ${MONTHS[at.getMonth()]}${year} · ${clock}`;
+}
+
+/**
+ * "in 6 days" / "in 3h" / "in 25 min" / "Started".
+ *
+ * The long form from formatTimeUntil ("2 days and 3h left till start") is right
+ * for a detail screen but wraps onto two lines in a card corner, so this is the
+ * badge-sized version of the same idea.
+ */
+export function formatRelative(timeStr) {
+  const at = parseTime(timeStr);
+  if (!at) return "";
+
+  const diffMs = at.getTime() - Date.now();
+  if (diffMs <= 0) return "Started";
+
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 60) return `in ${Math.max(1, minutes)} min`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `in ${hours}h`;
+
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `in ${days} ${days === 1 ? "day" : "days"}`;
+
+  const weeks = Math.floor(days / 7);
+  if (days < 30) return `in ${weeks} ${weeks === 1 ? "week" : "weeks"}`;
+
+  const months = Math.floor(days / 30);
+  return `in ${months} ${months === 1 ? "month" : "months"}`;
+}

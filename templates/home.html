@@ -12,7 +12,13 @@
     <!-- Full-bleed map: it fills the viewport and everything else floats on top -->
     <div id="map"></div>
 
-    <!-- Hamburger menu (Home has no bottom bar; the drawer replaces it) -->
+    <!-- Hamburger menu (Home has no bottom bar; the drawer replaces it).
+         active_page has to be set before the include: home_menu.html keys the
+         button's over-the-map styling off it, and without it the button fell
+         back to the light .on-page pill — white on a light basemap, which is
+         why the hamburger looked missing here. It also drives the drawer's
+         active row. -->
+    {% set active_page = 'home' %}
     {% include 'home_menu.html' %}
 
     <!-- Icon-only locate button -->

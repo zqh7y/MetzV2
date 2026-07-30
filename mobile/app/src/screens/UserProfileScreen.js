@@ -4,6 +4,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
 import TrustBadge from "../components/TrustBadge";
+import ReliabilityCard from "../components/ReliabilityCard";
+import Appear from "../components/Appear";
+import CountUp from "../components/CountUp";
 import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
 import { RADIUS, SHADOW } from "../styles/theme";
@@ -80,7 +83,15 @@ export default function UserProfileScreen({ route }) {
         ) : null}
       </View>
 
+      {/* No "to confirm" chip here: user_profile.html prints only the settled
+          counts, because someone else's unanswered meetings are not the
+          viewer's business. */}
+      <Appear delay={40}>
+        <ReliabilityCard reliability={user.reliability} style={styles.reliability} />
+      </Appear>
+
       {status ? (
+        <Appear delay={100}>
         <View style={styles.statusCard}>
           <View style={styles.statusEmoji}>
             <Text style={{ fontSize: 22 }}>{status.current.emoji}</Text>
@@ -91,16 +102,20 @@ export default function UserProfileScreen({ route }) {
             <Text style={styles.statusBlurb}>{status.current.blurb}</Text>
           </View>
         </View>
+        </Appear>
       ) : null}
 
-      <View style={styles.statsRow}>
-        <Stat styles={styles} number={user.meetings_created} label="Created" />
-        <View style={styles.statDivider} />
-        <Stat styles={styles} number={user.meetings_joined} label="Joined" />
-        <View style={styles.statDivider} />
-        <Stat styles={styles} number={user.meetings_swiped} label="Swiped" />
-      </View>
+      <Appear delay={160}>
+        <View style={styles.statsRow}>
+          <Stat styles={styles} number={user.meetings_created} label="Created" />
+          <View style={styles.statDivider} />
+          <Stat styles={styles} number={user.meetings_joined} label="Joined" />
+          <View style={styles.statDivider} />
+          <Stat styles={styles} number={user.meetings_swiped} label="Swiped" />
+        </View>
+      </Appear>
 
+      <Appear delay={220}>
       <View style={styles.activity}>
         <View style={styles.activityRow}>
           <Text style={styles.activityIcon}>📅</Text>
@@ -117,6 +132,7 @@ export default function UserProfileScreen({ route }) {
           </View>
         </View>
       </View>
+      </Appear>
     </ScrollView>
   );
 }
@@ -124,7 +140,7 @@ export default function UserProfileScreen({ route }) {
 function Stat({ number, label, styles }) {
   return (
     <View style={styles.stat}>
-      <Text style={styles.statNumber}>{number ?? 0}</Text>
+      <CountUp value={number ?? 0} style={styles.statNumber} />
       <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
@@ -141,6 +157,7 @@ const makeStyles = (t) => StyleSheet.create({
   uid: { fontSize: 12, color: t.text3, marginTop: 4, marginBottom: 16 },
   trustBtn: { backgroundColor: t.accent, borderRadius: 24, paddingVertical: 12, paddingHorizontal: 24 },
   trustBtnText: { color: t.surface, fontFamily: FONTS.accentMedium },
+  reliability: { marginHorizontal: 16, marginBottom: 14 },
   statusCard: {
     flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: t.surface,
     marginHorizontal: 16, borderRadius: 16, padding: 16, marginBottom: 14,

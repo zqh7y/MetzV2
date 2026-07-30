@@ -62,6 +62,10 @@
         </div>
     </div>
 
+    <!-- Below the hero everything pairs up into two columns on a desktop;
+         on a phone this wrapper has no styles at all and the blocks stack. -->
+    <div class="profile-sections-grid">
+
     <!-- Attendance record — the number that makes a join mean something -->
     <div class="reliability-card {% if reliability.score is none %}is-empty{% elif reliability.score >= 70 %}is-good{% elif reliability.score >= 40 %}is-mixed{% else %}is-poor{% endif %}">
         <div class="reliability-main">
@@ -204,8 +208,9 @@
     </div>
     {% endif %}
 
-    <!-- My Meetings — the old /joined page, folded in as a section -->
-    <div class="profile-section">
+    <!-- My Meetings — the old /joined page, folded in as a section.
+         A list this tall gets the full width rather than half of it. -->
+    <div class="profile-section is-wide">
         <div class="profile-section-head">
             <h3 class="profile-section-title">🤝 My Meetings</h3>
             <div class="segmented" id="mymeetings-segmented">
@@ -285,6 +290,8 @@
         </div>
     </div>
 
+    </div><!-- /.profile-sections-grid -->
+
     <!-- Actions -->
     <div class="profile-actions">
         {% if is_admin %}
@@ -328,7 +335,7 @@
     </div>
 
     {% set active_page = 'profile' %}
-    {% include 'nav.html' %}
+    {% include 'home_menu.html' %}
 </div>
 
 <script>

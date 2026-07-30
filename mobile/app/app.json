@@ -6,18 +6,28 @@
     "scheme": "metz",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "icon": "./assets/icon.png",
     "splash": {
-      "backgroundColor": "#667eea"
+      "image": "./assets/splash.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#0d9c8a"
     },
     "assetBundlePatterns": [
       "**/*"
     ],
     "android": {
       "package": "com.metz.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0d9c8a"
+      },
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION"
       ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
     },
     "ios": {
       "bundleIdentifier": "com.metz.app"
@@ -31,7 +41,8 @@
     "owner": "justariel",
     "plugins": [
       "expo-font",
-      "@maplibre/maplibre-react-native"
+      "@maplibre/maplibre-react-native",
+      "@react-native-community/datetimepicker"
     ]
   }
 }

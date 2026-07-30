@@ -1,16 +1,21 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity, Linking, ScrollView, ActivityIndicator,
+  Platform,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
 import TrustBadge from "../components/TrustBadge";
 import TagChip from "../components/TagChip";
+import WebMap from "../components/WebMap";
+import useMyLocation from "../hooks/useMyLocation";
+import { MapPinIcon } from "../components/NavIcons";
 import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
 import { RADIUS, SHADOW } from "../styles/theme";
 import { formatTimeUntil } from "../utils/time";
+import { fetchRoute, formatRoute } from "../utils/route";
 
 // Mirrors the web's /meeting/<id> page: a tinted hero, then the details in
 // bordered sections on the neutral background.
@@ -28,6 +33,45 @@ export default function MeetingDetailScreen({ route, navigation }) {
   const [notice, setNotice] = useState(null);   // { kind: "ok" | "bad", text }
   const [attendees, setAttendees] = useState([]);
   const [loadingAttendees, setLoadingAttendees] = useState(true);
+
+  // ─── Where, and how to get there ───────────────────────────────────────
+  const hasPlace = !isOnline && typeof meeting.lat === "number" && typeof meeting.lng === "number";
+  const myPosition = useMyLocation(hasPlace);
+  const [routeInfo, setRouteInfo] = useState(null);
+  // "idle" until both ends are known, then "loading" → "done" | "none"
+  const [routeState, setRouteState] = useState("idle");
+
+  useEffect(() => {
+    if (!hasPlace || !myPosition) return undefined;
+
+    let cancelled = false;
+    setRouteState("loading");
+
+    fetchRoute(myPosition, { lat: meeting.lat, lng: meeting.lng }).then((result) => {
+      if (cancelled) return;
+      setRouteInfo(result);
+      setRouteState(result ? "done" : "none");
+    });
+
+    return () => { cancelled = true; };
+    // Re-routing on every GPS twitch would hammer a shared public service, so
+    // this keys on the first fix rather than on every update.
+  }, [hasPlace, !!myPosition, meeting.lat, meeting.lng]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Hand off to whatever maps app the phone actually has. */
+  const openInMaps = useCallback(() => {
+    if (!hasPlace) return;
+    const label = encodeURIComponent(meeting.title || "Meeting");
+    const url = Platform.select({
+      // Apple Maps takes a saddr/daddr pair; geo: is the Android intent, and
+      // both fall back to the destination alone if there is no origin yet.
+      ios: myPosition
+        ? `http://maps.apple.com/?saddr=${myPosition.latitude},${myPosition.longitude}&daddr=${meeting.lat},${meeting.lng}`
+        : `http://maps.apple.com/?daddr=${meeting.lat},${meeting.lng}`,
+      default: `geo:${meeting.lat},${meeting.lng}?q=${meeting.lat},${meeting.lng}(${label})`,
+    });
+    Linking.openURL(url).catch(() => {});
+  }, [hasPlace, myPosition, meeting.lat, meeting.lng, meeting.title]);
 
   const loadAttendees = useCallback(() => {
     api.getAttendees(meeting.id)
@@ -130,6 +174,61 @@ export default function MeetingDetailScreen({ route, navigation }) {
               <Text style={styles.callSub}>Join this meeting and the link appears here.</Text>
             </>
           )}
+        </View>
+      ) : hasPlace ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>📍 Where</Text>
+          {meeting.location ? <Text style={styles.body}>{meeting.location}</Text> : null}
+
+          {/*
+            Always the WebView map here, not the MapShim branch the other
+            screens use. The route is drawn as Leaflet polylines inside that
+            document; the native MapLibre path would need its own line layers
+            to match, and it is unreachable in Expo Go anyway. Worth revisiting
+            if a dev build ever becomes the primary target.
+          */}
+          <View style={styles.mapWrap}>
+            <WebMap
+              style={styles.map}
+              theme={theme}
+              center={[meeting.lng, meeting.lat]}
+              zoom={15}
+              markers={[{
+                id: meeting.id,
+                lat: meeting.lat,
+                lng: meeting.lng,
+                title: meeting.title,
+                kind: "inperson",
+              }]}
+              me={myPosition ? { lat: myPosition.latitude, lng: myPosition.longitude } : null}
+              route={routeInfo?.coordinates || null}
+            />
+          </View>
+
+          <View style={styles.routeRow}>
+            <View style={styles.routeInfo}>
+              {routeState === "done" ? (
+                <>
+                  <Text style={styles.routeIcon}>🧭</Text>
+                  <Text style={styles.routeText}>{formatRoute(routeInfo)} from you</Text>
+                </>
+              ) : routeState === "loading" ? (
+                <>
+                  <ActivityIndicator size="small" color={theme.accent} />
+                  <Text style={styles.routeMuted}>Finding route…</Text>
+                </>
+              ) : routeState === "none" ? (
+                <Text style={styles.routeMuted}>No driving route found.</Text>
+              ) : (
+                <Text style={styles.routeMuted}>Turn on location to see the way there.</Text>
+              )}
+            </View>
+
+            <TouchableOpacity style={styles.directionsBtn} onPress={openInMaps} activeOpacity={0.85}>
+              <MapPinIcon size={14} color={theme.accentOn} />
+              <Text style={styles.directionsText}>Directions</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       ) : meeting.location ? (
         <View style={styles.section}>
@@ -301,6 +400,32 @@ const makeStyles = (t) => StyleSheet.create({
   count: { fontFamily: FONTS.accentMedium, color: t.text2, fontSize: 13 },
   body: { fontSize: 14.5, color: t.text2, lineHeight: 21 },
   tagsRow: { flexDirection: "row", flexWrap: "wrap", marginTop: 10 },
+
+  mapWrap: {
+    height: 210,
+    borderRadius: RADIUS.base,
+    borderWidth: 1.5,
+    borderColor: t.border,
+    overflow: "hidden",
+    marginTop: 12,
+  },
+  map: { flex: 1 },
+  routeRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 11 },
+  routeInfo: { flex: 1, flexDirection: "row", alignItems: "center", gap: 7 },
+  routeIcon: { fontSize: 14 },
+  routeText: { flexShrink: 1, fontSize: 13, fontFamily: FONTS.accentMedium, color: t.text },
+  routeMuted: { flexShrink: 1, fontSize: 12.5, color: t.text3 },
+  directionsBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: RADIUS.pill,
+    paddingHorizontal: 15,
+    paddingVertical: 9,
+    backgroundColor: t.accent,
+    ...SHADOW.s1,
+  },
+  directionsText: { color: t.accentOn, fontFamily: FONTS.accent, fontSize: 12.5 },
 
   joinBtn: {
     marginTop: 18,

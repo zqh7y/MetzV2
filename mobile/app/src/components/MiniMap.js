@@ -1,8 +1,8 @@
-import React, { useMemo } from "react";
-import { View, Image, StyleSheet } from "react-native";
+import React, { useEffect, useMemo, useRef } from "react";
+import { View, Image, StyleSheet, Animated, Easing } from "react-native";
 
 /**
- * The little map at the top of a For You card (the web's `.card-map`).
+ * The little map on a For You card (the web's `.foryou-map` / `.mini-pin`).
  *
  * The web mounts a real MapLibre instance per card, but has to cap how many
  * live at once and evict the ones furthest from the viewport, because a dozen
@@ -16,7 +16,12 @@ import { View, Image, StyleSheet } from "react-native";
  * centre — which is what makes the pin sit on the venue rather than near it.
  */
 const TILE = 256;
-const ZOOM = 14;
+// The web mounts these at zoom 14.2. Tile URLs only exist at whole zooms, so
+// the grid is fetched at 14 and scaled by the remaining 0.2 of a doubling —
+// which is exactly what a GL map does between integer zoom levels.
+const TILE_ZOOM = 14;
+const ZOOM = 14.2;
+const SCALE = Math.pow(2, ZOOM - TILE_ZOOM);
 const SUBDOMAINS = ["a", "b", "c", "d"];
 
 function tileUrl(x, y, z, dark) {
@@ -34,21 +39,26 @@ function project(lat, lng, z) {
   return { x, y };
 }
 
-export default function MiniMap({ lat, lng, width, height, accent, dark, style }) {
+function MiniMap({ lat, lng, width, height, accent, glow, dark, reduceMotion, style }) {
+  // The tile grid is laid out in unscaled pixels and then scaled up, so it has
+  // to cover a correspondingly smaller slice of the card.
+  const viewW = width / SCALE;
+  const viewH = height / SCALE;
+
   const tiles = useMemo(() => {
     if (typeof lat !== "number" || typeof lng !== "number") return null;
 
-    const { x: worldX, y: worldY } = project(lat, lng, ZOOM);
+    const { x: worldX, y: worldY } = project(lat, lng, TILE_ZOOM);
     // The rectangle of world pixels the card actually shows, centred on the venue.
-    const left = worldX - width / 2;
-    const top = worldY - height / 2;
+    const left = worldX - viewW / 2;
+    const top = worldY - viewH / 2;
 
     const firstX = Math.floor(left / TILE);
     const firstY = Math.floor(top / TILE);
-    const lastX = Math.floor((left + width) / TILE);
-    const lastY = Math.floor((top + height) / TILE);
+    const lastX = Math.floor((left + viewW) / TILE);
+    const lastY = Math.floor((top + viewH) / TILE);
 
-    const max = Math.pow(2, ZOOM);
+    const max = Math.pow(2, TILE_ZOOM);
     const out = [];
     for (let ty = firstY; ty <= lastY; ty += 1) {
       for (let tx = firstX; tx <= lastX; tx += 1) {
@@ -57,45 +67,119 @@ export default function MiniMap({ lat, lng, width, height, accent, dark, style }
         if (ty < 0 || ty >= max) continue;
         out.push({
           key: `${tx}/${ty}`,
-          uri: tileUrl(wrappedX, ty, ZOOM, dark),
+          uri: tileUrl(wrappedX, ty, TILE_ZOOM, dark),
           left: tx * TILE - left,
           top: ty * TILE - top,
         });
       }
     }
     return out;
-  }, [lat, lng, width, height, dark]);
+  }, [lat, lng, viewW, viewH, dark]);
+
+  /**
+   * .mini-pin::after — miniPulse 2.4s ease-out, scale 0.5 → 1.6.
+   *
+   * The web runs this forever; here it stops after three beats. A shelf holds a
+   * dozen of these, and an animation that never ends means the screen never
+   * stops compositing — part of why the app could not go idle. Three pulses
+   * still pulls the eye to the pin on arrival, then lets the screen settle.
+   */
+  const pulse = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (reduceMotion) {
+      pulse.setValue(0);
+      return undefined;
+    }
+    const loop = Animated.loop(
+      Animated.timing(pulse, {
+        toValue: 1,
+        duration: 2400,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
+      { iterations: 3 }
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulse, reduceMotion]);
 
   if (!tiles) return null;
 
   return (
     <View style={[styles.wrap, { width, height }, style]}>
-      {tiles.map((t) => (
-        <Image
-          key={t.key}
-          source={{ uri: t.uri }}
-          style={[styles.tile, { left: t.left, top: t.top }]}
-          fadeDuration={0}
-        />
-      ))}
+      {/* Unscaled grid, blown up to the card's size around its own centre. */}
+      <View
+        style={[
+          styles.grid,
+          {
+            width: viewW,
+            height: viewH,
+            left: (width - viewW) / 2,
+            top: (height - viewH) / 2,
+            transform: [{ scale: SCALE }],
+          },
+        ]}
+      >
+        {tiles.map((t) => (
+          <Image
+            key={t.key}
+            source={{ uri: t.uri }}
+            style={[styles.tile, { left: t.left, top: t.top }]}
+            fadeDuration={0}
+          />
+        ))}
+      </View>
+
+      <Animated.View
+        style={[
+          styles.pulse,
+          {
+            backgroundColor: glow || accent,
+            opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.8, 0] }),
+            transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1.6] }) }],
+          },
+        ]}
+      />
       <View style={[styles.pin, { backgroundColor: accent }]} />
     </View>
   );
 }
 
+// Everything here is derived from the props, and the pulse runs on its own
+// Animated value, so an unchanged coordinate never needs redrawing.
+export default React.memo(MiniMap);
+
 const styles = StyleSheet.create({
-  wrap: { overflow: "hidden", backgroundColor: "#dfe3ea" },
+  wrap: {
+    overflow: "hidden",
+    // .foryou-map's translucent white plate, which is what shows through while
+    // the tiles are still loading.
+    backgroundColor: "rgba(255,255,255,0.18)",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.4)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  grid: { position: "absolute" },
   tile: { position: "absolute", width: TILE, height: TILE },
+  pulse: {
+    position: "absolute",
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+  },
   pin: {
     position: "absolute",
-    left: "50%",
-    top: "50%",
     width: 16,
     height: 16,
     borderRadius: 8,
     borderWidth: 3,
     borderColor: "#fff",
-    marginLeft: -8,
-    marginTop: -8,
+    shadowColor: "#000",
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
 });

@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block title %}Explore{% endblock %}
+
+{% block content %}
+<div class="exp-page">
+
+    <header class="exp-header">
+        <h1 class="exp-title">Explore</h1>
+        <p class="exp-sub">
+            {{ total }} meeting{{ 's' if total != 1 }}{% if q or tag or kind != 'all' or when != 'any' or hide_joined %} match your filters{% endif %}.
+        </p>
+    </header>
+
+    <!-- Filters submit normally so the URL carries the view and can be
+         shared or bookmarked; JS only saves you a click on the selects. -->
+    <form class="exp-filters" method="get" action="/explore" id="exp-form">
+        <div class="exp-search-wrap">
+            <span class="exp-search-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="18" height="18">
+                    <circle cx="11" cy="11" r="7"/><line x1="20" y1="20" x2="16.7" y2="16.7"/>
+                </svg>
+            </span>
+            <input class="exp-search" type="search" name="q" value="{{ q }}"
+                   placeholder="Search title, description, place or organiser…"
+                   autocapitalize="none" spellcheck="false">
+        </div>
+
+        <div class="exp-chips" role="group" aria-label="Meeting type">
+            {% for value, label in [('all', 'All'), ('inperson', '📍 In-person'), ('online', '🌐 Online')] %}
+            <button type="submit" name="kind" value="{{ value }}"
+                    class="exp-chip {% if kind == value %}is-on{% endif %}">{{ label }}</button>
+            {% endfor %}
+        </div>
+
+        <div class="exp-selects">
+            <label class="exp-select-wrap">
+                <span class="exp-select-label">When</span>
+                <select name="when" onchange="document.getElementById('exp-form').submit()">
+                    {% for value, label in [('any','Any time'), ('today','Next 24 hours'), ('week','This week'), ('month','This month')] %}
+                    <option value="{{ value }}" {% if when == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+
+            <label class="exp-select-wrap">
+                <span class="exp-select-label">Interest</span>
+                <select name="tag" onchange="document.getElementById('exp-form').submit()">
+                    <option value="">Any interest</option>
+                    {% for t in all_tags %}
+                    <option value="{{ t }}" {% if tag == t %}selected{% endif %}>{{ t }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+
+            <label class="exp-select-wrap">
+                <span class="exp-select-label">Sort</span>
+                <select name="sort" onchange="document.getElementById('exp-form').submit()">
+                    {% for value, label in [('soonest','Starting soonest'), ('popular','Most people'), ('newest','Recently added')] %}
+                    <option value="{{ value }}" {% if sort == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+
+            <label class="exp-toggle">
+                <input type="checkbox" name="hide_joined" value="1"
+                       {% if hide_joined %}checked{% endif %}
+                       onchange="document.getElementById('exp-form').submit()">
+                <span>Hide ones I've joined</span>
+            </label>
+        </div>
+
+        {% if q or tag or kind != 'all' or when != 'any' or hide_joined %}
+        <a class="exp-clear" href="/explore">Clear filters</a>
+        {% endif %}
+    </form>
+
+    {% if meetings %}
+    <div class="exp-grid">
+        {% for m in meetings %}
+        <a class="exp-card" href="/meeting/{{ m.id }}">
+            <div class="exp-card-top">
+                <span class="exp-card-badge {% if m.is_online %}is-online{% endif %}">
+                    {{ '🌐 Online' if m.is_online else '📍 In-person' }}
+                </span>
+                {% if m.is_joined %}<span class="exp-card-joined">Joined</span>{% endif %}
+            </div>
+
+            <h3 class="exp-card-title">{{ m.emoji }} {{ m.title }}</h3>
+            <div class="exp-card-when" data-time="{{ m.time }}">{{ m.time }}</div>
+            {% if m.where %}<div class="exp-card-where">{{ m.where }}</div>{% endif %}
+            <p class="exp-card-desc">{{ m.description }}</p>
+
+            {% if m.tags %}
+            <div class="exp-card-tags">
+                {% for t in m.tags[:3] %}<span class="exp-card-tag">{{ t }}</span>{% endfor %}
+            </div>
+            {% endif %}
+
+            {% if m.has_threshold %}
+            <div class="exp-card-threshold {% if m.commit_status == 'confirmed' %}is-confirmed{% endif %}">
+                <span class="exp-threshold-bar">
+                    <span class="exp-threshold-fill"
+                          style="width: {{ ((m.joined_count / m.min_attendees * 100) if m.min_attendees else 0) | round | int }}%"></span>
+                </span>
+                <span class="exp-threshold-text">{{ m.joined_count }} of {{ m.min_attendees }} committed</span>
+            </div>
+            {% endif %}
+
+            <div class="exp-card-foot">
+                <span class="exp-faces">
+                    {% for p in m.joined_preview %}
+                    <span class="exp-face" style="background: {{ p.color }}">{{ p.initial }}</span>
+                    {% endfor %}
+                </span>
+                <span class="exp-card-count">{{ m.joined_count }} going</span>
+                <span class="exp-card-host">{{ m.creator_username }}{% if m.creator_is_trusted %} ★{% endif %}</span>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="exp-empty">
+        <span class="exp-empty-icon">🔍</span>
+        <h2 class="exp-empty-title">Nothing matches that</h2>
+        <p class="exp-empty-text">Try a wider time range, or clear the filters.</p>
+        <a class="exp-empty-btn" href="/explore">Show everything</a>
+    </div>
+    {% endif %}
+
+    {% set active_page = 'explore' %}
+    {% include 'home_menu.html' %}
+</div>
+
+<script>
+    document.querySelectorAll('.exp-card-when[data-time]').forEach(function (el) {
+        var rel = formatTimeUntil(el.dataset.time);
+        if (rel) el.textContent = el.dataset.time + ' · ' + rel;
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Privacy Policy{% endblock %}
+
+{% block content %}
+<div class="settings-page">
+
+    <div class="settings-header">
+        <a href="/" class="settings-back" title="Back">‹</a>
+        <h2 class="settings-title">Privacy Policy</h2>
+    </div>
+
+    <div class="profile-section">
+        <p class="settings-hint">Last updated: {{ updated }}</p>
+        <p class="settings-note">
+            Metz is a small app for finding and organising meetups. This page explains exactly what
+            it stores, why, and how to get rid of it. Google Play requires a policy like this because
+            the app can ask for your location.
+        </p>
+    </div>
+
+    <div class="profile-section">
+        <h3 class="profile-section-title">What is collected</h3>
+        <div class="settings-row">
+            <span class="settings-row-label">Account</span>
+            <span class="settings-row-value">Email address and a display name</span>
+        </div>
+        <div class="settings-row">
+            <span class="settings-row-label">Profile</span>
+            <span class="settings-row-value">Optional bio and avatar emoji</span>
+        </div>
+        <div class="settings-row">
+            <span class="settings-row-label">Activity</span>
+            <span class="settings-row-value">Meetings you create, join or are marked as attending</span>
+        </div>
+        <div class="settings-row">
+            <span class="settings-row-label">Location</span>
+            <span class="settings-row-value">Approximate position, only while the app is open</span>
+        </div>
+    </div>
+
+    <div class="profile-section">
+        <h3 class="profile-section-title">How location is used</h3>
+        <p class="settings-note">
+            Location is used for one thing: drawing a marker for where you are on the map, so you can
+            tell how far away a meeting is. It is read only while the app is open, it is never
+            recorded on the server, and it is never attached to your account or shared with anyone.
+            Declining the permission leaves every other part of the app working.
+        </p>
+    </div>
+
+    <div class="profile-section">
+        <h3 class="profile-section-title">What other people can see</h3>
+        <p class="settings-note">
+            Your display name, avatar, account status and show-up rate are visible to other signed-in
+            users, along with the meetings you have joined. Your email address is shown only to you
+            and to administrators. Nothing in Metz is visible to people who are not signed in.
+        </p>
+    </div>
+
+    <div class="profile-section">
+        <h3 class="profile-section-title">Storage and sharing</h3>
+        <p class="settings-note">
+            Data is held in the app's own database, and the stored records are encrypted at rest.
+            Sign-in is handled by Google Firebase Authentication, which receives your email address
+            for that purpose. Nothing is sold, and nothing is shared with advertisers or analytics
+            companies — there are none in this app.
+        </p>
+    </div>
+
+    <div class="profile-section">
+        <h3 class="profile-section-title">Deleting your data</h3>
+        <p class="settings-note">
+            Email <strong>{{ contact_email }}</strong> from the address on the account and it will be
+            deleted, along with the meetings you created and your attendance history. There is no
+            waiting period and no need to give a reason.
+        </p>
+    </div>
+
+    <div class="profile-section">
+        <h3 class="profile-section-title">Children</h3>
+        <p class="settings-note">
+            Metz is not directed at children under 13, and accounts are not knowingly created for
+            them. If you believe one exists, use the contact address above and it will be removed.
+        </p>
+    </div>
+
+    <div class="profile-section">
+        <h3 class="profile-section-title">Contact</h3>
+        <p class="settings-note">Questions about any of the above: <strong>{{ contact_email }}</strong></p>
+    </div>
+
+</div>
+{% endblock %}

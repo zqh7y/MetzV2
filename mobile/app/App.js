@@ -5,7 +5,7 @@ import { Text, ActivityIndicator, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
-import { Poppins_600SemiBold, Poppins_700Bold } from "@expo-google-fonts/poppins";
+import { Poppins_600SemiBold, Poppins_700Bold, Poppins_800ExtraBold } from "@expo-google-fonts/poppins";
 import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from "@expo-google-fonts/inter";
 import { SpaceGrotesk_500Medium, SpaceGrotesk_700Bold } from "@expo-google-fonts/space-grotesk";
 import { FONTS } from "./src/styles/fonts";
@@ -24,6 +24,8 @@ import UserProfileScreen from "./src/screens/UserProfileScreen";
 import SettingsScreen from "./src/screens/SettingsScreen";
 import EditProfileScreen from "./src/screens/EditProfileScreen";
 import AdminDashboardScreen from "./src/screens/AdminDashboardScreen";
+import ExploreScreen from "./src/screens/ExploreScreen";
+import ActivityScreen from "./src/screens/ActivityScreen";
 
 const AuthStack = createNativeStackNavigator();
 const RootStack = createNativeStackNavigator();
@@ -56,7 +58,12 @@ function MainNavigator() {
       }}
     >
       <RootStack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
-      <RootStack.Screen name="Create" component={CreateScreen} options={{ title: "Create a meeting" }} />
+      {/* Title left empty on purpose: Create draws its own header (the web's
+          .create-header), so a nav title too would say the same thing twice.
+          The header stays mounted for the back chevron. */}
+      <RootStack.Screen name="Create" component={CreateScreen} options={{ title: "" }} />
+      <RootStack.Screen name="Explore" component={ExploreScreen} options={{ title: "Explore" }} />
+      <RootStack.Screen name="Activity" component={ActivityScreen} options={{ title: "Activity" }} />
       <RootStack.Screen name="Profile" component={ProfileScreen} options={{ title: "My profile" }} />
       <RootStack.Screen name="MeetingDetail" component={MeetingDetailScreen} options={{ title: "Meeting" }} />
       <RootStack.Screen name="AdminPending" component={AdminPendingScreen} options={{ title: "Pending Meetings" }} />
@@ -106,6 +113,7 @@ export default function App() {
   const [fontsLoaded] = useFonts({
     Poppins_600SemiBold,
     Poppins_700Bold,
+    Poppins_800ExtraBold,
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,

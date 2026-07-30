@@ -1075,7 +1075,20 @@ document.addEventListener("DOMContentLoaded", function () {
         return h * 0.06;
     }
 
+    /** Desktop docks the sheet as a left-hand panel (see the min-width: 900px
+     *  block in style.css). The drag-to-peek model has nothing to drag there,
+     *  and the map is beside the panel rather than behind it. */
+    function isDocked() {
+        return window.matchMedia('(min-width: 900px)').matches;
+    }
+
     function syncMapPadding() {
+        if (isDocked()) {
+            // Leave room on the left instead of the bottom, or flyTo() would
+            // centre pins underneath the panel.
+            map.setPadding({ top: 20, right: 20, bottom: 20, left: sheet.getBoundingClientRect().width + 20 });
+            return;
+        }
         var visible = window.innerHeight - sheetTop(sheetState);
         map.setPadding({ top: 20, right: 20, left: 20, bottom: Math.min(visible, window.innerHeight * 0.6) });
     }
@@ -1083,8 +1096,12 @@ document.addEventListener("DOMContentLoaded", function () {
     function setSheetState(state) {
         sheetState = state;
         sheet.dataset.state = state;
-        sheet.style.transition = 'transform 0.46s cubic-bezier(0.34, 1.32, 0.5, 1)';
-        sheet.style.transform = 'translateY(' + sheetTop(state) + 'px)';
+        // Docked, the panel's position is the stylesheet's business; writing a
+        // transform here would slide it off the screen.
+        if (!isDocked()) {
+            sheet.style.transition = 'transform 0.46s cubic-bezier(0.34, 1.32, 0.5, 1)';
+            sheet.style.transform = 'translateY(' + sheetTop(state) + 'px)';
+        }
         syncMapPadding();
     }
     window.setSheetState = setSheetState;
@@ -1093,6 +1110,7 @@ document.addEventListener("DOMContentLoaded", function () {
     var dragStartTop = 0;
 
     grabber.addEventListener('pointerdown', function (e) {
+        if (isDocked()) return;   // nothing to drag when the panel is docked
         dragStartY = e.clientY;
         dragStartTop = sheetTop(sheetState);
         sheet.style.transition = 'none';

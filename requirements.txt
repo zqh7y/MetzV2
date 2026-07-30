@@ -4,3 +4,7 @@ requests==2.32.5
 firebase_admin==7.1.0
 python-dotenv==1.0.1
 pymysql==1.2.0
+# data.py imports Fernet directly. It currently arrives as a firebase_admin
+# dependency, so a future version of that package dropping it would break
+# start-up on a fresh install — pin it as the direct dependency it is.
+cryptography==46.0.3

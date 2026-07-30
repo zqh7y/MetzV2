@@ -8,11 +8,34 @@ import { LinearGradient } from "expo-linear-gradient";
 import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
 import { RADIUS, SHADOW } from "../styles/theme";
+import {
+  HomeIcon, PlusIcon, UserIcon, PencilIcon, GearIcon,
+  ToolsIcon, ClockIcon, LogOutIcon, CloseIcon, CompassIcon, BellIcon,
+} from "./NavIcons";
 
 // The web port of templates/home_menu.html: Home has no bottom bar, so this
 // drawer holds everything the old nav did. Same items, same order, same
 // 82%-wide / 320px-max panel sliding in over a dark scrim.
 const DRAWER_MAX_WIDTH = 320;
+
+// Declared once rather than inline, so the stagger index and the route are
+// read off the same list instead of being kept in step by hand.
+// Same items in the same order as the web drawer (templates/home_menu.html),
+// so someone moving between the two finds the menu unchanged.
+const NAV_ITEMS = [
+  { route: "Home", label: "Home", Icon: HomeIcon },
+  { route: "Explore", label: "Explore", Icon: CompassIcon },
+  { route: "Activity", label: "Activity", Icon: BellIcon, badgeKey: "activity" },
+  { route: "Create", label: "Create a meeting", Icon: PlusIcon },
+  { route: "Profile", label: "My profile", Icon: UserIcon },
+  { route: "EditProfile", label: "Edit profile", Icon: PencilIcon },
+  { route: "Settings", label: "Settings", Icon: GearIcon },
+];
+
+const ADMIN_ITEMS = [
+  { route: "AdminDashboard", label: "Dashboard", Icon: ToolsIcon },
+  { route: "AdminPending", label: "Review meetings", Icon: ClockIcon },
+];
 
 export function MenuButton({ onPress, showDot }) {
   const { theme } = useTheme();
@@ -33,37 +56,83 @@ export function MenuButton({ onPress, showDot }) {
   );
 }
 
-function Item({ label, icon, active, badge, onPress, styles, theme }) {
+/**
+ * One nav row. `index` drives the open stagger: rows fade and slide in a beat
+ * apart so the panel reads as arriving rather than snapping into place.
+ */
+function Item({ label, Icon, active, badge, onPress, styles, theme, index = 0, progress, reduceMotion }) {
+  // Icons take the row's colour, which is the point of dropping the emoji.
+  const tint = active ? theme.accentStrong : theme.text2;
+
+  const rowStyle = reduceMotion
+    ? null
+    : {
+        opacity: progress,
+        transform: [
+          {
+            translateX: progress.interpolate({
+              inputRange: [0, 1],
+              // Each row starts a little further out, so they land in sequence.
+              outputRange: [-14 - index * 4, 0],
+            }),
+          },
+        ],
+      };
+
   return (
-    <Pressable
-      style={[styles.item, active && styles.itemActive]}
-      onPress={onPress}
-      android_ripple={{ color: theme.surface3 }}
-    >
-      <Text style={styles.itemIcon}>{icon}</Text>
-      <Text style={[styles.itemLabel, active && styles.itemLabelActive]}>{label}</Text>
-      <View style={{ flex: 1 }} />
-      {badge ? <Text style={styles.badge}>{badge > 99 ? "99+" : String(badge)}</Text> : null}
-    </Pressable>
+    <Animated.View style={rowStyle}>
+      <Pressable
+        style={[styles.item, active && styles.itemActive]}
+        onPress={onPress}
+        android_ripple={{ color: theme.surface3 }}
+      >
+        <View style={styles.itemIcon}>
+          <Icon size={20} color={tint} />
+        </View>
+        <Text style={[styles.itemLabel, active && styles.itemLabelActive]}>{label}</Text>
+        <View style={{ flex: 1 }} />
+        {badge ? <Text style={styles.badge}>{badge > 99 ? "99+" : String(badge)}</Text> : null}
+      </Pressable>
+    </Animated.View>
   );
 }
 
-export default function HomeDrawer({ open, onClose, navigation, activeRoute, isAdmin, pendingCount, onLogout }) {
-  const { theme } = useTheme();
+export default function HomeDrawer({
+  open, onClose, navigation, activeRoute, isAdmin, pendingCount, activityCount = 0, onLogout,
+}) {
+  const { theme, reduceMotion } = useTheme();
   const insets = useSafeAreaInsets();
   const { width: screenW } = useWindowDimensions();
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
   const width = Math.min(screenW * 0.82, DRAWER_MAX_WIDTH);
   const slide = useRef(new Animated.Value(0)).current;   // 0 closed, 1 open
+  // Runs just behind the panel so the rows settle after it, not with it.
+  const rows = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.timing(slide, {
-      toValue: open ? 1 : 0,
-      duration: open ? 320 : 260,
-      useNativeDriver: true,
-    }).start();
-  }, [open, slide]);
+    if (reduceMotion) {
+      slide.setValue(open ? 1 : 0);
+      rows.setValue(open ? 1 : 0);
+      return undefined;
+    }
+
+    const anim = Animated.parallel([
+      // A spring on the way in gives the panel some weight; closing stays a
+      // plain timing curve, because a bouncing dismissal reads as indecision.
+      open
+        ? Animated.spring(slide, { toValue: 1, useNativeDriver: true, speed: 14, bounciness: 4 })
+        : Animated.timing(slide, { toValue: 0, duration: 220, useNativeDriver: true }),
+      Animated.timing(rows, {
+        toValue: open ? 1 : 0,
+        duration: open ? 260 : 140,
+        delay: open ? 90 : 0,
+        useNativeDriver: true,
+      }),
+    ]);
+    anim.start();
+    return () => anim.stop();
+  }, [open, slide, rows, reduceMotion]);
 
   // Android back button closes the drawer instead of leaving the screen
   useEffect(() => {
@@ -112,21 +181,26 @@ export default function HomeDrawer({ open, onClose, navigation, activeRoute, isA
             <Text style={styles.sub}>Meet people nearby</Text>
           </View>
           <Pressable style={styles.close} onPress={onClose} hitSlop={8}>
-            <Text style={styles.closeText}>✕</Text>
+            <CloseIcon size={16} color={theme.text2} />
           </Pressable>
         </View>
 
         <ScrollView style={styles.nav} contentContainerStyle={{ paddingBottom: 8 }}>
-          <Item label="Home" icon="🏠" active={activeRoute === "Home"}
-                onPress={() => go("Home")} styles={styles} theme={theme} />
-          <Item label="Create a meeting" icon="➕" active={activeRoute === "Create"}
-                onPress={() => go("Create")} styles={styles} theme={theme} />
-          <Item label="My profile" icon="👤" active={activeRoute === "Profile"}
-                onPress={() => go("Profile")} styles={styles} theme={theme} />
-          <Item label="Edit profile" icon="✏️" active={activeRoute === "EditProfile"}
-                onPress={() => go("EditProfile")} styles={styles} theme={theme} />
-          <Item label="Settings" icon="⚙️" active={activeRoute === "Settings"}
-                onPress={() => go("Settings")} styles={styles} theme={theme} />
+          {NAV_ITEMS.map((item, i) => (
+            <Item
+              key={item.route}
+              label={item.label}
+              Icon={item.Icon}
+              active={activeRoute === item.route}
+              badge={item.badgeKey === "activity" ? activityCount : 0}
+              onPress={() => go(item.route)}
+              index={i}
+              progress={rows}
+              reduceMotion={reduceMotion}
+              styles={styles}
+              theme={theme}
+            />
+          ))}
 
           {isAdmin ? (
             <>
@@ -134,16 +208,28 @@ export default function HomeDrawer({ open, onClose, navigation, activeRoute, isA
                 <Text style={styles.dividerText}>ADMIN</Text>
                 <View style={styles.dividerLine} />
               </View>
-              <Item label="Dashboard" icon="🛠️" active={activeRoute === "AdminDashboard"}
-                    onPress={() => go("AdminDashboard")} styles={styles} theme={theme} />
-              <Item label="Review meetings" icon="⏳" badge={pendingCount}
-                    onPress={() => go("AdminPending")} styles={styles} theme={theme} />
+              {ADMIN_ITEMS.map((item, i) => (
+                <Item
+                  key={item.route}
+                  label={item.label}
+                  Icon={item.Icon}
+                  active={activeRoute === item.route}
+                  badge={item.route === "AdminPending" ? pendingCount : 0}
+                  onPress={() => go(item.route)}
+                  index={NAV_ITEMS.length + i}
+                  progress={rows}
+                  reduceMotion={reduceMotion}
+                  styles={styles}
+                  theme={theme}
+                />
+              ))}
             </>
           ) : null}
         </ScrollView>
 
         <Pressable style={styles.logout} onPress={() => { onClose(); onLogout(); }}>
-          <Text style={styles.logoutText}>⇥  Log out</Text>
+          <LogOutIcon size={19} color="#e74c3c" />
+          <Text style={styles.logoutText}>Log out</Text>
         </Pressable>
       </Animated.View>
     </>
@@ -216,7 +302,7 @@ const makeStyles = (t) => StyleSheet.create({
     overflow: "hidden",
   },
   itemActive: { backgroundColor: t.accentSoft },
-  itemIcon: { fontSize: 17, width: 22, textAlign: "center" },
+  itemIcon: { width: 22, alignItems: "center", justifyContent: "center" },
   itemLabel: { fontSize: 14.5, fontWeight: "600", color: t.text },
   itemLabelActive: { color: t.accentStrong, fontFamily: FONTS.headingSemi },
   badge: {
@@ -239,6 +325,7 @@ const makeStyles = (t) => StyleSheet.create({
   logout: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 13,
     marginHorizontal: 12,
     paddingVertical: 13,
     paddingHorizontal: 14,

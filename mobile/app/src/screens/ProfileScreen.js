@@ -5,7 +5,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
 import TrustBadge from "../components/TrustBadge";
+import ReliabilityCard from "../components/ReliabilityCard";
 import MeetingCard from "../components/MeetingCard";
+import Appear from "../components/Appear";
+import CountUp from "../components/CountUp";
 import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
 import { RADIUS, SHADOW } from "../styles/theme";
@@ -114,13 +117,24 @@ export default function ProfileScreen({ navigation }) {
         {profile.bio ? <Text style={styles.bio}>{profile.bio}</Text> : null}
       </View>
 
-      <View style={styles.statsRow}>
-        <Stat styles={styles} number={profile.meetings_created} label="Created" />
-        <Stat styles={styles} number={profile.meetings_joined} label="Joined" />
-        <Stat styles={styles} number={profile.meetings_swiped} label="Seen" />
-        <Stat styles={styles} number={status.stats.participants} label="Signed Up" />
-      </View>
+      {/* Blocks arrive a beat apart down the page, so the screen resolves in
+          reading order rather than all at once. */}
+      <Appear delay={40}>
+        <View style={styles.statsRow}>
+          <Stat styles={styles} number={profile.meetings_created} label="Created" />
+          <Stat styles={styles} number={profile.meetings_joined} label="Joined" />
+          <Stat styles={styles} number={profile.meetings_swiped} label="Seen" />
+          <Stat styles={styles} number={status.stats.participants} label="Signed Up" />
+        </View>
+      </Appear>
 
+      {/* The number that makes a join mean something — above Account Status,
+          in the same order profile.html puts them. */}
+      <Appear delay={100}>
+        <ReliabilityCard reliability={profile.reliability} showPending style={styles.reliability} />
+      </Appear>
+
+      <Appear delay={160}>
       <View style={styles.statusCard}>
         <View style={styles.statusHeader}>
           <View style={styles.statusEmoji}>
@@ -165,6 +179,7 @@ export default function ProfileScreen({ navigation }) {
           ))}
         </View>
       </View>
+      </Appear>
 
       {/* My Meetings — the old Joined tab, folded in here */}
       <View style={styles.section}>
@@ -292,7 +307,7 @@ export default function ProfileScreen({ navigation }) {
 function Stat({ number, label, styles }) {
   return (
     <View style={styles.stat}>
-      <Text style={styles.statNumber}>{number}</Text>
+      <CountUp value={number} style={styles.statNumber} />
       <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
@@ -313,6 +328,7 @@ const makeStyles = (t) => StyleSheet.create({
   stat: { alignItems: "center" },
   statNumber: { fontSize: 22, fontFamily: FONTS.accent, color: t.text },
   statLabel: { fontSize: 10, fontFamily: FONTS.bodySemi, color: t.text3, textTransform: "uppercase", marginTop: 2 },
+  reliability: { marginHorizontal: 16, marginTop: 16 },
   statusCard: { backgroundColor: t.surface, margin: 16, borderRadius: 18, padding: 18 },
   statusHeader: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 14 },
   statusEmoji: { width: 46, height: 46, borderRadius: 14, backgroundColor: t.accent, alignItems: "center", justifyContent: "center" },
