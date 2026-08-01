@@ -2,7 +2,7 @@ import math
 import hashlib
 import json
 import os
-import pymysql
+import psycopg
 from datetime import datetime, timedelta, timezone
 from cryptography.fernet import Fernet
 from utils.models import InPersonMeeting, OnlineMeeting
@@ -17,6 +17,17 @@ _next_meeting_id = 1
 # ── In-memory user registry (persists while server is running) ────────────────
 USERS_DB = {}
 
+# ── Reports of meetings or people, keyed by id ────────────────────────────────
+# Blocking lives on the user record instead (a "blocked_uids" list), because it
+# is a preference belonging to one person rather than a shared moderation item.
+REPORTS_DB = {}
+_next_report_id = 1
+
+# Private, account-scoped messages. Activity is for actions; the inbox is a
+# durable record of decisions and other messages from Metz.
+INBOX_DB = {}
+_next_inbox_id = 1
+
 # Accounts with permission to delete any meeting, not just their own.
 ADMIN_EMAILS = {"123@gmail.com", "1234@gmail.com", "test@gmail.com", "ytevil68@gmail.com"}
 
@@ -27,79 +38,92 @@ _LEGACY_DB_FILE = os.path.join(os.path.dirname(__file__), "app_data.db")
 
 
 def _get_connection():
-    conn = pymysql.connect(
-        host=os.environ.get("MYSQL_HOST", "127.0.0.1"),
-        port=int(os.environ.get("MYSQL_PORT", 3306)),
-        user=os.environ.get("MYSQL_USER", "root"),
-        password=os.environ.get("MYSQL_PASSWORD", ""),
-        database=os.environ.get("MYSQL_DATABASE", "metz_app"),
-        autocommit=True,
-    )
+    """Connect to the single Postgres database used by both Render services.
+
+    Render supplies DATABASE_URL as a secret. The application refuses to fall
+    back to a laptop-local database in production, preventing a public service
+    from appearing healthy while silently storing each worker's data nowhere.
+    """
+    database_url = os.environ.get("DATABASE_URL")
+    if not database_url:
+        raise RuntimeError("DATABASE_URL is required (use Render's internal Postgres URL).")
+    conn = psycopg.connect(database_url, autocommit=True)
     with conn.cursor() as cur:
         cur.execute("""
             CREATE TABLE IF NOT EXISTS meetings (
-                id INT PRIMARY KEY,
-                data LONGBLOB NOT NULL
+                id INTEGER PRIMARY KEY,
+                data BYTEA NOT NULL
             )
         """)
         cur.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 uid VARCHAR(64) PRIMARY KEY,
-                data LONGBLOB NOT NULL
+                data BYTEA NOT NULL
             )
         """)
         cur.execute("""
             CREATE TABLE IF NOT EXISTS meta (
-                `key` VARCHAR(64) PRIMARY KEY,
+                "key" VARCHAR(64) PRIMARY KEY,
                 value VARCHAR(255) NOT NULL
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS reports (
+                id INTEGER PRIMARY KEY,
+                data BYTEA NOT NULL
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS inbox_messages (
+                id INTEGER PRIMARY KEY,
+                data BYTEA NOT NULL
             )
         """)
     return conn
 
-
 def save_data():
-    """Write meetings, users, and the meeting id counter to the MySQL database.
-    Each row's JSON content is AES-encrypted before being stored.
-    Uses upserts (not delete-then-insert) so concurrent requests can't race
-    into a duplicate-key error, then cleans up rows no longer present."""
+    """Persist encrypted app data in Postgres.
+
+    Upserts plus one cleanup statement per table prevent duplicate-key races
+    while keeping deleted records from surviving in the database.
+    """
     conn = _get_connection()
     with conn.cursor() as cur:
-        if MEETINGS_DB:
-            cur.executemany(
-                "INSERT INTO meetings (id, data) VALUES (%s, %s) "
-                "ON DUPLICATE KEY UPDATE data = VALUES(data)",
-                [(mid, _fernet.encrypt(json.dumps(m).encode("utf-8"))) for mid, m in MEETINGS_DB.items()],
-            )
-            cur.execute(
-                f"DELETE FROM meetings WHERE id NOT IN ({','.join(['%s'] * len(MEETINGS_DB))})",
-                list(MEETINGS_DB.keys()),
-            )
-        else:
-            cur.execute("DELETE FROM meetings")
-
-        if USERS_DB:
-            cur.executemany(
-                "INSERT INTO users (uid, data) VALUES (%s, %s) "
-                "ON DUPLICATE KEY UPDATE data = VALUES(data)",
-                [(uid, _fernet.encrypt(json.dumps(u).encode("utf-8"))) for uid, u in USERS_DB.items()],
-            )
-            cur.execute(
-                f"DELETE FROM users WHERE uid NOT IN ({','.join(['%s'] * len(USERS_DB))})",
-                list(USERS_DB.keys()),
-            )
-        else:
-            cur.execute("DELETE FROM users")
-
-        cur.execute(
-            "INSERT INTO meta (`key`, value) VALUES ('next_meeting_id', %s) "
-            "ON DUPLICATE KEY UPDATE value = VALUES(value)",
-            (str(_next_meeting_id),),
+        tables = (
+            ("meetings", "id", MEETINGS_DB),
+            ("users", "uid", USERS_DB),
+            ("reports", "id", REPORTS_DB),
+            ("inbox_messages", "id", INBOX_DB),
         )
+        for table, key, records in tables:
+            if records:
+                cur.executemany(
+                    f"INSERT INTO {table} ({key}, data) VALUES (%s, %s) "
+                    f"ON CONFLICT ({key}) DO UPDATE SET data = EXCLUDED.data",
+                    [(record_id, _fernet.encrypt(json.dumps(record).encode("utf-8")))
+                     for record_id, record in records.items()],
+                )
+                cur.execute(
+                    f"DELETE FROM {table} WHERE {key} <> ALL(%s)",
+                    (list(records.keys()),),
+                )
+            else:
+                cur.execute(f"DELETE FROM {table}")
+
+        for key, value in (
+            ("next_meeting_id", _next_meeting_id),
+            ("next_report_id", _next_report_id),
+            ("next_inbox_id", _next_inbox_id),
+        ):
+            cur.execute(
+                'INSERT INTO meta ("key", value) VALUES (%s, %s) '
+                'ON CONFLICT ("key") DO UPDATE SET value = EXCLUDED.value',
+                (key, str(value)),
+            )
     conn.close()
 
-
 def _migrate_legacy_data():
-    """One-time migration from the old encrypted app_data.json/app_data.db files into MySQL."""
+    """One-time migration from old local files into Postgres."""
     if os.path.exists(_LEGACY_JSON_FILE):
         with open(_LEGACY_JSON_FILE, "rb") as f:
             raw = f.read()
@@ -125,10 +149,10 @@ def _migrate_legacy_data():
 
 
 def load_data():
-    """Load meetings, users, and the meeting id counter from the MySQL database.
+    """Load meetings, users, and counters from the Postgres database.
     If the database is empty but an old app_data.json/app_data.db file exists,
     migrate it once."""
-    global _next_meeting_id
+    global _next_meeting_id, _next_report_id, _next_inbox_id
 
     conn = _get_connection()
     with conn.cursor() as cur:
@@ -139,10 +163,24 @@ def load_data():
         cur.execute("SELECT uid, data FROM users")
         for uid, data in cur.fetchall():
             USERS_DB[uid] = json.loads(_fernet.decrypt(data).decode("utf-8"))
-        cur.execute("SELECT value FROM meta WHERE `key` = 'next_meeting_id'")
+        cur.execute("SELECT id, data FROM reports")
+        for rid, data in cur.fetchall():
+            REPORTS_DB[rid] = json.loads(_fernet.decrypt(data).decode("utf-8"))
+        cur.execute("SELECT id, data FROM inbox_messages")
+        for mid, data in cur.fetchall():
+            INBOX_DB[mid] = json.loads(_fernet.decrypt(data).decode("utf-8"))
+        cur.execute('SELECT value FROM meta WHERE "key" = \'next_meeting_id\'')
         row = cur.fetchone()
         if row:
             _next_meeting_id = int(row[0])
+        cur.execute('SELECT value FROM meta WHERE "key" = \'next_report_id\'')
+        row = cur.fetchone()
+        if row:
+            _next_report_id = int(row[0])
+        cur.execute('SELECT value FROM meta WHERE "key" = \'next_inbox_id\'')
+        row = cur.fetchone()
+        if row:
+            _next_inbox_id = int(row[0])
     conn.close()
 
     if not MEETINGS_DB and not USERS_DB:
@@ -853,6 +891,50 @@ def set_banned(uid, banned, admin_uid):
     return True
 
 
+def _purge_user(uid, acting_uid):
+    """Remove a user and every trace of them from the meetings.
+
+    Shared by the admin path and by someone deleting their own account, so the
+    two cannot disagree about what "deleted" means.
+
+    Deliberately thorough. Removing the account while leaving the uid in an
+    attendance map or a waitlist would keep a deleted person counted in other
+    people's meetings and in their show-up rates — the record would outlive the
+    account it belonged to, which is exactly what deletion is supposed to
+    prevent.
+    """
+    user = USERS_DB.get(uid)
+    if not user:
+        return False
+
+    # Their own meetings go with them.
+    for mid in list(user.get("created_meeting_ids", [])):
+        delete_meeting(mid, acting_uid)
+
+    # Then every reference in meetings they merely took part in.
+    for m in MEETINGS_DB.values():
+        if uid in m.get("joined_uids", []):
+            m["joined_uids"].remove(uid)
+        if uid in (m.get("waitlist_uids") or []):
+            m["waitlist_uids"].remove(uid)
+        (m.get("attendance") or {}).pop(uid, None)
+        (m.get("late_bails") or {}).pop(uid, None)
+
+    del USERS_DB[uid]
+    # A deleted account must not leave private messages behind. Also remove it
+    # from other users' block lists so a recycled identity can never inherit a
+    # prior block relationship.
+    for message_id, message in list(INBOX_DB.items()):
+        if message.get("uid") == uid:
+            del INBOX_DB[message_id]
+    for other in USERS_DB.values():
+        blocked = other.get("blocked_uids") or []
+        if uid in blocked:
+            blocked.remove(uid)
+    save_data()
+    return True
+
+
 def delete_user(uid, admin_uid):
     """Delete a user account and their created meetings. Only an admin may
     do this; admins can't delete themselves or other admins."""
@@ -861,14 +943,248 @@ def delete_user(uid, admin_uid):
     user = USERS_DB.get(uid)
     if not user or user.get("is_admin"):
         return False
-    for mid in list(user.get("created_meeting_ids", [])):
-        delete_meeting(mid, admin_uid)
-    for m in MEETINGS_DB.values():
-        if uid in m.get("joined_uids", []):
-            m["joined_uids"].remove(uid)
-    del USERS_DB[uid]
+    return _purge_user(uid, admin_uid)
+
+
+def delete_own_account(uid):
+    """Let someone delete their own account.
+
+    Separate from delete_user() because that one is an admin action and refuses
+    to touch admins — which would have left an admin unable to leave. App
+    stores require this to be doable from inside the app, without asking
+    anyone's permission, so there is no privilege check here beyond the account
+    existing.
+    """
+    if not USERS_DB.get(uid):
+        return False
+    return _purge_user(uid, uid)
+
+
+# ── Reporting and blocking ────────────────────────────────────────────────
+# App stores require both of these from anything carrying user-generated
+# content: a way to flag something for a human, and a way to stop seeing a
+# particular person without waiting for that human.
+
+# ?? Inbox ??????????????????????????????????????????????????????????????????
+def add_inbox_message(uid, title, body, kind="system"):
+    """Send a durable, private system message to one existing account."""
+    global _next_inbox_id
+    if not uid or uid not in USERS_DB:
+        return None
+    message = {
+        "id": _next_inbox_id,
+        "uid": uid,
+        "title": str(title or "Update from Metz")[:120],
+        "body": str(body or "")[:1000],
+        "kind": kind if kind in ("system", "moderation") else "system",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "read_at": None,
+    }
+    INBOX_DB[_next_inbox_id] = message
+    _next_inbox_id += 1
+    save_data()
+    return message
+
+
+def get_inbox_messages(uid):
+    """Newest first. Never return messages belonging to another account."""
+    return sorted(
+        [m.copy() for m in INBOX_DB.values() if m.get("uid") == uid],
+        key=lambda m: m.get("created_at") or "", reverse=True,
+    )
+
+
+def unread_inbox_count(uid):
+    return sum(1 for m in INBOX_DB.values() if m.get("uid") == uid and not m.get("read_at"))
+
+
+def mark_inbox_read(uid, message_id):
+    message = INBOX_DB.get(int(message_id))
+    if not message or message.get("uid") != uid:
+        return False
+    if not message.get("read_at"):
+        message["read_at"] = datetime.now(timezone.utc).isoformat()
+        save_data()
+    return True
+
+
+def mark_all_inbox_read(uid):
+    changed = False
+    now = datetime.now(timezone.utc).isoformat()
+    for message in INBOX_DB.values():
+        if message.get("uid") == uid and not message.get("read_at"):
+            message["read_at"] = now
+            changed = True
+    if changed:
+        save_data()
+    return changed
+
+
+REPORT_REASONS = {
+    "spam": "Spam or a scam",
+    "harassment": "Harassment or bullying",
+    "hate": "Hate speech",
+    "sexual": "Sexual or adult content",
+    "violence": "Violence or threats",
+    "illegal": "Something illegal",
+    "fake": "Impersonation or a fake meeting",
+    "other": "Something else",
+}
+
+MAX_REPORT_DETAIL = 500
+
+
+def add_report(reporter_uid, target_type, target_id, reason, detail=""):
+    """File a report about a meeting ("meeting") or a person ("user").
+
+    Returns the stored report, or None if the input was not usable. Reports are
+    kept even after the thing they point at is deleted — the record of *why*
+    something was removed is the part a moderator needs later.
+    """
+    global _next_report_id
+    from utils.models import sanitize_html
+
+    if target_type not in ("meeting", "user"):
+        return None
+    if reason not in REPORT_REASONS:
+        return None
+    if not USERS_DB.get(reporter_uid):
+        return None
+
+    # One open report per person per thing. Filing again should not let one
+    # user flood the queue, and it should not look like many complaints.
+    for existing in REPORTS_DB.values():
+        if (existing.get("reporter_uid") == reporter_uid
+                and existing.get("target_type") == target_type
+                and str(existing.get("target_id")) == str(target_id)
+                and existing.get("status") == "open"):
+            return existing
+
+    # A snapshot of what was reported, because the meeting may be deleted
+    # before anyone looks at the queue.
+    snapshot = ""
+    if target_type == "meeting":
+        m = MEETINGS_DB.get(int(target_id)) if str(target_id).isdigit() else None
+        if m:
+            snapshot = f"{m.get('title', '')} — {m.get('description', '')}"[:200]
+    else:
+        u = USERS_DB.get(target_id)
+        if u:
+            snapshot = f"{u.get('username', '')} — {u.get('bio', '')}"[:200]
+
+    report = {
+        "id": _next_report_id,
+        "reporter_uid": reporter_uid,
+        "target_type": target_type,
+        "target_id": str(target_id),
+        "reason": reason,
+        "detail": sanitize_html((detail or "").strip())[:MAX_REPORT_DETAIL],
+        "snapshot": snapshot,
+        "status": "open",          # open | actioned | dismissed
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "resolved_by": None,
+        "resolved_at": None,
+    }
+    REPORTS_DB[_next_report_id] = report
+    _next_report_id += 1
+    save_data()
+    return report
+
+
+def get_reports(status=None):
+    """Reports, newest first, optionally filtered by status."""
+    rows = [r for r in REPORTS_DB.values() if status is None or r.get("status") == status]
+    return sorted(rows, key=lambda r: r.get("created_at") or "", reverse=True)
+
+
+def open_report_count():
+    """How many reports are waiting on a moderator — drives the admin badge."""
+    return sum(1 for r in REPORTS_DB.values() if r.get("status") == "open")
+
+
+def resolve_report(report_id, admin_uid, action):
+    """Close a report. `action` is "actioned" (something was done) or "dismissed"."""
+    if not is_admin(admin_uid):
+        return False
+    report = REPORTS_DB.get(int(report_id))
+    # An already closed report must not create a duplicate notification if an
+    # admin taps a decision twice or retries after a slow connection.
+    if not report or report.get("status") != "open" or action not in ("actioned", "dismissed"):
+        return False
+    report["status"] = action
+    report["resolved_by"] = admin_uid
+    report["resolved_at"] = datetime.now(timezone.utc).isoformat()
+    if action == "actioned":
+        add_inbox_message(
+            report["reporter_uid"],
+            "Your report was actioned",
+            "Thanks for helping keep Metz safe. We reviewed your report and took appropriate action. For privacy and safety, we cannot share further details.",
+            "moderation",
+        )
+    else:
+        add_inbox_message(
+            report["reporter_uid"],
+            "We reviewed your report",
+            "Thanks for taking the time to report this. We reviewed it and did not take action at this time. You can still block an account to stop seeing it.",
+            "moderation",
+        )
     save_data()
     return True
+
+
+def block_user(uid, target_uid):
+    """Stop `uid` seeing `target_uid`.
+
+    One-directional and immediate: it is the thing someone can do for
+    themselves without waiting for a report to be reviewed. Blocking yourself
+    is refused, since it would hide your own meetings from you.
+    """
+    user = USERS_DB.get(uid)
+    if not user or uid == target_uid or not USERS_DB.get(target_uid):
+        return False
+    blocked = user.setdefault("blocked_uids", [])
+    if target_uid not in blocked:
+        blocked.append(target_uid)
+        save_data()
+    return True
+
+
+def unblock_user(uid, target_uid):
+    user = USERS_DB.get(uid)
+    if not user:
+        return False
+    blocked = user.setdefault("blocked_uids", [])
+    if target_uid in blocked:
+        blocked.remove(target_uid)
+        save_data()
+    return True
+
+
+def get_blocked_uids(uid):
+    user = USERS_DB.get(uid)
+    return list(user.get("blocked_uids", [])) if user else []
+
+
+def has_blocked(uid, target_uid):
+    return target_uid in get_blocked_uids(uid)
+
+
+def filter_blocked(uid, meetings):
+    """Drop meetings created by anyone this user has blocked.
+
+    Applied at the listing level rather than at creation, so unblocking brings
+    the meetings straight back rather than leaving a hole in someone's history.
+    """
+    blocked = set(get_blocked_uids(uid))
+    if not blocked:
+        return meetings
+
+    def creator_of(m):
+        # Callers pass Meeting objects (the listings) or raw dicts (the stored
+        # rows), so accept both rather than making each site convert.
+        return m.get("creator_uid") if isinstance(m, dict) else getattr(m, "creator_uid", None)
+
+    return [m for m in meetings if creator_of(m) not in blocked]
 
 
 def generate_user_id(email):

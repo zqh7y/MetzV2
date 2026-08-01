@@ -6,7 +6,7 @@ from flask import Blueprint, request, jsonify
 from data import (
     get_user, is_admin, is_trusted, set_trusted, get_account_status,
     get_all_meetings, search_users, generate_user_color, update_profile,
-    get_reliability,
+    get_reliability, delete_own_account, open_report_count, unread_inbox_count,
     PROFILE_EMOJIS, MAX_DISPLAY_NAME, MAX_BIO,
 )
 
@@ -62,7 +62,10 @@ def profile():
         # the web's context processor uses, so the badge and the Activity screen
         # can never disagree about how many things are waiting.
         "action_count": pending_action_count(uid),
+        "unread_inbox_count": unread_inbox_count(uid),
         "pending_review_count": len(get_all_meetings(status="pending")) if is_admin(uid) else 0,
+        # Drives the Reports badge in the admin section of the drawer.
+        "open_report_count": open_report_count() if is_admin(uid) else 0,
     })
 
 
@@ -96,6 +99,26 @@ def edit_profile():
         "bio": user.get("bio") or "",
         "avatar_emoji": user.get("avatar_emoji") or "",
     })
+
+
+@profile_bp.route("/api/profile", methods=["DELETE"])
+def delete_account():
+    """Delete your own account, permanently.
+
+    Required to exist in-app by the app stores, so it takes no admin and asks
+    no one. The confirmation is the client's job; by the time this is called
+    the decision has been made.
+    """
+    uid = current_uid()
+    if not uid or not get_user(uid):
+        return jsonify({"error": "unauthorized"}), 401
+
+    if not delete_own_account(uid):
+        return jsonify({"error": "Couldn't delete the account."}), 500
+
+    # The session token still verifies until it expires, so tell the client to
+    # drop it rather than leaving it holding a key to nothing.
+    return jsonify({"status": "deleted", "signed_out": True})
 
 
 @profile_bp.route("/api/users/<uid>")

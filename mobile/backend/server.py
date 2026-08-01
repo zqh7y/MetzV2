@@ -40,6 +40,8 @@ from admin_routes import admin_bp
 from auth_routes import auth_bp
 from discover_routes import discover_bp
 from meeting_routes import meeting_bp
+from moderation_routes import moderation_bp
+from inbox_routes import inbox_bp
 from profile_routes import profile_bp
 
 app = Flask(__name__)
@@ -48,6 +50,8 @@ app.register_blueprint(meeting_bp)
 app.register_blueprint(profile_bp)
 app.register_blueprint(admin_bp)
 app.register_blueprint(discover_bp)
+app.register_blueprint(moderation_bp)
+app.register_blueprint(inbox_bp)
 
 
 # A wildcard CORS policy lets any website call this API with a user's token.

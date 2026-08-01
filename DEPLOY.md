@@ -12,7 +12,7 @@ and one codebase, so they deploy from the same repository.
 
 ## 1 · Database
 
-Both services read `MYSQL_*` and expect one MySQL 8 database. A managed
+Both services read ``DATABASE_URL`` and expect one PostgreSQL database. A managed
 instance is the least painful option — every host below offers one, and the
 free tiers are enough for a school project.
 
@@ -28,7 +28,7 @@ the host. `.env` is git-ignored and will **not** be uploaded.
 | `FLASK_ENV` | `production` — anything else exposes the Werkzeug debugger |
 | `SECRET_KEY` | Long random string. Sessions are signed with it |
 | `DATA_ENCRYPTION_KEY` | **Copy from the existing `.env`.** Rows are Fernet-encrypted with it; a new key makes existing data unreadable |
-| `MYSQL_HOST` / `MYSQL_PORT` / `MYSQL_USER` / `MYSQL_PASSWORD` / `MYSQL_DATABASE` | From step 1 |
+| `DATABASE_URL` | Render Postgres **Internal Database URL** |
 | `FIREBASE_API_KEY` | Same project as now, or sign-in breaks |
 | `TRUST_PROXY` | `1`. Hosts terminate TLS at a proxy; without this, client IPs and secure-cookie detection are wrong |
 | `CONTACT_EMAIL` | Shown on `/privacy` |
