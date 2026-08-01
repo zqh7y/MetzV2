@@ -11,7 +11,7 @@ same view, rather than the state living only in the page's JavaScript.
 from flask import render_template, request, session, redirect, url_for
 
 from data import (
-    get_all_meetings, get_user, is_admin, is_trusted, shorten_address,
+    get_all_meetings, get_user, is_admin, is_trusted, shorten_address, filter_blocked,
     seconds_until_start, get_joined_users_preview, MEETINGS_DB,
 )
 from utils.models import AVAILABLE_TAGS
@@ -45,7 +45,7 @@ def explore_data(uid, q="", kind="all", tag="", when="any", sort="soonest", hide
     needle = q.lower()
 
     rows = []
-    for meeting in get_all_meetings(status="approved"):
+    for meeting in filter_blocked(uid, get_all_meetings(status="approved")):
         m = MEETINGS_DB.get(meeting.id, {})
         online = bool(getattr(meeting, "link", ""))
         secs = seconds_until_start(m)

@@ -1,15 +1,27 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
 import TrustBadge from "../components/TrustBadge";
 import ReliabilityCard from "../components/ReliabilityCard";
+import ReportSheet from "../components/ReportSheet";
 import Appear from "../components/Appear";
 import CountUp from "../components/CountUp";
 import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
 import { RADIUS, SHADOW } from "../styles/theme";
+
+// Convert the UTC timestamp from the API into a date and time people can read.
+function formatProfileTime(value) {
+  if (!value) return "Not available";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Not available";
+  return date.toLocaleString(undefined, {
+    day: "numeric", month: "long", year: "numeric",
+    hour: "numeric", minute: "2-digit",
+  });
+}
 
 export default function UserProfileScreen({ route }) {
   const { theme } = useTheme();
@@ -20,6 +32,42 @@ export default function UserProfileScreen({ route }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [reporting, setReporting] = useState(false);
+  const [blocked, setBlocked] = useState(false);
+
+  // Looking at your own profile through search shouldn't offer to block you.
+  const isSelf = profile?.uid === uid;
+
+  useEffect(() => {
+    api.getBlocked()
+      .then((list) => setBlocked(list.some((b) => b.uid === uid)))
+      .catch(() => {});
+  }, [uid]);
+
+  function confirmBlock() {
+    if (blocked) {
+      Alert.alert("Unblock?", "Their meetings will show up again.", [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Unblock",
+          onPress: () => api.unblockUser(uid).then(() => setBlocked(false)).catch(() => {}),
+        },
+      ]);
+      return;
+    }
+    Alert.alert(
+      "Block this person?",
+      "You won't see meetings they create. They aren't told, and you can undo it here.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Block",
+          style: "destructive",
+          onPress: () => api.blockUser(uid).then(() => setBlocked(true)).catch(() => {}),
+        },
+      ]
+    );
+  }
 
   async function load() {
     setLoading(true);
@@ -121,18 +169,41 @@ export default function UserProfileScreen({ route }) {
           <Text style={styles.activityIcon}>📅</Text>
           <View>
             <Text style={styles.activityLabel}>Member since</Text>
-            <Text style={styles.activityValue}>{user.joined_at || "—"}</Text>
+            <Text style={styles.activityValue}>{formatProfileTime(user.joined_at)}</Text>
           </View>
         </View>
         <View style={styles.activityRow}>
           <Text style={styles.activityIcon}>🟢</Text>
           <View>
             <Text style={styles.activityLabel}>Last online</Text>
-            <Text style={styles.activityValue}>{user.last_online || "—"}</Text>
+            <Text style={styles.activityValue}>{formatProfileTime(user.last_online)}</Text>
           </View>
         </View>
       </View>
       </Appear>
+
+      {/* Blocking is the one that works immediately and needs no moderator, so
+          it sits alongside reporting rather than behind it. */}
+      {!isSelf ? (
+        <View style={styles.safety}>
+          <TouchableOpacity style={styles.safetyBtn} onPress={() => setReporting(true)}>
+            <Text style={styles.safetyText}>⚑  Report this person</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.safetyBtn} onPress={confirmBlock}>
+            <Text style={[styles.safetyText, blocked && styles.safetyTextOn]}>
+              {blocked ? "✓  Blocked — tap to undo" : "⃠  Block this person"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
+      <ReportSheet
+        visible={reporting}
+        onClose={() => setReporting(false)}
+        targetType="user"
+        targetId={uid}
+        targetLabel={user.username}
+      />
     </ScrollView>
   );
 }
@@ -187,4 +258,9 @@ const makeStyles = (t) => StyleSheet.create({
   errorText: { color: t.text2, fontSize: 14, marginBottom: 14 },
   retryBtn: { backgroundColor: t.accent, borderRadius: 20, paddingVertical: 10, paddingHorizontal: 24 },
   retryBtnText: { color: t.surface, fontFamily: FONTS.accentMedium },
+
+  safety: { marginTop: 18, marginHorizontal: 16 },
+  safetyBtn: { paddingVertical: 13, alignItems: "center" },
+  safetyText: { fontSize: 13.5, color: t.text3, fontFamily: FONTS.bodySemi },
+  safetyTextOn: { color: t.status.bad },
 });

@@ -318,6 +318,75 @@ button:active, .btn-primary:active, .btn-swipe:active, .join-btn:active, .delete
     color: var(--text-2);
 }
 
+/* ── Account deletion ───────────────────────────────────────────────────
+   Set apart from the rest of Settings, and red, because it is the one control
+   on the page that cannot be undone. */
+.danger-zone {
+    margin: 26px 16px 0;
+    padding: 18px;
+    border-radius: var(--radius);
+    background: rgba(231, 76, 60, 0.05);
+    border: 1px solid rgba(231, 76, 60, 0.3);
+}
+.danger-title {
+    margin: 0 0 6px;
+    font-size: 15px;
+    font-weight: 800;
+    color: #c0392b;
+}
+.danger-body {
+    margin: 0 0 14px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--text-2);
+}
+.danger-btn {
+    padding: 11px 20px;
+    border: 1px solid #c0392b;
+    border-radius: var(--radius);
+    background: transparent;
+    color: #c0392b;
+    font-weight: 700;
+    font-size: 13.5px;
+    cursor: pointer;
+}
+.danger-btn:hover { background: #c0392b; color: #fff; }
+
+/* Label and "Forgot?" share a line, so the link sits with the field it
+   belongs to rather than floating under the form. */
+.auth-label-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+}
+.auth-label-row .auth-label { margin-bottom: 7px; }
+
+.auth-forgot {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent);
+    text-decoration: none;
+}
+.auth-forgot:hover { text-decoration: underline; }
+
+/* Confirmation shown after a reset link is requested */
+.auth-sent {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px;
+    border-radius: 12px;
+    background: var(--accent-soft);
+    border: 1px solid var(--accent);
+}
+.auth-sent-icon { font-size: 20px; line-height: 1.2; }
+.auth-sent-text {
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--text);
+}
+
 .auth-input-wrap { position: relative; }
 
 .auth-input-icon {

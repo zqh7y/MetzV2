@@ -102,6 +102,41 @@ def resend_verify():
     return jsonify({"status": "sent"})
 
 
+@auth_bp.route("/api/password/reset", methods=["POST"])
+def request_password_reset():
+    """Send a password-reset email.
+
+    Firebase owns the passwords, so it also owns the reset: sendOobCode mails a
+    one-time link and handles the new-password form. Rolling our own would mean
+    minting reset tokens for credentials this app never stores.
+
+    The response is deliberately the same whether or not the address exists.
+    Saying "no account with that email" turns this endpoint into a way to test
+    whether somebody is a member, which is not something a stranger should be
+    able to ask.
+    """
+    body = request.get_json(force=True) or {}
+    email = (body.get("email") or "").strip()
+
+    if not email:
+        return jsonify({"error": "Enter your email address."}), 400
+
+    # Two buckets: one stops a single address being mail-bombed, the other
+    # stops one host walking a list of addresses.
+    if (rate_limit_exceeded("api-reset:email:" + email.lower(), 3, 3600)
+            or rate_limit_exceeded("api-reset:ip:" + client_ip(), 10, 3600)):
+        return jsonify({"error": "Too many reset requests. Please try again later."}), 429
+
+    url = f"https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key={FIREBASE_API_KEY}"
+    try:
+        requests.post(url, json={"requestType": "PASSWORD_RESET", "email": email}, timeout=10)
+    except requests.RequestException:
+        return jsonify({"error": "Couldn't reach the mail service. Try again shortly."}), 502
+
+    # Firebase's own error (EMAIL_NOT_FOUND) is swallowed on purpose — see above.
+    return jsonify({"status": "sent", "email": email})
+
+
 @auth_bp.route("/api/login", methods=["POST"])
 def login():
     body = request.get_json(force=True) or {}

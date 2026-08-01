@@ -9,6 +9,7 @@ import { useAuth } from "../context/AuthContext";
 import TrustBadge from "../components/TrustBadge";
 import TagChip from "../components/TagChip";
 import WebMap from "../components/WebMap";
+import ReportSheet from "../components/ReportSheet";
 import useMyLocation from "../hooks/useMyLocation";
 import { MapPinIcon } from "../components/NavIcons";
 import { FONTS } from "../styles/fonts";
@@ -33,6 +34,7 @@ export default function MeetingDetailScreen({ route, navigation }) {
   const [notice, setNotice] = useState(null);   // { kind: "ok" | "bad", text }
   const [attendees, setAttendees] = useState([]);
   const [loadingAttendees, setLoadingAttendees] = useState(true);
+  const [reporting, setReporting] = useState(false);
 
   // ─── Where, and how to get there ───────────────────────────────────────
   const hasPlace = !isOnline && typeof meeting.lat === "number" && typeof meeting.lng === "number";
@@ -332,6 +334,23 @@ export default function MeetingDetailScreen({ route, navigation }) {
           </Text>
         )}
       </TouchableOpacity>
+
+      {/* Quiet and last: reporting should be findable without competing with
+          the thing most people came here to do. Hidden on your own meeting —
+          you can delete that instead. */}
+      {meeting.creator_uid !== uid ? (
+        <TouchableOpacity style={styles.reportBtn} onPress={() => setReporting(true)}>
+          <Text style={styles.reportBtnText}>⚑  Report this meeting</Text>
+        </TouchableOpacity>
+      ) : null}
+
+      <ReportSheet
+        visible={reporting}
+        onClose={() => setReporting(false)}
+        targetType="meeting"
+        targetId={meeting.id}
+        targetLabel={meeting.title}
+      />
     </ScrollView>
   );
 }
@@ -507,4 +526,7 @@ const makeStyles = (t) => StyleSheet.create({
     overflow: "hidden",
   },
   chevron: { fontSize: 20, color: t.text3 },
+
+  reportBtn: { marginTop: 18, paddingVertical: 12, alignItems: "center" },
+  reportBtnText: { fontSize: 13, color: t.text3, fontFamily: FONTS.bodySemi },
 });

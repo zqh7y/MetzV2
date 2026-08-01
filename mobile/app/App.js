@@ -15,6 +15,7 @@ import { ThemeProvider, useTheme } from "./src/context/ThemeContext";
 import LoginScreen from "./src/screens/LoginScreen";
 import SignupScreen from "./src/screens/SignupScreen";
 import VerifyScreen from "./src/screens/VerifyScreen";
+import ForgotPasswordScreen from "./src/screens/ForgotPasswordScreen";
 import HomeScreen from "./src/screens/HomeScreen";
 import CreateScreen from "./src/screens/CreateScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
@@ -24,8 +25,11 @@ import UserProfileScreen from "./src/screens/UserProfileScreen";
 import SettingsScreen from "./src/screens/SettingsScreen";
 import EditProfileScreen from "./src/screens/EditProfileScreen";
 import AdminDashboardScreen from "./src/screens/AdminDashboardScreen";
+import AdminReportsScreen from "./src/screens/AdminReportsScreen";
 import ExploreScreen from "./src/screens/ExploreScreen";
 import ActivityScreen from "./src/screens/ActivityScreen";
+import InboxScreen from "./src/screens/InboxScreen";
+import ErrorBoundary from "./src/components/ErrorBoundary";
 
 const AuthStack = createNativeStackNavigator();
 const RootStack = createNativeStackNavigator();
@@ -36,6 +40,7 @@ function AuthNavigator() {
       <AuthStack.Screen name="Login" component={LoginScreen} />
       <AuthStack.Screen name="Signup" component={SignupScreen} />
       <AuthStack.Screen name="Verify" component={VerifyScreen} />
+      <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
     </AuthStack.Navigator>
   );
 }
@@ -64,6 +69,7 @@ function MainNavigator() {
       <RootStack.Screen name="Create" component={CreateScreen} options={{ title: "" }} />
       <RootStack.Screen name="Explore" component={ExploreScreen} options={{ title: "Explore" }} />
       <RootStack.Screen name="Activity" component={ActivityScreen} options={{ title: "Activity" }} />
+      <RootStack.Screen name="Inbox" component={InboxScreen} options={{ title: "Inbox" }} />
       <RootStack.Screen name="Profile" component={ProfileScreen} options={{ title: "My profile" }} />
       <RootStack.Screen name="MeetingDetail" component={MeetingDetailScreen} options={{ title: "Meeting" }} />
       <RootStack.Screen name="AdminPending" component={AdminPendingScreen} options={{ title: "Pending Meetings" }} />
@@ -71,6 +77,7 @@ function MainNavigator() {
       <RootStack.Screen name="Settings" component={SettingsScreen} options={{ title: "Settings" }} />
       <RootStack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: "Edit profile" }} />
       <RootStack.Screen name="AdminDashboard" component={AdminDashboardScreen} options={{ title: "Dashboard" }} />
+      <RootStack.Screen name="AdminReports" component={AdminReportsScreen} options={{ title: "Reports" }} />
     </RootStack.Navigator>
   );
 }
@@ -137,12 +144,16 @@ export default function App() {
   Text.defaultProps.style = [{ fontFamily: FONTS.body }, Text.defaultProps.style];
 
   return (
-    <SafeAreaProvider>
-      <ThemeProvider>
-        <AuthProvider>
-          <Root />
-        </AuthProvider>
-      </ThemeProvider>
-    </SafeAreaProvider>
+    // Outside the providers on purpose: if the theme or auth provider is what
+    // throws, a boundary nested inside them would go down with it.
+    <ErrorBoundary>
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <Root />
+          </AuthProvider>
+        </ThemeProvider>
+      </SafeAreaProvider>
+    </ErrorBoundary>
   );
 }

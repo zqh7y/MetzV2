@@ -10,7 +10,7 @@ import { useTheme } from "../context/ThemeContext";
 import { RADIUS, SHADOW } from "../styles/theme";
 import {
   HomeIcon, PlusIcon, UserIcon, PencilIcon, GearIcon,
-  ToolsIcon, ClockIcon, LogOutIcon, CloseIcon, CompassIcon, BellIcon,
+  ToolsIcon, ClockIcon, LogOutIcon, CloseIcon, CompassIcon, BellIcon, FlagIcon,
 } from "./NavIcons";
 
 // The web port of templates/home_menu.html: Home has no bottom bar, so this
@@ -26,6 +26,7 @@ const NAV_ITEMS = [
   { route: "Home", label: "Home", Icon: HomeIcon },
   { route: "Explore", label: "Explore", Icon: CompassIcon },
   { route: "Activity", label: "Activity", Icon: BellIcon, badgeKey: "activity" },
+  { route: "Inbox", label: "Inbox", Icon: BellIcon, badgeKey: "inbox" },
   { route: "Create", label: "Create a meeting", Icon: PlusIcon },
   { route: "Profile", label: "My profile", Icon: UserIcon },
   { route: "EditProfile", label: "Edit profile", Icon: PencilIcon },
@@ -34,7 +35,8 @@ const NAV_ITEMS = [
 
 const ADMIN_ITEMS = [
   { route: "AdminDashboard", label: "Dashboard", Icon: ToolsIcon },
-  { route: "AdminPending", label: "Review meetings", Icon: ClockIcon },
+  { route: "AdminPending", label: "Review meetings", Icon: ClockIcon, badgeKey: "pending" },
+  { route: "AdminReports", label: "Reports", Icon: FlagIcon, badgeKey: "reports" },
 ];
 
 export function MenuButton({ onPress, showDot }) {
@@ -98,7 +100,8 @@ function Item({ label, Icon, active, badge, onPress, styles, theme, index = 0, p
 }
 
 export default function HomeDrawer({
-  open, onClose, navigation, activeRoute, isAdmin, pendingCount, activityCount = 0, onLogout,
+  open, onClose, navigation, activeRoute, isAdmin, pendingCount,
+  activityCount = 0, inboxCount = 0, reportCount = 0, onLogout,
 }) {
   const { theme, reduceMotion } = useTheme();
   const insets = useSafeAreaInsets();
@@ -192,7 +195,7 @@ export default function HomeDrawer({
               label={item.label}
               Icon={item.Icon}
               active={activeRoute === item.route}
-              badge={item.badgeKey === "activity" ? activityCount : 0}
+              badge={item.badgeKey === "activity" ? activityCount : item.badgeKey === "inbox" ? inboxCount : 0}
               onPress={() => go(item.route)}
               index={i}
               progress={rows}
@@ -214,7 +217,7 @@ export default function HomeDrawer({
                   label={item.label}
                   Icon={item.Icon}
                   active={activeRoute === item.route}
-                  badge={item.route === "AdminPending" ? pendingCount : 0}
+                  badge={item.badgeKey === "reports" ? reportCount : pendingCount}
                   onPress={() => go(item.route)}
                   index={NAV_ITEMS.length + i}
                   progress={rows}

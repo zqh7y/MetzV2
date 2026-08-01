@@ -149,6 +149,22 @@
         </a>
     </div>
 
+    <!-- Permanent, and reachable without contacting anyone: app stores require
+         account deletion to be doable from inside the product. -->
+    <div class="danger-zone">
+        <h3 class="danger-title">Delete your account</h3>
+        <p class="danger-body">
+            This removes your profile, the meetings you created, and your place in
+            meetings you joined. It cannot be undone and there is no way to get the
+            account back afterwards.
+        </p>
+        <form method="post" action="/account/delete"
+              onsubmit="return confirm('Delete your account permanently? This cannot be undone.');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="danger-btn">Delete my account</button>
+        </form>
+    </div>
+
     {% set active_page = 'settings' %}
     {% include 'home_menu.html' %}
 </div>

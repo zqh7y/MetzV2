@@ -48,6 +48,8 @@ export const api = {
   verify: (email, code) => request("/api/verify", { method: "POST", body: { email, code }, auth: false }),
   resendVerify: (email) => request("/api/verify/resend", { method: "POST", body: { email }, auth: false }),
   login: (email, password) => request("/api/login", { method: "POST", body: { email, password }, auth: false }),
+  requestPasswordReset: (email) =>
+    request("/api/password/reset", { method: "POST", body: { email }, auth: false }),
 
   getTags: () => request("/api/tags", { auth: false }),
   getMeetings: () => request("/api/meetings"),
@@ -71,14 +73,32 @@ export const api = {
     return request(`/api/explore${qs ? `?${qs}` : ""}`);
   },
   getActivity: () => request("/api/activity"),
+  getInbox: () => request("/api/inbox"),
+  readInboxMessage: (id) => request(`/api/inbox/${id}/read`, { method: "POST" }),
+  readAllInbox: () => request("/api/inbox/read-all", { method: "POST" }),
 
   getAttendees: (id) => request(`/api/meetings/${id}/attendees`),
 
   getProfile: () => request("/api/profile"),
   updateProfile: (payload) => request("/api/profile", { method: "POST", body: payload }),
+  deleteAccount: () => request("/api/profile", { method: "DELETE" }),
   getUser: (uid) => request(`/api/users/${uid}`),
   toggleTrust: (uid) => request(`/api/users/${uid}/trust`, { method: "POST" }),
   searchUsers: (q) => request(`/api/search_users?q=${encodeURIComponent(q)}`),
+
+  // Reporting and blocking
+  getReportReasons: () => request("/api/report/reasons"),
+  reportContent: (targetType, targetId, reason, detail) =>
+    request("/api/report", {
+      method: "POST",
+      body: { target_type: targetType, target_id: String(targetId), reason, detail },
+    }),
+  blockUser: (uid) => request(`/api/block/${uid}`, { method: "POST" }),
+  unblockUser: (uid) => request(`/api/block/${uid}`, { method: "DELETE" }),
+  getBlocked: () => request("/api/blocked"),
+  getReports: (status) => request(`/api/admin/reports${status ? `?status=${status}` : ""}`),
+  resolveReport: (id, action) =>
+    request(`/api/admin/reports/${id}`, { method: "POST", body: { action } }),
 
   getDashboard: () => request("/api/admin/dashboard"),
   banUser: (uid) => request(`/api/admin/users/${uid}/ban`, { method: "POST" }),

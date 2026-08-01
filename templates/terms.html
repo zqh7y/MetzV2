@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}Terms of Service{% endblock %}
+
+{% block content %}
+<div class="settings-page">
+
+    <div class="settings-header">
+        <a href="/" class="settings-back" title="Back">‹</a>
+        <h2 class="settings-title">Terms of Service</h2>
+    </div>
+
+    <div class="profile-section">
+        <p class="settings-hint">Last updated: {{ updated }}</p>
+        <p class="settings-note">
+            Metz is a small app for finding and organising meetups in person and online.
+            By creating an account you agree to what is below. It is written plainly on
+            purpose — if something here is unclear, ask before you sign up.
+        </p>
+    </div>
+
+    <div class="profile-section">
+        <h3 class="profile-section-title">Who can use it</h3>
+        <p class="settings-note">
+            You need to be at least 13, and old enough where you live to agree to terms
+            like these on your own. One account per person. Keep your password to
+            yourself — anything done from your account is treated as done by you.
+        </p>
+    </div>
+
+    <div class="profile-section">
+        <h3 class="profile-section-title">Meeting people is your own risk</h3>
+        <p class="settings-note">
+            This is the part that matters most. Metz lists meetups; it does not vet the
+            people at them. Nobody here is background-checked, and a show-up rate or a
+            trusted badge is a record of past behaviour, not a safety guarantee.
+        </p>
+        <p class="settings-note">
+            Meet in public places, tell someone where you are going, and leave if you
+            feel uncomfortable. You are responsible for your own safety and for how you
+            behave towards others. Metz is not a party to anything that happens at a
+            meetup and cannot be held responsible for it.
+        </p>
+    </div>
+
+    <div class="profile-section">
+        <h3 class="profile-section-title">What you post</h3>
+        <p class="settings-note">
+            You keep ownership of the meetings, descriptions and profile details you
+            write. By posting them you allow Metz to display them to other users, which
+            is the whole point of the app.
+        </p>
+        <p class="settings-note">Do not post anything that:</p>
+        <div class="settings-row"><span class="settings-row-label">is illegal, or organises something illegal</span></div>
+        <div class="settings-row"><span class="settings-row-label">harasses, threatens or targets somebody</span></div>
+        <div class="settings-row"><span class="settings-row-label">is hateful towards a group of people</span></div>
+        <div class="settings-row"><span class="settings-row-label">is sexual content, or is aimed at children</span></div>
+        <div class="settings-row"><span class="settings-row-label">is spam, advertising, or a scam</span></div>
+        <div class="settings-row"><span class="settings-row-label">impersonates somebody else</span></div>
+        <div class="settings-row"><span class="settings-row-label">shares someone's private details without their agreement</span></div>
+    </div>
+
+    <div class="profile-section">
+        <h3 class="profile-section-title">Reporting and moderation</h3>
+        <p class="settings-note">
+            Every meeting and profile can be reported from inside the app, and you can
+            block anyone you would rather not see. Reports are reviewed and content that
+            breaks the rules above is removed. New meetings are checked before they
+            appear publicly.
+        </p>
+        <p class="settings-note">
+            Accounts that repeatedly break these rules can be suspended or removed
+            without warning. There is no appeal process — this is a small project, not a
+            company with a support desk.
+        </p>
+    </div>
+
+    <div class="profile-section">
+        <h3 class="profile-section-title">Turning up</h3>
+        <p class="settings-note">
+            Joining a meeting is a commitment other people plan around. Your show-up rate
+            is built from meetings you said you would attend and then did or did not.
+            It is visible to others, and that is deliberate — it is what makes a join
+            mean something.
+        </p>
+    </div>
+
+    <div class="profile-section">
+        <h3 class="profile-section-title">Leaving</h3>
+        <p class="settings-note">
+            You can delete your account at any time from Settings. That removes your
+            profile, the meetings you created, and your place in meetings you joined.
+            It cannot be undone. What happens to your data is described in the
+            <a href="/privacy">privacy policy</a>.
+        </p>
+    </div>
+
+    <div class="profile-section">
+        <h3 class="profile-section-title">No promises about uptime</h3>
+        <p class="settings-note">
+            Metz is provided as it is. It is a personal project and it may be slow, go
+            down, lose data, or stop existing. Do not rely on it for anything important.
+            To the extent the law allows, there is no liability for loss arising from
+            using it.
+        </p>
+    </div>
+
+    <div class="profile-section">
+        <h3 class="profile-section-title">Changes and contact</h3>
+        <p class="settings-note">
+            These terms may change; the date at the top says when they last did.
+            Continuing to use the app after a change means you accept it.
+            Questions go to <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>.
+        </p>
+    </div>
+
+</div>
+{% endblock %}

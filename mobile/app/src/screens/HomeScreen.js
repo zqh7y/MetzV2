@@ -625,6 +625,8 @@ export default function HomeScreen({ navigation }) {
         isAdmin={!!profile?.is_admin}
         pendingCount={pendingCount}
         activityCount={profile?.action_count || 0}
+        inboxCount={profile?.unread_inbox_count || 0}
+        reportCount={profile?.open_report_count || 0}
         onLogout={signOut}
       />
     </View>

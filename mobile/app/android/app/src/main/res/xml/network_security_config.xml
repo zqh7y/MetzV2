@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Release builds: no cleartext HTTP, anywhere.
+
+  The app previously set android:usesCleartextTraffic="true" on the whole
+  application. That was there so the phone could reach a Flask server on the
+  LAN, but it is a blunt instrument — it permitted plain HTTP to *any* host.
+  Passwords and session tokens go to that API, so on a published build it meant
+  credentials could travel unencrypted and be read or altered in transit.
+
+  A deployed backend is reached over https and needs no exemption, so this file
+  does not change when the API moves off a laptop.
+
+  The debug variant (src/debug/res/xml/network_security_config.xml) relaxes this
+  for local development only. Android picks the file by build type, so a release
+  APK cannot accidentally inherit the developer's exemptions.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

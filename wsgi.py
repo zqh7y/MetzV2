@@ -5,17 +5,25 @@ and explicitly not meant to face the internet. In production run a real WSGI
 server against this module instead:
 
     # Linux / macOS
-    gunicorn --workers 4 --bind 0.0.0.0:8000 wsgi:app
+    gunicorn --workers 1 --threads 8 --bind 0.0.0.0:8000 wsgi:app
 
     # Windows
     waitress-serve --port=8000 wsgi:app
 
 Both are optional extras — see requirements-prod.txt.
 
-Note on workers: the rate limiter in utils/security.py keeps its counters in
-process memory, so with N workers a caller effectively gets N times the
-budget. That is fine for a small deployment; if you scale out, move those
-counters to Redis.
+Note on workers: one, and not as a performance opinion.
+
+data.py holds every meeting, user, report and inbox message in module-level
+dicts that load_data() fills once at import. Postgres is written on every
+change but only read at start-up, so a second worker starts with its own copy
+and never sees the first one's writes — a meeting would appear or vanish
+depending on which worker served the request. The rate limiter in
+utils/security.py counts in process memory too, so N workers hands out N times
+the budget.
+
+Threads give concurrency within the single process. Scaling past that means
+reading state from Postgres per request and moving the limiter to Redis.
 """
 
 import os

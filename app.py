@@ -5,7 +5,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from flask import Flask, session, redirect, url_for, request, jsonify, render_template
-from data import search_users, get_active_users, touch_last_online, is_admin, get_all_meetings, is_banned
+from data import (
+    search_users, get_active_users, touch_last_online, is_admin, get_all_meetings,
+    is_banned, delete_own_account,
+)
+from routes.forgot import forgot_route
 from routes.login import login_route
 from routes.signup import signup_route
 from routes.home import home_route
@@ -115,6 +119,22 @@ def privacy():
     )
 
 
+@app.route("/terms")
+def terms():
+    """Public terms of service.
+
+    Outside the login gate for the same reason as /privacy: reviewers and
+    anyone deciding whether to sign up have to be able to read it first, and
+    the store listing links to it.
+    """
+    from datetime import date
+    return render_template(
+        "terms.html",
+        updated=date.today().strftime("%d %B %Y"),
+        contact_email=os.environ.get("CONTACT_EMAIL", "ytevil68@gmail.com"),
+    )
+
+
 @app.before_request
 def update_last_online():
     if "user" in session:
@@ -141,6 +161,11 @@ def inject_nav_notifications():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     return login_route()
+
+
+@app.route("/forgot", methods=["GET", "POST"])
+def forgot():
+    return forgot_route()
 
 
 @app.route("/signup", methods=["GET", "POST"])
@@ -221,6 +246,26 @@ def activity():
 @app.route("/explore")
 def explore():
     return explore_route()
+
+
+@app.route("/account/delete", methods=["POST"])
+def delete_account():
+    """Delete your own account, permanently.
+
+    App stores require this to be reachable without contacting anyone, so it
+    is a plain authenticated POST rather than an admin action or a support
+    request. The confirmation lives in the form; by the time this runs the
+    decision has been made.
+    """
+    if "user" not in session:
+        return redirect(url_for("login"))
+
+    uid = session["user"].get("uid", "")
+    if not delete_own_account(uid):
+        return redirect(url_for("settings"))
+
+    session.clear()
+    return redirect(url_for("login"))
 
 
 @app.route("/settings")

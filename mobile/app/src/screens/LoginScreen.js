@@ -57,6 +57,8 @@ export default function LoginScreen({ navigation }) {
         label="Password"
         icon="lock"
         reveal
+        // Sits on the label line, next to the field it belongs to.
+        action={{ label: "Forgot?", onPress: () => navigation.navigate("ForgotPassword") }}
         placeholder="Your password"
         textContentType="password"
         autoComplete="current-password"

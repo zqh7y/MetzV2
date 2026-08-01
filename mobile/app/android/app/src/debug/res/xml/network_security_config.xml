@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Debug builds only. Gradle picks this over src/main by build type, so nothing
+  here can reach a release APK.
+
+  Cleartext is allowed so a development build can talk to a Flask server on the
+  machine you are working at. Ranges are not expressible here — Android's
+  <domain> takes hostnames and IP literals, not CIDR — so this is deliberately
+  permissive for debug and strictly off everywhere else.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

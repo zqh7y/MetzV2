@@ -5,7 +5,7 @@ the web app, reusing the exact same data.py functions."""
 from flask import Blueprint, request, jsonify
 
 from data import (
-    get_user, get_all_meetings, add_meeting, toggle_join_meeting,
+    get_user, get_all_meetings, add_meeting, toggle_join_meeting, filter_blocked,
     user_pass, delete_meeting, get_joined_users_preview, MEETINGS_DB,
     generate_user_color, display_name_for, is_trusted, is_admin, get_reliability,
 )
@@ -31,7 +31,9 @@ def tags():
 @meeting_bp.route("/api/meetings")
 def list_meetings():
     uid = current_uid()
-    meetings = get_all_meetings(status="approved")
+    # Blocking is only real if it reaches the listings — filtered here rather
+    # than at creation, so unblocking brings the meetings straight back.
+    meetings = filter_blocked(uid, get_all_meetings(status="approved"))
     return jsonify([serialize_meeting(m, uid) for m in meetings])
 
 

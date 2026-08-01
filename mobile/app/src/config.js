@@ -53,3 +53,22 @@ function resolveApiBaseUrl() {
 }
 
 export const API_BASE_URL = resolveApiBaseUrl();
+
+// Where the Flask *web* app lives, as opposed to the JSON API. Only needed for
+// pages the app links out to rather than renders — currently the privacy
+// policy, which app stores require to be reachable from inside the app.
+const WEB_PORT = 5050;
+
+function resolveWebBaseUrl() {
+  const configured = (Constants.expoConfig?.extra?.webUrl || "").replace(/\/+$/, "");
+  if (configured) return configured;
+  if (!__DEV__) return PRODUCTION_API_URL;   // same host in a single-service deploy
+
+  const host = hostFrom(Constants.expoConfig?.hostUri)
+    || hostFrom(NativeModules?.SourceCode?.scriptURL);
+  return host ? `http://${host}:${WEB_PORT}` : "";
+}
+
+export const WEB_BASE_URL = resolveWebBaseUrl();
+export const PRIVACY_URL = WEB_BASE_URL ? `${WEB_BASE_URL}/privacy` : "";
+export const TERMS_URL = WEB_BASE_URL ? `${WEB_BASE_URL}/terms` : "";

@@ -13,7 +13,7 @@ const ICONS = { mail: MailIcon, lock: LockIcon };
  * `icon` picks the leading glyph; `reveal` adds the toggle and starts the
  * field masked, matching the web's `type="password"` plus `.auth-reveal`.
  */
-export default function AuthField({ label, icon = "mail", reveal = false, children, ...inputProps }) {
+export default function AuthField({ label, icon = "mail", reveal = false, action, children, ...inputProps }) {
   const { theme } = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [focused, setFocused] = useState(false);
@@ -25,7 +25,16 @@ export default function AuthField({ label, icon = "mail", reveal = false, childr
 
   return (
     <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
+      {action ? (
+        <View style={styles.labelRow}>
+          <Text style={styles.label}>{label}</Text>
+          <Pressable onPress={action.onPress} hitSlop={8}>
+            <Text style={styles.action}>{action.label}</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <Text style={styles.label}>{label}</Text>
+      )}
 
       {/* box-shadow: 0 0 0 4px var(--accent-soft) on focus. A transparent ring
           is always present and pulled back out with a negative margin, so
@@ -68,6 +77,8 @@ export default function AuthField({ label, icon = "mail", reveal = false, childr
 
 const makeStyles = (t) => StyleSheet.create({
   field: { marginBottom: 16 },
+  labelRow: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" },
+  action: { fontSize: 12, fontFamily: FONTS.bodySemi, color: t.accent, marginBottom: 7 },
   label: {
     fontSize: 12.5,
     fontFamily: FONTS.bodySemi,

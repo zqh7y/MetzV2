@@ -8,11 +8,16 @@ a shared store (Redis) to be accurate.
 """
 
 import hmac
+import os
 import secrets
 import time
 from collections import defaultdict, deque
 
 from flask import request, session, jsonify, abort
+
+# Same rule the two apps use: anything that is not explicitly "development" is
+# treated as production, so a missing variable errs towards the strict side.
+_IS_PRODUCTION = os.environ.get("FLASK_ENV", "production").lower() != "development"
 
 CSRF_SESSION_KEY = "_csrf_token"
 CSRF_HEADER = "X-CSRF-Token"
@@ -102,6 +107,18 @@ def reset_rate_limits():
 def add_security_headers(response):
     """Baseline headers. The CSP allows the CDNs and map/tile hosts this app
     actually uses; anything else is blocked."""
+    # HSTS: once a browser has seen this, it refuses to talk to the host over
+    # plain HTTP at all, which closes the window where a first request could be
+    # downgraded and a session cookie read off the wire.
+    #
+    # Production only, and only over an already-secure connection — sending it
+    # from a local HTTP dev server would pin "https only" for localhost in the
+    # developer's browser and be a nuisance to undo.
+    if _IS_PRODUCTION and request.is_secure:
+        response.headers.setdefault(
+            "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
+        )
+
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "DENY")
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")

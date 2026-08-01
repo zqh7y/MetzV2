@@ -1,5 +1,5 @@
 from flask import render_template, request, session, redirect, url_for
-from data import (get_all_meetings, sort_meetings_by_distance, register_user, get_user, is_admin,
+from data import (get_all_meetings, filter_blocked, sort_meetings_by_distance, register_user, get_user, is_admin,
                   is_trusted, get_joined_users_preview, shorten_address, client_meeting_dict,
                   next_up_meeting, meeting_phase, seconds_until_start, MEETINGS_DB)
 from utils.models import AVAILABLE_TAGS
@@ -25,7 +25,8 @@ def home_route():
     email_full = session["user"]["email"]
     username = email_full.split("@")[0]
 
-    meetings = get_all_meetings(status="approved")
+    # Anyone this user blocked drops out of the map and the list alike.
+    meetings = filter_blocked(uid, get_all_meetings(status="approved"))
 
    # Sort by distance when browser sends coordinates
     try:

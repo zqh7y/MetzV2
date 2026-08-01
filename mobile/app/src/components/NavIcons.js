@@ -143,6 +143,12 @@ export const UsersIcon = (p) => (
   </Icon>
 );
 
+export const FlagIcon = (p) => (
+  <Icon {...p}>
+    <Path d="M5.5 21V3.6c3.5-1.6 6.5 1.6 10 0v9.6c-3.5 1.6-6.5-1.6-10 0" />
+  </Icon>
+);
+
 export const CompassIcon = (p) => (
   <Icon {...p}>
     <Circle cx="12" cy="12" r="9" />

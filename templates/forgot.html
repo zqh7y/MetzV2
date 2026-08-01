@@ -1,0 +1,43 @@
+{% extends "auth_base.html" %}
+
+{% block title %}Reset your password{% endblock %}
+
+{% block pitch %}Back into your account.{% endblock %}
+{% block auth_title %}Forgot your password?{% endblock %}
+{% block auth_subtitle %}Give us the email you signed up with and we'll send a reset link.{% endblock %}
+
+{% block auth_form %}
+{% if sent %}
+<div class="auth-sent">
+    <span class="auth-sent-icon" aria-hidden="true">📬</span>
+    <p class="auth-sent-text">
+        If that email has an account, a reset link is on its way.
+        Check your inbox, and your spam folder.
+    </p>
+</div>
+{% else %}
+<form method="post" data-auth-form>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="auth-field">
+        <label class="auth-label" for="email">Email</label>
+        <div class="auth-input-wrap">
+            <input class="auth-input" type="email" id="email" name="email"
+                   placeholder="you@example.com"
+                   autocomplete="username" inputmode="email"
+                   autocapitalize="none" spellcheck="false"
+                   required autofocus>
+            <span class="auth-input-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+                    <rect x="2" y="4" width="20" height="16" rx="3"/><path d="m2 7 10 6 10-6"/>
+                </svg>
+            </span>
+        </div>
+    </div>
+
+    <button type="submit" class="auth-submit" data-busy="Sending…">Send reset link</button>
+</form>
+{% endif %}
+{% endblock %}
+
+{% block auth_alt %}Remembered it? <a href="/login">Back to log in</a>{% endblock %}

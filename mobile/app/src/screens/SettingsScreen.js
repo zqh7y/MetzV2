@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from "react-native";
 
+import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { ACCENTS, RADIUS, SHADOW } from "../styles/theme";
@@ -37,6 +38,46 @@ export default function SettingsScreen({ navigation }) {
       { text: "Cancel", style: "cancel" },
       { text: "Reset", style: "destructive", onPress: resetPrefs },
     ]);
+  }
+
+  /**
+   * Two prompts, not one.
+   *
+   * Deletion is irreversible and sits a few millimetres from "Log out", which
+   * is not. One tap-through is too easy to do by accident, so the second
+   * prompt spells out what actually goes.
+   */
+  function confirmDelete() {
+    Alert.alert(
+      "Delete your account?",
+      "This removes your profile, the meetings you created, and your place in meetings you joined.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Continue",
+          style: "destructive",
+          onPress: () => Alert.alert(
+            "This cannot be undone",
+            "There is no way to get the account back afterwards.",
+            [
+              { text: "Keep my account", style: "cancel" },
+              { text: "Delete permanently", style: "destructive", onPress: reallyDelete },
+            ]
+          ),
+        },
+      ]
+    );
+  }
+
+  async function reallyDelete() {
+    try {
+      await api.deleteAccount();
+    } catch (e) {
+      Alert.alert("Couldn't delete", e.message || "Something went wrong. Try again.");
+      return;
+    }
+    // The account is gone either way, so the session must not survive it.
+    signOut();
   }
 
   return (
@@ -130,6 +171,19 @@ export default function SettingsScreen({ navigation }) {
       <Pressable style={styles.logout} onPress={confirmLogout}>
         <Text style={styles.logoutText}>Log out</Text>
       </Pressable>
+
+      {/* Boxed off and last: the only control here that cannot be undone, and
+          it has to be reachable in-app for the stores. */}
+      <View style={styles.danger}>
+        <Text style={styles.dangerTitle}>Delete your account</Text>
+        <Text style={styles.dangerBody}>
+          Removes your profile, the meetings you created, and your place in meetings
+          you joined. This cannot be undone.
+        </Text>
+        <Pressable style={styles.dangerBtn} onPress={confirmDelete}>
+          <Text style={styles.dangerBtnText}>Delete my account</Text>
+        </Pressable>
+      </View>
     </ScrollView>
   );
 }
@@ -302,4 +356,24 @@ const makeStyles = (t) => StyleSheet.create({
     backgroundColor: "rgba(231, 76, 60, 0.08)",
   },
   logoutText: { color: t.status.bad, fontSize: 15, fontFamily: FONTS.accentMedium },
+
+  danger: {
+    marginTop: 22,
+    padding: 16,
+    borderRadius: RADIUS.lg,
+    backgroundColor: t.status.badSoft,
+    borderWidth: 1,
+    borderColor: "rgba(192,57,43,0.3)",
+  },
+  dangerTitle: { fontSize: 15, fontFamily: FONTS.heading, color: t.status.bad },
+  dangerBody: { fontSize: 12.5, lineHeight: 18, color: t.text2, marginTop: 6, marginBottom: 14 },
+  dangerBtn: {
+    alignSelf: "flex-start",
+    borderRadius: RADIUS.base,
+    borderWidth: 1,
+    borderColor: t.status.bad,
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+  },
+  dangerBtnText: { color: t.status.bad, fontSize: 13.5, fontFamily: FONTS.accentMedium },
 });

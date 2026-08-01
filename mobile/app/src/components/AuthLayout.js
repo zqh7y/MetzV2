@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useRef } from "react";
 import {
-  View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Animated, Easing,
+  View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Animated, Easing, Linking,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
 import { AlertIcon } from "./AuthIcons";
+import { PRIVACY_URL, TERMS_URL } from "../config";
 
 // Mirrors the .auth shell in templates/auth_base.html as the web renders it
 // below its 900px breakpoint: there `.auth-aside { display: none }` drops the
@@ -81,8 +82,25 @@ export default function AuthLayout({ title, subtitle, error, children, footer })
 
             {footer}
 
+            {/* The policy has to be reachable from inside the app, not just
+                named — every store checks for it. */}
             <Text style={styles.legal}>
-              By continuing you agree to how Metz handles your data, described in the privacy policy.
+              By continuing you agree to the{" "}
+              <Text
+                style={styles.legalLink}
+                accessibilityRole="link"
+                onPress={() => { if (TERMS_URL) Linking.openURL(TERMS_URL).catch(() => {}); }}
+              >
+                terms of service
+              </Text>
+              {" "}and to how Metz handles your data, described in the{" "}
+              <Text
+                style={styles.legalLink}
+                accessibilityRole="link"
+                onPress={() => { if (PRIVACY_URL) Linking.openURL(PRIVACY_URL).catch(() => {}); }}
+              >
+                privacy policy
+              </Text>.
             </Text>
           </Animated.View>
         </ScrollView>
@@ -174,4 +192,6 @@ const makeStyles = (t) => StyleSheet.create({
     lineHeight: 17,
     color: t.text3,
   },
+  // .auth-legal a — underlined and a shade darker, so it reads as tappable.
+  legalLink: { color: t.text2, textDecorationLine: "underline" },
 });

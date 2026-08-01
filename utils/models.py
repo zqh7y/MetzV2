@@ -168,10 +168,23 @@ MAX_DESC_LEN = 500
 
 
 def sanitize_html(text):
-    """Escape HTML special characters to prevent XSS injection."""
+    """Normalise user-entered text for storage.
+
+    It no longer escapes. Escaping belongs at the point of rendering, and both
+    renderers already do it: Jinja auto-escapes every .html template (nothing
+    here uses |safe), and React Native's <Text> draws a string as characters,
+    never as markup.
+
+    Escaping on the way *in* meant it happened twice on the web and once too
+    often on mobile, so an apostrophe was stored as "&#x27;" and displayed
+    that way. Anyone typing "It's fake" saw "It&#x27;s fake".
+
+    Entities already in stored text are decoded here, so a value that is
+    re-saved is repaired rather than escaped again.
+    """
     if not isinstance(text, str):
         return ""
-    return html.escape(text.strip())
+    return html.unescape(text).strip()
 
 
 def validate_meeting_data(title, description, time, meeting_type, location_name=None, link=None):
