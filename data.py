@@ -761,8 +761,24 @@ def next_up_meeting(uid):
 
 
 def is_admin(uid):
+    """Whether this account has admin rights.
+
+    ADMIN_EMAILS is the authority, checked live on every call.
+
+    The stored "is_admin" flag is written once, at registration, from the same
+    list. Reading only that flag made the list effectively permanent: an
+    account created before the variable was set could never become an admin,
+    and taking an address out of the list never removed anyone's access. Both
+    now take effect on the next deploy, which is what an operator expects from
+    a configuration value.
+
+    The stored flag is kept for the dashboard's counts and for anything that
+    inspects a user record directly.
+    """
     user = USERS_DB.get(uid)
-    return bool(user and user.get("is_admin"))
+    if not user:
+        return False
+    return (user.get("email") or "").lower() in ADMIN_EMAILS
 
 
 def get_total_participants(uid):
@@ -1423,8 +1439,14 @@ def platform_stats():
     return {
         "users": {
             "total": len(users),
-            "admins": count(users, lambda u: u.get("is_admin")),
-            "trusted": count(users, lambda u: u.get("is_trusted") and not u.get("is_admin")),
+            # Derived from ADMIN_EMAILS, same as is_admin(), so the dashboard
+            # agrees with who can actually use the admin screens rather than
+            # counting a flag frozen at registration.
+            "admins": count(users, lambda u: (u.get("email") or "").lower() in ADMIN_EMAILS),
+            "trusted": count(
+                users,
+                lambda u: u.get("is_trusted") and (u.get("email") or "").lower() not in ADMIN_EMAILS,
+            ),
             "banned": count(users, lambda u: u.get("is_banned")),
             "online_now": count(users, _is_recently_online),
             "new_7d": count(users, lambda u: _within_days(u.get("joined_at"), 7)),
