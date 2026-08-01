@@ -29,7 +29,24 @@ INBOX_DB = {}
 _next_inbox_id = 1
 
 # Accounts with permission to delete any meeting, not just their own.
-ADMIN_EMAILS = {"123@gmail.com", "1234@gmail.com", "test@gmail.com", "ytevil68@gmail.com"}
+#
+# Read from the environment because this repository is public: a hardcoded list
+# tells anyone reading it exactly which accounts are worth attacking, and the
+# test addresses below are ones a stranger could plausibly register on a fresh
+# deployment and inherit admin from.
+#
+# ADMIN_EMAILS=you@example.com,someone@else.com
+#
+# The literals remain as the development fallback so a local checkout still
+# works with no configuration. Production should always set the variable.
+ADMIN_EMAILS = {
+    e.strip().lower()
+    for e in os.environ.get(
+        "ADMIN_EMAILS",
+        "123@gmail.com,1234@gmail.com,test@gmail.com,ytevil68@gmail.com",
+    ).split(",")
+    if e.strip()
+}
 
 
 # ── Persistence: MySQL database, with each row's JSON content AES-encrypted ────
