@@ -78,6 +78,19 @@ def add_cors_headers(response):
     response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-User-Id"
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, DELETE, OPTIONS"
     response.headers["X-Content-Type-Options"] = "nosniff"
+
+    # This API carries session tokens, so it gets the same transport promise the
+    # website makes: once a client has seen this, it refuses plain HTTP to this
+    # host entirely, closing the window where a first request could be
+    # downgraded and the Authorization header read off the wire.
+    #
+    # Production and already-secure only — sending it from a local HTTP dev
+    # server would pin "https only" for localhost in a browser and be a
+    # nuisance to undo.
+    if IS_PRODUCTION and request.is_secure:
+        response.headers.setdefault(
+            "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
+        )
     return response
 
 
