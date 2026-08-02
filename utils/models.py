@@ -33,7 +33,7 @@ class Meeting:
     def __init__(self, id, title, description, time,
                  creator_uid=None, creator_username=None, joined_uids=None, emoji=None, tags=None, status=None,
                  min_attendees=0, max_attendees=0, join_deadline="", commit_status=None, waitlist_uids=None,
-                 attendance=None, late_bails=None):
+                 attendance=None, late_bails=None, comments=None):
         self.id = id
         self.title = title
         self.description = description
@@ -60,6 +60,15 @@ class Meeting:
         # replaced. Both feed the reliability score on a user's profile.
         self.attendance = dict(attendance or {})
         self.late_bails = dict(late_bails or {})
+
+        # ── Discussion ────────────────────────────────────────────────────
+        # Comments hang off the meeting rather than living in a table of their
+        # own: a comment has no meaning apart from its meeting, every read is
+        # "give me this meeting's comments", and deleting a meeting should take
+        # its discussion with it. Nesting gets all three for free, and matches
+        # how attendance and late_bails are already stored.
+        # Each entry: {id, uid, username, text, created_at}
+        self.comments = list(comments or [])
 
     @property
     def has_threshold(self):
@@ -109,6 +118,8 @@ class Meeting:
             "threshold_progress": self.threshold_progress,
             "attendance": self.attendance,
             "late_bails": self.late_bails,
+            "comments": self.comments,
+            "comment_count": len(self.comments),
             "is_online": False,
         }
 
@@ -165,6 +176,9 @@ class OnlineMeeting(Meeting):
 
 MAX_TITLE_LEN = 100
 MAX_DESC_LEN = 500
+# Shorter than a description on purpose: the discussion is for "running late,
+# where exactly?", not for a second write-up of the meeting.
+MAX_COMMENT_LEN = 300
 
 
 def sanitize_html(text):
@@ -185,6 +199,21 @@ def sanitize_html(text):
     if not isinstance(text, str):
         return ""
     return html.unescape(text).strip()
+
+
+def validate_comment(text):
+    """Validate one discussion comment. Returns a list of error strings.
+
+    Same two-stage shape as validate_meeting_data: the app disables its send
+    button on an empty box, and this is the check that actually decides, since
+    the client is the one thing a server cannot trust.
+    """
+    errors = []
+    if not text or not text.strip():
+        errors.append("Comment cannot be empty.")
+    elif len(text) > MAX_COMMENT_LEN:
+        errors.append(f"Comment must be at most {MAX_COMMENT_LEN} characters.")
+    return errors
 
 
 def validate_meeting_data(title, description, time, meeting_type, location_name=None, link=None):
@@ -243,6 +272,8 @@ def meeting_from_dict(data):
         # Meetings created before attendance tracking existed simply have none.
         attendance=data.get("attendance", {}),
         late_bails=data.get("late_bails", {}),
+        # Meetings created before the discussion existed simply have none.
+        comments=data.get("comments", []),
     )
     if data.get("type") == "InPersonMeeting":
         return InPersonMeeting(

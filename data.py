@@ -294,6 +294,83 @@ def can_delete_meeting(uid, meeting):
     return meeting.get("creator_uid") == uid
 
 
+# ─── Discussion on a meeting ────────────────────────────────────────────────
+# Comments are stored on the meeting record itself (see Meeting.comments), so
+# these work on the raw dict in MEETINGS_DB the same way delete_meeting does.
+
+def get_comments(meeting_id):
+    """Every comment on a meeting, oldest first. Missing meeting -> []."""
+    m = MEETINGS_DB.get(meeting_id)
+    if not m:
+        return []
+    return list(m.get("comments", []))
+
+
+def add_comment(meeting_id, uid, text):
+    """Append a comment to a meeting's discussion.
+
+    Returns the stored comment, or None when the meeting is unknown, the
+    author is not a real user, or the text fails validation. Callers get a
+    single falsy answer rather than three, because every rejection reaching
+    the client is the same 400.
+    """
+    from utils.models import sanitize_html, validate_comment
+
+    m = MEETINGS_DB.get(meeting_id)
+    if not m or not uid or uid not in USERS_DB:
+        return None
+
+    clean = sanitize_html(text)
+    if validate_comment(clean):
+        return None
+
+    comments = m.setdefault("comments", [])
+    # Ids are per-meeting rather than global: a comment is only ever addressed
+    # as "this one, on this meeting", so a shared counter and the meta row it
+    # would need buy nothing here.
+    comment = {
+        "id": max((c.get("id", 0) for c in comments), default=0) + 1,
+        "uid": uid,
+        # Denormalised the way creator_username is, so a comment still renders
+        # if the account later goes away. Live callers prefer display_name_for.
+        "username": USERS_DB[uid].get("username", ""),
+        "text": clean,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    comments.append(comment)
+    save_data()
+    return comment
+
+
+def can_delete_comment(uid, meeting, comment):
+    """Its author, the meeting's host, or an admin.
+
+    The host is included because they are the one accountable for the meeting
+    they are running, and moderation should not require waiting for an admin.
+    """
+    if not uid:
+        return False
+    if is_admin(uid) or comment.get("uid") == uid:
+        return True
+    return meeting.get("creator_uid") == uid
+
+
+def delete_comment(meeting_id, comment_id, uid):
+    """Remove one comment. Returns True only if it existed and uid may delete it."""
+    m = MEETINGS_DB.get(meeting_id)
+    if not m:
+        return False
+    comments = m.get("comments", [])
+    for index, comment in enumerate(comments):
+        if comment.get("id") == comment_id:
+            if not can_delete_comment(uid, m, comment):
+                return False
+            comments.pop(index)
+            save_data()
+            return True
+    return False
+
+
 def _parse_deadline(value):
     """Deadlines are stored as 'YYYY-MM-DD HH:MM' local time."""
     if not value:

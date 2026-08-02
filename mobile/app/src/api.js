@@ -79,6 +79,12 @@ export const api = {
 
   getAttendees: (id) => request(`/api/meetings/${id}/attendees`),
 
+  getComments: (id) => request(`/api/meetings/${id}/comments`),
+  addComment: (id, text) =>
+    request(`/api/meetings/${id}/comments`, { method: "POST", body: { text } }),
+  deleteComment: (id, commentId) =>
+    request(`/api/meetings/${id}/comments/${commentId}`, { method: "DELETE" }),
+
   getProfile: () => request("/api/profile"),
   updateProfile: (payload) => request("/api/profile", { method: "POST", body: payload }),
   deleteAccount: () => request("/api/profile", { method: "DELETE" }),

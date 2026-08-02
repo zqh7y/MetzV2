@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity, Linking, ScrollView, ActivityIndicator,
-  Platform,
+  Platform, TextInput, Alert, KeyboardAvoidingView,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { api } from "../api";
@@ -15,7 +15,7 @@ import { MapPinIcon } from "../components/NavIcons";
 import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
 import { RADIUS, SHADOW } from "../styles/theme";
-import { formatTimeUntil } from "../utils/time";
+import { formatTimeUntil, formatAgo } from "../utils/time";
 import { fetchRoute, formatRoute } from "../utils/route";
 
 // Mirrors the web's /meeting/<id> page: a tinted hero, then the details in
@@ -35,6 +35,12 @@ export default function MeetingDetailScreen({ route, navigation }) {
   const [attendees, setAttendees] = useState([]);
   const [loadingAttendees, setLoadingAttendees] = useState(true);
   const [reporting, setReporting] = useState(false);
+
+  // ─── Discussion ───────────────────────────────────────────────────────
+  const [comments, setComments] = useState([]);
+  const [loadingComments, setLoadingComments] = useState(true);
+  const [draft, setDraft] = useState("");
+  const [posting, setPosting] = useState(false);
 
   // ─── Where, and how to get there ───────────────────────────────────────
   const hasPlace = !isOnline && typeof meeting.lat === "number" && typeof meeting.lng === "number";
@@ -93,6 +99,57 @@ export default function MeetingDetailScreen({ route, navigation }) {
   useEffect(() => {
     loadAttendees();
   }, [loadAttendees]);
+
+  const loadComments = useCallback(() => {
+    api.getComments(meeting.id)
+      .then((list) => setComments(Array.isArray(list) ? list : []))
+      .catch(() => setComments([]))
+      .finally(() => setLoadingComments(false));
+  }, [meeting.id]);
+
+  useEffect(() => {
+    loadComments();
+  }, [loadComments]);
+
+  const handlePostComment = useCallback(async () => {
+    const text = draft.trim();
+    if (!text || posting) return;
+    setPosting(true);
+    try {
+      const created = await api.addComment(meeting.id, text);
+      // Appended straight from the response rather than refetching the list:
+      // the server has just said exactly what it stored, including the id that
+      // deleting needs, so a second round trip would only add latency.
+      setComments((prev) => [...prev, created]);
+      setDraft("");
+    } catch (e) {
+      // Posting is deliberate, so failing silently would be wrong here — unlike
+      // a background refresh, the user is waiting to see their words appear.
+      Alert.alert("Could not post", e.message || "Please try again.");
+    } finally {
+      setPosting(false);
+    }
+  }, [draft, posting, meeting.id]);
+
+  const handleDeleteComment = useCallback((comment) => {
+    Alert.alert("Delete comment?", "This cannot be undone.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          const before = comments;
+          setComments((prev) => prev.filter((c) => c.id !== comment.id));
+          try {
+            await api.deleteComment(meeting.id, comment.id);
+          } catch (e) {
+            setComments(before);   // the server refused; put it back
+            Alert.alert("Could not delete", e.message || "Please try again.");
+          }
+        },
+      },
+    ]);
+  }, [comments, meeting.id]);
 
   async function handleJoin() {
     if (busy) return;
@@ -321,6 +378,82 @@ export default function MeetingDetailScreen({ route, navigation }) {
         )}
       </View>
 
+      {/* Discussion sits under the people list and above the join button: it is
+          context for deciding, not an afterthought, but it must never push the
+          one action most people came here for off the screen. */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>
+          💬 Discussion <Text style={styles.count}>{comments.length}</Text>
+        </Text>
+
+        {loadingComments ? (
+          <ActivityIndicator color={theme.accent} style={{ marginTop: 6 }} />
+        ) : comments.length ? (
+          comments.map((comment) => (
+            <View key={comment.id} style={styles.comment}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => navigation.navigate("UserProfile", { uid: comment.uid })}
+              >
+                <View style={[styles.commentAvatar, { backgroundColor: comment.color }]}>
+                  <Text style={styles.personInitial}>{comment.initial}</Text>
+                </View>
+              </TouchableOpacity>
+
+              <View style={{ flex: 1 }}>
+                <View style={styles.commentHead}>
+                  <Text style={styles.commentName} numberOfLines={1}>
+                    {comment.username}
+                  </Text>
+                  {comment.is_host ? <Text style={styles.hostTag}>host</Text> : null}
+                  {comment.is_trusted || comment.is_admin ? <TrustBadge /> : null}
+                  <Text style={styles.commentAge}>{formatAgo(comment.created_at)}</Text>
+                </View>
+
+                <Text style={styles.commentText}>{comment.text}</Text>
+
+                {/* The server decides who may delete; the client only draws
+                    what it was told, so the two can never disagree. */}
+                {comment.can_delete ? (
+                  <TouchableOpacity onPress={() => handleDeleteComment(comment)}>
+                    <Text style={styles.commentDelete}>Delete</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            </View>
+          ))
+        ) : (
+          <Text style={styles.body}>No messages yet — ask the first question.</Text>
+        )}
+
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
+          <View style={styles.composer}>
+            <TextInput
+              style={styles.composerInput}
+              value={draft}
+              onChangeText={setDraft}
+              placeholder="Ask something, or say you're running late…"
+              placeholderTextColor={theme.text3}
+              multiline
+              // Matches MAX_COMMENT_LEN on the server. The server is still the
+              // one that decides — this only spares a round trip to be told.
+              maxLength={300}
+            />
+            <TouchableOpacity
+              style={[styles.composerBtn, (!draft.trim() || posting) && styles.composerBtnOff]}
+              onPress={handlePostComment}
+              disabled={!draft.trim() || posting}
+            >
+              {posting ? (
+                <ActivityIndicator color={theme.accentOn} size="small" />
+              ) : (
+                <Text style={styles.composerBtnText}>Send</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </View>
+
       <TouchableOpacity
         style={[styles.joinBtn, joined && styles.joinBtnActive, busy && styles.joinBtnBusy]}
         onPress={handleJoin}
@@ -487,6 +620,61 @@ const makeStyles = (t) => StyleSheet.create({
   personName: { fontSize: 14, fontFamily: FONTS.bodySemi, color: t.text },
   record: { fontSize: 11.5, color: t.text3, marginTop: 1 },
   recordNew: { fontStyle: "italic" },
+
+  // ── Discussion ───────────────────────────────────────────────────────
+  // alignItems is "flex-start" rather than "center" as in `person`: a comment
+  // is as tall as its text, so a centred avatar would drift down long ones.
+  comment: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    paddingVertical: 9,
+  },
+  commentAvatar: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 1,
+  },
+  commentHead: { flexDirection: "row", alignItems: "center", gap: 6 },
+  commentName: { fontSize: 13.5, fontFamily: FONTS.bodySemi, color: t.text, flexShrink: 1 },
+  commentAge: { fontSize: 11, color: t.text3, marginLeft: "auto" },
+  commentText: { fontSize: 14.5, color: t.text2, lineHeight: 20, marginTop: 2 },
+  commentDelete: { fontSize: 12, fontFamily: FONTS.accentMedium, color: t.status.bad, marginTop: 4 },
+
+  composer: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 8,
+    marginTop: 10,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: t.border,
+  },
+  composerInput: {
+    flex: 1,
+    minHeight: 40,
+    maxHeight: 120,
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 10,
+    borderRadius: RADIUS.base,
+    backgroundColor: t.surface3,
+    color: t.text,
+    fontSize: 14.5,
+  },
+  composerBtn: {
+    paddingHorizontal: 16,
+    height: 40,
+    borderRadius: RADIUS.base,
+    backgroundColor: t.accent,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  composerBtnOff: { opacity: 0.45 },
+  composerBtnText: { color: t.accentOn, fontFamily: FONTS.accent, fontSize: 14 },
 
   threshold: {
     marginTop: 4,

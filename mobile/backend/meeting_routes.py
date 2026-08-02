@@ -8,10 +8,11 @@ from data import (
     get_user, get_all_meetings, add_meeting, toggle_join_meeting, filter_blocked,
     user_pass, delete_meeting, get_joined_users_preview, MEETINGS_DB,
     generate_user_color, display_name_for, is_trusted, is_admin, get_reliability,
+    get_comments, add_comment, delete_comment, can_delete_comment, get_blocked_uids,
 )
 from utils.models import (
     InPersonMeeting, OnlineMeeting, AVAILABLE_TAGS,
-    validate_meeting_data, sanitize_html,
+    validate_meeting_data, sanitize_html, validate_comment,
 )
 
 from helpers import current_uid, serialize_meeting
@@ -132,6 +133,90 @@ def meeting_attendees(meeting_id):
             "reliability": get_reliability(uid),
         })
     return jsonify(attendees)
+
+
+def _serialize_comment(comment, meeting, viewer_uid):
+    """One comment in the shape the detail screen draws.
+
+    Author identity is resolved live (display_name_for) rather than trusting the
+    denormalised username, so a rename shows up on old comments too; the stored
+    copy is only the fallback for an account that no longer exists.
+    """
+    author_uid = comment.get("uid", "")
+    name = display_name_for(author_uid) or comment.get("username") or author_uid
+    return {
+        "id": comment.get("id"),
+        "uid": author_uid,
+        "username": name,
+        "text": comment.get("text", ""),
+        "created_at": comment.get("created_at", ""),
+        "color": generate_user_color(author_uid),
+        "initial": (name or "?")[:1].upper(),
+        "is_trusted": is_trusted(author_uid),
+        "is_admin": is_admin(author_uid),
+        "is_host": author_uid == meeting.get("creator_uid"),
+        "is_mine": author_uid == viewer_uid,
+        # Sent so the client never has to re-derive the rule and get it wrong.
+        "can_delete": can_delete_comment(viewer_uid, meeting, comment),
+    }
+
+
+@meeting_bp.route("/api/meetings/<int:meeting_id>/comments")
+def meeting_comments(meeting_id):
+    """The discussion on a meeting, oldest first."""
+    meeting = MEETINGS_DB.get(meeting_id)
+    if meeting is None:
+        return jsonify({"error": "not found"}), 404
+
+    uid = current_uid()
+    # Blocking is applied on read for the same reason it is for meetings: it
+    # only counts if it reaches what you actually look at, and unblocking
+    # should bring the comments straight back rather than having lost them.
+    blocked = set(get_blocked_uids(uid)) if uid else set()
+    return jsonify([
+        _serialize_comment(c, meeting, uid)
+        for c in get_comments(meeting_id)
+        if c.get("uid") not in blocked
+    ])
+
+
+@meeting_bp.route("/api/meetings/<int:meeting_id>/comments", methods=["POST"])
+def create_comment(meeting_id):
+    uid = current_uid()
+    if not get_user(uid):
+        return jsonify({"error": "unauthorized"}), 401
+
+    meeting = MEETINGS_DB.get(meeting_id)
+    if meeting is None:
+        return jsonify({"error": "not found"}), 404
+
+    body = request.get_json(force=True) or {}
+    text = sanitize_html(body.get("text", ""))
+
+    # Validated here as well as inside add_comment so the client gets the real
+    # reason ("too long") instead of a bare failure.
+    errors = validate_comment(text)
+    if errors:
+        return jsonify({"error": errors[0]}), 400
+
+    comment = add_comment(meeting_id, uid, text)
+    if not comment:
+        return jsonify({"error": "Could not post comment."}), 400
+    return jsonify(_serialize_comment(comment, meeting, uid)), 201
+
+
+@meeting_bp.route(
+    "/api/meetings/<int:meeting_id>/comments/<int:comment_id>", methods=["DELETE"]
+)
+def remove_comment(meeting_id, comment_id):
+    uid = current_uid()
+    if not get_user(uid):
+        return jsonify({"error": "unauthorized"}), 401
+    if not delete_comment(meeting_id, comment_id, uid):
+        # One answer for "not there" and "not yours": otherwise the response
+        # tells a stranger which comment ids exist.
+        return jsonify({"error": "forbidden"}), 403
+    return jsonify({"status": "deleted"})
 
 
 @meeting_bp.route("/api/meetings/<int:meeting_id>/pass", methods=["POST"])
