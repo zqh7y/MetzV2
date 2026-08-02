@@ -42,7 +42,13 @@ export default function ProfileScreen({ navigation }) {
     refreshProfile()
       .then((p) => setError(!p))
       .finally(() => setLoading(false));
-    api.getJoined().then(setJoined).catch(() => setJoined([]));
+    // The shape is checked, not just the failure: a 200 carrying something
+    // other than a list (a stub server, an error object serialised as JSON, a
+    // proxy's response) still resolves, so .catch never runs — and `joined`
+    // feeds .map below, which takes the whole screen down on anything else.
+    api.getJoined()
+      .then((list) => setJoined(Array.isArray(list) ? list : []))
+      .catch(() => setJoined([]));
   }, []);
 
   useFocusEffect(

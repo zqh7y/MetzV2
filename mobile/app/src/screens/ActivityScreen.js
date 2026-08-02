@@ -3,10 +3,10 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator,
   RefreshControl,
 } from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { api } from "../api";
+import useAutoRefresh from "../hooks/useAutoRefresh";
 import ReliabilityCard from "../components/ReliabilityCard";
 import Appear from "../components/Appear";
 import { MapPinIcon, GlobeIcon, ClockIcon } from "../components/NavIcons";
@@ -89,9 +89,10 @@ export default function ActivityScreen({ navigation }) {
       .finally(() => { setLoading(false); setRefreshing(false); });
   }, []);
 
-  // Refetch on focus: these sections are answers to "what needs me now", which
-  // goes stale the moment you act on something elsewhere.
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  // These sections answer "what needs me now", which goes stale the moment you
+  // act on something elsewhere — so refetch on focus, on returning from the
+  // background, and periodically while open.
+  useAutoRefresh(load, { intervalMs: 30000 });
 
   const openMeeting = useCallback((card) => {
     // Activity cards are a trimmed shape; the detail screen refetches the

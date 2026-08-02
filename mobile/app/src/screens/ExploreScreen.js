@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../api";
 import MeetingCard from "../components/MeetingCard";
 import { SearchIcon } from "../components/NavIcons";
+import useAutoRefresh from "../hooks/useAutoRefresh";
 import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
 import { RADIUS } from "../styles/theme";
@@ -90,6 +91,10 @@ export default function ExploreScreen({ navigation }) {
     const timer = setTimeout(load, search ? 300 : 0);
     return () => clearTimeout(timer);
   }, [load, search]);
+
+  // Keeps the list current while it is open. skipFirstFocus because the effect
+  // above already fetches on mount.
+  useAutoRefresh(load, { intervalMs: 25000, skipFirstFocus: true });
 
   const openMeeting = useCallback((meeting) => {
     navigation.navigate("MeetingDetail", { meeting });

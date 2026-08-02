@@ -37,6 +37,17 @@ function hostFrom(value) {
  * into a host-less relative fetch and failed as "Network request failed".
  */
 function resolveApiBaseUrl() {
+  // A configured apiUrl now wins in development too.
+  //
+  // Borrowing Metro's host assumed a Flask server on the same machine. Since
+  // the database moved to Render there is no local server to borrow it for —
+  // data.py requires DATABASE_URL and will not fall back to a laptop database.
+  // Pointing development at the deployed API also means what you test is what
+  // ships, rather than a second stack that can drift.
+  //
+  // To go back to a local server, clear expo.extra.apiUrl in app.json.
+  if (PRODUCTION_API_URL) return PRODUCTION_API_URL;
+
   if (!__DEV__) return PRODUCTION_API_URL;
 
   // Expo Go and dev builds: "10.0.0.1:8081".
