@@ -11,7 +11,9 @@ from flask import Blueprint, request, jsonify
 
 from data import register_user
 from utils.auth_errors import friendly_auth_error
-from utils.email_utils import generate_verification_code, send_verification_email
+from utils.email_utils import (
+    generate_verification_code, send_verification_email, EmailNotSent,
+)
 from utils.security import rate_limit_exceeded, client_ip
 from utils.tokens import issue_token
 
@@ -48,7 +50,20 @@ def signup():
         "issued_at": time.time(),
         "attempts": 0,
     }
-    send_verification_email(email, code)
+    try:
+        send_verification_email(email, code)
+    except EmailNotSent as exc:
+        # The Firebase account exists by now, so the pending entry stays put:
+        # once mail is working again /api/verify/resend can finish the signup,
+        # where starting over would only be told the address is already taken.
+        print(f"[Metz] verification email failed for {email}: {exc}", flush=True)
+        return jsonify({
+            "error": "We couldn't send your verification code. Your account was "
+                     "created — tap resend in a moment to try again.",
+            "email": email,
+            "email_failed": True,
+        }), 502
+
     return jsonify({"status": "pending_verification", "email": email})
 
 
@@ -98,7 +113,11 @@ def resend_verify():
     pending["code"] = code
     pending["issued_at"] = time.time()
     pending["attempts"] = 0
-    send_verification_email(email, code)
+    try:
+        send_verification_email(email, code)
+    except EmailNotSent as exc:
+        print(f"[Metz] verification resend failed for {email}: {exc}", flush=True)
+        return jsonify({"error": "We still couldn't send the code. Please try again shortly."}), 502
     return jsonify({"status": "sent"})
 
 

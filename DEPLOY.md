@@ -30,12 +30,23 @@ the host. `.env` is git-ignored and will **not** be uploaded.
 | `DATA_ENCRYPTION_KEY` | **Copy from the existing `.env`.** Rows are Fernet-encrypted with it; a new key makes existing data unreadable |
 | `DATABASE_URL` | Render Postgres **Internal Database URL** |
 | `FIREBASE_API_KEY` | Same project as now, or sign-in breaks |
+| `GMAIL_ADDRESS` | Sender for verification codes. **Without it nobody can finish signing up** — see below |
+| `GMAIL_APP_PASSWORD` | Google account → Security → App passwords. Not your normal password |
 | `TRUST_PROXY` | `1`. Hosts terminate TLS at a proxy; without this, client IPs and secure-cookie detection are wrong |
 | `CONTACT_EMAIL` | Shown on `/privacy` |
 | `MOBILE_API_PORT` | Mobile API service only |
 
 `metz-firebase.json` is also git-ignored. Upload it as a secret file, or move
 its contents into an environment variable and load it from there.
+
+> **Signup is silently broken without the two `GMAIL_` variables.** They live
+> only in the local `.env`, which is git-ignored and never uploaded, so a fresh
+> deployment starts without them. `send_verification_email` used to fall back
+> to printing the code to stdout wherever they were missing, which is right on
+> a laptop and wrong on a server: every code went into a log nobody reads while
+> the API answered `pending_verification`, so signup looked healthy and no
+> email ever arrived. It now refuses outside development and the caller is told
+> the send failed. Set both before letting anyone sign up.
 
 ## 3 · Web app
 

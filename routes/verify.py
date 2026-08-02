@@ -4,7 +4,9 @@ import time
 
 from flask import request, render_template, session, redirect, url_for
 from data import register_user
-from utils.email_utils import generate_verification_code, send_verification_email
+from utils.email_utils import (
+    generate_verification_code, send_verification_email, EmailNotSent,
+)
 from utils.security import rate_limit_exceeded, client_ip
 
 # A 4-digit code is only 10,000 possibilities, so the number of guesses is the
@@ -86,5 +88,12 @@ def resend_verification_route():
     pending["issued_at"] = time.time()
     pending["attempts"] = 0
     session["pending_signup"] = pending
-    send_verification_email(pending["email"], code)
+    try:
+        send_verification_email(pending["email"], code)
+    except EmailNotSent as exc:
+        print(f"[Metz] verification resend failed for {pending['email']}: {exc}", flush=True)
+        return render_template(
+            "verify.html", email=pending["email"],
+            message="We still couldn't send the code. Please try again shortly.",
+        ), 502
     return redirect(url_for("verify"))

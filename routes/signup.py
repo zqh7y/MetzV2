@@ -4,7 +4,9 @@ from flask import request, render_template, redirect, url_for, session
 import requests
 from data import register_user
 from utils.auth_errors import friendly_auth_error
-from utils.email_utils import generate_verification_code, send_verification_email
+from utils.email_utils import (
+    generate_verification_code, send_verification_email, EmailNotSent,
+)
 from utils.security import rate_limit_exceeded, client_ip
 
 API_KEY = os.environ["FIREBASE_API_KEY"]
@@ -39,7 +41,19 @@ def signup_route():
                 "issued_at": time.time(),   # codes expire, see routes/verify.py
                 "attempts": 0,
             }
-            send_verification_email(email, code)
+            try:
+                send_verification_email(email, code)
+            except EmailNotSent as exc:
+                # The pending signup stays in the session so the verify page's
+                # resend can finish the job; the account already exists in
+                # Firebase, so sending them back to sign up again would only
+                # tell them the address is taken.
+                print(f"[Metz] verification email failed for {email}: {exc}", flush=True)
+                return render_template(
+                    "verify.html",
+                    email=email,
+                    message="We couldn't send your code just now. Use resend to try again.",
+                ), 502
             return redirect(url_for("verify"))
         else:
             message = friendly_auth_error(data.get("error", {}).get("message"))
