@@ -1,7 +1,10 @@
 """Private system and moderation inbox for the mobile client."""
 
 from flask import Blueprint, jsonify
-from data import get_user, get_inbox_messages, mark_inbox_read, mark_all_inbox_read, unread_inbox_count
+from data import (
+    get_user, get_inbox_messages, mark_inbox_read, mark_all_inbox_read,
+    unread_inbox_count, sync_inbox,
+)
 from helpers import current_uid
 
 inbox_bp = Blueprint("inbox", __name__)
@@ -15,6 +18,10 @@ def inbox():
     uid = _uid_or_401()
     if not uid:
         return jsonify({"error": "unauthorized"}), 401
+    # Written on read rather than by a scheduler, the same way commit statuses
+    # are recomputed when a meeting is looked at. Keyed per account, so opening
+    # the inbox repeatedly does not repeat anything.
+    sync_inbox(uid)
     return jsonify({"messages": get_inbox_messages(uid), "unread_count": unread_inbox_count(uid)})
 
 @inbox_bp.route("/api/inbox/<int:message_id>/read", methods=["POST"])

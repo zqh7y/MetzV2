@@ -16,6 +16,19 @@ function when(iso) {
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+// Icon and tint per message kind. Anything the server sends that is not listed
+// here falls back to the plain system row, so the API can add a kind without
+// this app needing to ship first.
+const KINDS = {
+  system:     { icon: "✉️", tint: null },
+  moderation: { icon: "⚑",  tint: "moderation" },
+  welcome:    { icon: "👋", tint: "welcome" },
+  update:     { icon: "✨", tint: "update" },
+  status:     { icon: "🏅", tint: "status" },
+  activity:   { icon: "📍", tint: "activity" },
+  reminder:   { icon: "⏰", tint: "reminder" },
+};
+
 export default function InboxScreen() {
   const { theme } = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
@@ -53,10 +66,13 @@ export default function InboxScreen() {
     </View>
     <FlatList data={messages} keyExtractor={(m) => String(m.id)} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} colors={[theme.accent]} />}
       contentContainerStyle={messages.length ? styles.list : styles.emptyList}
-      renderItem={({ item }) => <Pressable onPress={() => read(item)} style={[styles.card, !item.read_at && styles.unread]}><View style={[styles.icon, item.kind === "moderation" && styles.moderation]}><Text style={styles.iconText}>{item.kind === "moderation" ? "!" : "M"}</Text></View><View style={styles.body}><View style={styles.line}><Text style={styles.cardTitle}>{item.title}</Text>{!item.read_at ? <View style={styles.dot} /> : null}</View><Text style={styles.message}>{item.body}</Text><Text style={styles.time}>{when(item.created_at)}</Text></View></Pressable>}
+      renderItem={({ item }) => {
+        const kind = KINDS[item.kind] || KINDS.system;
+        return <Pressable onPress={() => read(item)} style={[styles.card, !item.read_at && styles.unread]}><View style={[styles.icon, kind.tint && styles[kind.tint]]}><Text style={styles.iconText}>{kind.icon}</Text></View><View style={styles.body}><View style={styles.line}><Text style={styles.cardTitle}>{item.title}</Text>{!item.read_at ? <View style={styles.dot} /> : null}</View><Text style={styles.message}>{item.body}</Text><Text style={styles.time}>{when(item.created_at)}</Text></View></Pressable>;
+      }}
       ListEmptyComponent={<View style={styles.empty}><Text style={styles.emptyTitle}>Your inbox is clear</Text><Text style={styles.emptyText}>Report decisions and important updates from Metz will show up here.</Text></View>} />
   </View>;
 }
 const makeStyles = (t) => StyleSheet.create({
-  page:{flex:1,backgroundColor:t.bg,padding:18},center:{flex:1,alignItems:"center",justifyContent:"center",backgroundColor:t.bg},header:{flexDirection:"row",justifyContent:"space-between",alignItems:"center",marginBottom:18},title:{fontFamily:FONTS.heading,fontSize:27,color:t.text},sub:{color:t.text2,marginTop:2,fontSize:13},readAll:{paddingHorizontal:12,paddingVertical:8,borderRadius:RADIUS.pill,backgroundColor:t.accentSoft},readAllText:{color:t.accentStrong,fontFamily:FONTS.headingSemi,fontSize:12},list:{paddingBottom:28},card:{flexDirection:"row",gap:12,padding:14,marginBottom:10,borderRadius:16,backgroundColor:t.surface,borderWidth:1,borderColor:t.border,...SHADOW.s1},unread:{borderColor:t.accent,backgroundColor:t.accentSoft},icon:{width:34,height:34,borderRadius:17,alignItems:"center",justifyContent:"center",backgroundColor:t.surface2},moderation:{backgroundColor:"rgba(231,76,60,0.13)"},iconText:{fontFamily:FONTS.heading,color:t.accentStrong,fontSize:15},body:{flex:1},line:{flexDirection:"row",alignItems:"center",gap:8},cardTitle:{flex:1,fontFamily:FONTS.headingSemi,color:t.text,fontSize:14},dot:{width:7,height:7,borderRadius:4,backgroundColor:t.accent},message:{color:t.text2,fontSize:13,lineHeight:19,marginTop:5},time:{color:t.text3,fontSize:11,marginTop:8},emptyList:{flexGrow:1,justifyContent:"center"},empty:{alignItems:"center",paddingHorizontal:30},emptyTitle:{fontFamily:FONTS.heading,fontSize:18,color:t.text},emptyText:{color:t.text2,textAlign:"center",lineHeight:20,marginTop:7}
+  page:{flex:1,backgroundColor:t.bg,padding:18},center:{flex:1,alignItems:"center",justifyContent:"center",backgroundColor:t.bg},header:{flexDirection:"row",justifyContent:"space-between",alignItems:"center",marginBottom:18},title:{fontFamily:FONTS.heading,fontSize:27,color:t.text},sub:{color:t.text2,marginTop:2,fontSize:13},readAll:{paddingHorizontal:12,paddingVertical:8,borderRadius:RADIUS.pill,backgroundColor:t.accentSoft},readAllText:{color:t.accentStrong,fontFamily:FONTS.headingSemi,fontSize:12},list:{paddingBottom:28},card:{flexDirection:"row",gap:12,padding:14,marginBottom:10,borderRadius:16,backgroundColor:t.surface,borderWidth:1,borderColor:t.border,...SHADOW.s1},unread:{borderColor:t.accent,backgroundColor:t.accentSoft},icon:{width:34,height:34,borderRadius:17,alignItems:"center",justifyContent:"center",backgroundColor:t.surface2},moderation:{backgroundColor:"rgba(231,76,60,0.13)"},welcome:{backgroundColor:"rgba(102,126,234,0.15)"},update:{backgroundColor:"rgba(123,95,214,0.15)"},status:{backgroundColor:"rgba(224,140,26,0.16)"},activity:{backgroundColor:"rgba(13,156,138,0.15)"},reminder:{backgroundColor:"rgba(245,87,108,0.14)"},iconText:{fontSize:15},body:{flex:1},line:{flexDirection:"row",alignItems:"center",gap:8},cardTitle:{flex:1,fontFamily:FONTS.headingSemi,color:t.text,fontSize:14},dot:{width:7,height:7,borderRadius:4,backgroundColor:t.accent},message:{color:t.text2,fontSize:13,lineHeight:19,marginTop:5},time:{color:t.text3,fontSize:11,marginTop:8},emptyList:{flexGrow:1,justifyContent:"center"},empty:{alignItems:"center",paddingHorizontal:30},emptyTitle:{fontFamily:FONTS.heading,fontSize:18,color:t.text},emptyText:{color:t.text2,textAlign:"center",lineHeight:20,marginTop:7}
 });

@@ -1076,6 +1076,12 @@ def delete_own_account(uid):
 # particular person without waiting for that human.
 
 # ?? Inbox ??????????????????????????????????????????????????????????????????
+# What a message is, which is only ever a presentation choice — the client
+# picks an icon and tint from it, and treats anything it does not know as
+# "system", so adding one here does not require shipping the app again.
+INBOX_KINDS = ("system", "moderation", "welcome", "update", "status", "activity", "reminder")
+
+
 def add_inbox_message(uid, title, body, kind="system"):
     """Send a durable, private system message to one existing account."""
     global _next_inbox_id
@@ -1086,7 +1092,9 @@ def add_inbox_message(uid, title, body, kind="system"):
         "uid": uid,
         "title": str(title or "Update from Metz")[:120],
         "body": str(body or "")[:1000],
-        "kind": kind if kind in ("system", "moderation") else "system",
+        # The kind only decides how the row is drawn, so an unknown one falls
+        # back to "system" rather than being rejected.
+        "kind": kind if kind in INBOX_KINDS else "system",
         "created_at": datetime.now(timezone.utc).isoformat(),
         "read_at": None,
     }
@@ -1128,6 +1136,237 @@ def mark_all_inbox_read(uid):
     if changed:
         save_data()
     return changed
+
+
+# ─── The inbox writes itself ────────────────────────────────────────────────
+#
+# There is no scheduler in this app. Commit statuses are recomputed when
+# someone looks at a meeting (refresh_all_commit_statuses), and the inbox works
+# the same way: sync_inbox() runs when the inbox is opened and writes whatever
+# has become true since last time. A cron service would be a second thing to
+# deploy and keep alive on a free instance that sleeps when idle.
+#
+# Every generator is keyed and the keys already used are kept on the account,
+# so opening the inbox twice never writes the same message twice.
+
+# Release notes, oldest first. Append new entries to the end. Accounts created
+# after an entry was added never receive it — "what's new" means new since you
+# arrived, not a back catalogue on day one.
+APP_UPDATES = [
+    {
+        "key": "update-discussions",
+        "title": "New: discussions on meetings",
+        "body": "Every meeting now has a discussion under \"Who's coming\". Ask the "
+                "host where exactly to meet, say you are running late, or sort out "
+                "who brings what — without swapping phone numbers first.",
+    },
+    {
+        "key": "update-map-emoji",
+        "title": "The map reads at a glance",
+        "body": "Meetings now show on the map as coloured circles carrying the emoji "
+                "they were created with, so a football game and a study session no "
+                "longer look identical until you tap them.",
+    },
+    {
+        "key": "update-auto-refresh",
+        "title": "Fewer refreshes",
+        "body": "Home, Explore and Activity now bring themselves up to date when you "
+                "return to them, so a meeting someone posted a minute ago is already "
+                "on screen.",
+    },
+]
+
+WELCOME_BACK_AFTER_DAYS = 14
+ACTIVITY_DIGEST_EVERY_HOURS = 24
+# Beyond this a digest stops being "what you missed" and becomes a list.
+ACTIVITY_DIGEST_MAX_AREAS = 4
+
+
+def _hours_since(iso, now=None):
+    """Hours between an ISO timestamp and now, or None if it is unusable."""
+    if not iso:
+        return None
+    try:
+        then = datetime.fromisoformat(iso)
+    except (TypeError, ValueError):
+        return None
+    # Rows written before timestamps carried a zone are read as UTC, which is
+    # what they were; treating them as naive would raise on the subtraction.
+    if then.tzinfo is None:
+        then = then.replace(tzinfo=timezone.utc)
+    return ((now or datetime.now(timezone.utc)) - then).total_seconds() / 3600.0
+
+
+def _inbox_state(user):
+    """Per-account record of what the digest has already said."""
+    state = user.setdefault("inbox_state", {})
+    state.setdefault("sent_keys", [])
+    state.setdefault("last_tier", None)
+    state.setdefault("last_activity_digest", None)
+    return state
+
+
+def sync_inbox(uid):
+    """Write any messages that have become true since this account last looked.
+
+    Returns how many were created. Safe to call on every inbox read: each
+    generator is keyed, and a key that has already been used is skipped.
+    """
+    user = USERS_DB.get(uid)
+    if not user:
+        return 0
+
+    state = _inbox_state(user)
+    sent = set(state["sent_keys"])
+    created = []
+
+    def emit(key, title, body, kind):
+        if key in sent:
+            return
+        if add_inbox_message(uid, title, body, kind):
+            sent.add(key)
+            state["sent_keys"].append(key)
+            created.append(key)
+
+    def claim(key):
+        """Mark a key as used without sending anything."""
+        if key not in sent:
+            sent.add(key)
+            state["sent_keys"].append(key)
+
+    # Whether this account has ever been through here decides how much history
+    # it is shown, so it has to be read before the welcome claims its key.
+    first_run = "welcome" not in sent
+
+    # 1 · Welcome, once ever.
+    emit(
+        "welcome",
+        "Welcome to Metz 👋",
+        "This is your inbox — decisions on anything you report, changes to your "
+        "account, and what has been happening near you all arrive here.\n\n"
+        "Start on Home: the map shows what is on around you, and the For You "
+        "shelf picks out a few worth a look.",
+        "welcome",
+    )
+
+    # 2 · What's new. Claimed silently on a first run so a new account does not
+    #     open its inbox to a wall of changes it was never around for.
+    for update in APP_UPDATES:
+        if first_run:
+            claim(update["key"])
+        else:
+            emit(update["key"], update["title"], update["body"], "update")
+
+    # 3 · Welcome back after a real absence. Keyed by the day it fires, so a
+    #     second long absence months later still produces its own message.
+    absence_hours = user.get("last_absence_hours")
+    if not first_run and absence_hours and absence_hours >= WELCOME_BACK_AFTER_DAYS * 24:
+        days = int(absence_hours // 24)
+        upcoming = len([
+            mid for mid in user.get("joined_meeting_ids", [])
+            if (MEETINGS_DB.get(mid) or {}).get("status") == "approved"
+        ])
+        emit(
+            "welcome-back-" + datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "Welcome back 👋",
+            f"It has been {days} days. "
+            + (f"You are still down for {upcoming} meeting{'' if upcoming == 1 else 's'}. "
+               if upcoming else "")
+            + "Have a look at Home — plenty has been posted since you were last here.",
+            "welcome",
+        )
+
+    # 4 · Account status. Stored rather than derived from the messages already
+    #     sent, because a tier can be lost as well as gained.
+    status = get_account_status(uid)
+    tier = (status.get("current") or {}).get("id")
+    if tier and tier != state["last_tier"]:
+        if state["last_tier"] is not None:
+            current = status["current"]
+            emit(
+                f"tier-{tier}-{datetime.now(timezone.utc).strftime('%Y%m%d')}",
+                f"You are now {current.get('name', tier)} {current.get('emoji', '')}".strip(),
+                (current.get("blurb") or "") + "\n\nYour profile shows the tier and what the next one takes.",
+                "status",
+            )
+        state["last_tier"] = tier
+
+    # 5 · What has been happening, and where. The app never learns the user's
+    #     coordinates server-side, so this reports the areas meetings appeared
+    #     in rather than a radius — which is the useful part anyway.
+    since_hours = _hours_since(state["last_activity_digest"])
+    if not first_run and (since_hours is None or since_hours >= ACTIVITY_DIGEST_EVERY_HOURS):
+        window = since_hours if since_hours is not None else ACTIVITY_DIGEST_EVERY_HOURS
+        fresh = []
+        for record in MEETINGS_DB.values():
+            if record.get("status") != "approved":
+                continue
+            if record.get("creator_uid") == uid:
+                continue
+            age = _hours_since(record.get("created_at"))
+            if age is not None and age <= window:
+                fresh.append(record)
+
+        if fresh:
+            areas = []
+            for record in fresh:
+                if record.get("is_online"):
+                    name = "Online"
+                else:
+                    # shorten_address returns "<city>, <street>"; only the city
+                    # belongs in a list of areas. Joining the full form with
+                    # commas reads "Holon, Sokolov 12" as two separate places.
+                    name = (shorten_address(record.get("location")) or "").split(",")[0].strip()
+                if name and name not in areas:
+                    areas.append(name)
+            where = ", ".join(areas[:ACTIVITY_DIGEST_MAX_AREAS])
+            if len(areas) > ACTIVITY_DIGEST_MAX_AREAS:
+                where += f" and {len(areas) - ACTIVITY_DIGEST_MAX_AREAS} more"
+            emit(
+                "activity-" + datetime.now(timezone.utc).strftime("%Y-%m-%d-%H"),
+                f"{len(fresh)} new meeting{'' if len(fresh) == 1 else 's'} since you last looked",
+                (f"New in {where}.\n\n" if where else "")
+                + "Open Explore to filter them by tag, distance or when they are on.",
+                "activity",
+            )
+        state["last_activity_digest"] = datetime.now(timezone.utc).isoformat()
+
+    # 6 · A meeting you joined is close. Keyed per meeting, so it arrives once
+    #     for each rather than every time the inbox is opened that day.
+    #     seconds_until_start reads m.get("time"), so these are the stored
+    #     records rather than model objects.
+    for meeting_id in user.get("joined_meeting_ids", []):
+        record = MEETINGS_DB.get(meeting_id)
+        if not record or record.get("status") != "approved":
+            continue
+        seconds = seconds_until_start(record)
+        if seconds is None or not (0 < seconds <= 24 * 3600):
+            continue
+        where = "Online" if record.get("is_online") else (shorten_address(record.get("location")) or "")
+        emit(
+            f"soon-{meeting_id}",
+            f"Coming up: {record.get('title') or 'your meeting'}",
+            f"{record.get('time') or ''}" + (f" · {where}" if where else "")
+            + ".\n\nIf you can no longer make it, leaving now gives your place to "
+              "someone else — dropping out at the last minute counts against your "
+              "show-up rate.",
+            "reminder",
+        )
+
+    # 7 · One nudge, ever, if the profile is still the bare account.
+    if not first_run and not user.get("display_name") and not user.get("bio"):
+        emit(
+            "profile-nudge",
+            "Add a name to your profile",
+            "You are showing up as \"" + str(user.get("username") or uid) + "\" to everyone else. "
+            "A display name and a line about yourself make people far likelier to join "
+            "something you post. Drawer → Edit profile.",
+            "system",
+        )
+
+    if created:
+        save_data()
+    return len(created)
 
 
 REPORT_REASONS = {
@@ -1354,11 +1593,24 @@ def get_user(uid):
 
 
 def touch_last_online(uid):
-    """Update a user's last-seen timestamp."""
+    """Update a user's last-seen timestamp.
+
+    Also records how long they had been away before this visit. Both apps call
+    this from a before_request hook, so by the time any route runs last_online
+    has already been overwritten with "now" — anything wanting to know about an
+    absence has no way to see one. The gap is measured here, while the previous
+    value still exists, and only when it is long enough to mean a new visit
+    rather than the next request of the one already in progress.
+    """
     user = USERS_DB.get(uid)
-    if user:
-        user["last_online"] = datetime.now(timezone.utc).isoformat()
-        save_data()
+    if not user:
+        return
+    now = datetime.now(timezone.utc)
+    gap_hours = _hours_since(user.get("last_online"), now)
+    if gap_hours is not None and gap_hours >= 1:
+        user["last_absence_hours"] = gap_hours
+    user["last_online"] = now.isoformat()
+    save_data()
 
 
 def user_pass(uid, meeting_id):
