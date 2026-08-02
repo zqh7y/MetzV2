@@ -14,10 +14,11 @@ import SectionRule from "../components/SectionRule";
 import HomeDrawer, { MenuButton } from "../components/HomeDrawer";
 import { SearchIcon, SparkleIcon, MapPinIcon, GlobeIcon } from "../components/NavIcons";
 import useMyLocation from "../hooks/useMyLocation";
+import useAutoRefresh from "../hooks/useAutoRefresh";
 import { distanceToMeeting, formatDistance } from "../utils/distance";
 import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
-import { RADIUS, SHADOW } from "../styles/theme";
+import { RADIUS, SHADOW, markerColorFor } from "../styles/theme";
 
 const DEFAULT_CENTER = [35.2137, 31.7683]; // [lng, lat] — MapLibre order
 // Reuse a fontstack the basemap already ships glyphs for, or labels don't draw.
@@ -66,9 +67,10 @@ export default function HomeScreen({ navigation }) {
     }
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  // Replaces a one-shot load on mount: meetings now appear without the user
+  // closing and reopening the app. Refetches on focus, on returning from the
+  // background, and every 20s while this screen is actually in front.
+  useAutoRefresh(load, { intervalMs: 20000 });
 
   /**
    * Join, and show it immediately.
@@ -164,7 +166,9 @@ export default function HomeScreen({ navigation }) {
     [filtered]
   );
   const markerKey = useMemo(
-    () => plottable.map((m) => `${m.id}:${m.lat}:${m.lng}:${m.title}:${m.is_online ? 1 : 0}`).join("|"),
+    () => plottable
+      .map((m) => `${m.id}:${m.lat}:${m.lng}:${m.title}:${m.emoji || ""}:${m.is_online ? 1 : 0}`)
+      .join("|"),
     [plottable]
   );
   // plottable is intentionally not a dependency — markerKey is what decides
@@ -176,7 +180,15 @@ export default function HomeScreen({ navigation }) {
     features: stableMarkers.map((m) => ({
       type: "Feature",
       id: m.id,
-      properties: { id: m.id, title: m.title, kind: m.type === "OnlineMeeting" ? "online" : "inperson" },
+      properties: {
+        id: m.id,
+        title: m.title,
+        kind: m.type === "OnlineMeeting" ? "online" : "inperson",
+        // Carried as feature properties so the paint/layout expressions below
+        // can read them per marker instead of colouring the whole layer.
+        emoji: m.emoji || "",
+        color: markerColorFor(m.id),
+      },
       geometry: { type: "Point", coordinates: [m.lng, m.lat] },
     })),
   }), [stableMarkers]);
@@ -375,6 +387,8 @@ export default function HomeScreen({ navigation }) {
         lng: m.lng,
         title: m.title,
         kind: m.is_online ? "online" : "inperson",
+        emoji: m.emoji || "",
+        color: markerColorFor(m.id),
       })),
     [stableMarkers]
   );
@@ -491,10 +505,27 @@ export default function HomeScreen({ navigation }) {
             type="circle"
             filter={["!", ["has", "point_count"]]}
             paint={{
-              "circle-color": ["case", ["==", ["get", "kind"], "online"], theme.accentStrong, theme.accent],
-              "circle-radius": 9,
+              // Per-feature now: the colour comes from the marker's own
+              // property rather than one value painted across the layer.
+              "circle-color": ["get", "color"],
+              // Wide enough to sit an emoji inside without it overhanging.
+              "circle-radius": 16,
               "circle-stroke-width": 3,
               "circle-stroke-color": theme.surface,
+            }}
+          />
+          <Layer
+            id="meeting-emoji"
+            type="symbol"
+            filter={["!", ["has", "point_count"]]}
+            layout={{
+              "text-field": ["get", "emoji"],
+              "text-size": 16,
+              // Emoji are drawn from the font stack the style already loads;
+              // allowing overlap keeps a glyph pinned to its circle instead of
+              // being dropped when two markers are close.
+              "text-allow-overlap": true,
+              "text-ignore-placement": true,
             }}
           />
           <Layer
@@ -506,7 +537,8 @@ export default function HomeScreen({ navigation }) {
               "text-font": LABEL_FONT,
               "text-size": 11.5,
               "text-anchor": "top",
-              "text-offset": [0, 0.9],
+              // Pushed down to clear the larger emoji circle above it.
+              "text-offset": [0, 1.7],
               "text-max-width": 9,
               "text-optional": true,
             }}

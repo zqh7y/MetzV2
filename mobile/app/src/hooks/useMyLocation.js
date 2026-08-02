@@ -40,6 +40,29 @@ export default function useMyLocation(enabled = true) {
             }
           }
         );
+
+        // Nothing cached to show yet. getLastKnownPositionAsync returns null on
+        // a fresh install, after a reboot, or when location was only just
+        // switched on — and the watch above only fires when the device decides
+        // it has moved far enough, so indoors it can stay silent for minutes.
+        // To the user that is indistinguishable from "the app can't find me".
+        // One active request settles it.
+        //
+        // Deliberately started after the watch, so it never delays the thing
+        // that provides every later update, and its failure is not an error:
+        // the watch is still running either way.
+        if (!first && !cancelled) {
+          try {
+            const now = await Location.getCurrentPositionAsync({
+              accuracy: Location.Accuracy.Balanced,
+            });
+            if (!cancelled && now) {
+              setPosition({ latitude: now.coords.latitude, longitude: now.coords.longitude });
+            }
+          } catch (e) {
+            // No fix obtainable right now; the watch remains the way this resolves.
+          }
+        }
       } catch (e) {
         // No location services, airplane mode, emulator without a fix — the
         // map is perfectly usable without a blue dot.

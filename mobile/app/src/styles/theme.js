@@ -119,6 +119,26 @@ export const SHADOW = {
 // palette, not theming, exactly as the stylesheet comment says.
 export const CARD_ACCENTS = ["#667eea", "#0d9c8a", "#f5576c", "#e08c1a", "#7b5fd6"];
 
+/**
+ * The colour of a meeting's map marker — assorted, but never actually random.
+ *
+ * Keyed on the meeting id rather than its position in the list, unlike the
+ * cards: the map is rebuilt whenever the list is refiltered or the 20s refresh
+ * lands, and a position-keyed colour would repaint every marker each time. An
+ * id keeps one meeting one colour for as long as it exists.
+ *
+ * The id is hashed rather than used directly so that consecutive meetings do
+ * not simply walk the palette in order.
+ */
+export function markerColorFor(id) {
+  const text = String(id ?? "");
+  let hash = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    hash = (hash * 31 + text.charCodeAt(i)) | 0;
+  }
+  return CARD_ACCENTS[Math.abs(hash) % CARD_ACCENTS.length];
+}
+
 // The same five as ramps (.card-color-0…4 on the web). Shared rather than
 // redeclared per component, so the For You shelf and the list cards below it
 // colour the same meeting the same way.

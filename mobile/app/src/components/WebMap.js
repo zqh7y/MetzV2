@@ -99,7 +99,9 @@ function buildHtml(config) {
      not turn into a several-second wave. */
   .metz-pin-drop {
     animation: metzPinDrop 380ms cubic-bezier(0.22, 1.2, 0.36, 1) both;
-    transform-origin: 50% 100%;
+    /* Centre origin, because the marker is now a disc centred on its
+       coordinate; the old 50% 100% was the teardrop's tip. */
+    transform-origin: 50% 50%;
     will-change: transform, opacity;
   }
   @keyframes metzPinDrop {
@@ -112,6 +114,17 @@ function buildHtml(config) {
     0%   { transform: scale(0.6); opacity: 0; }
     100% { transform: none; opacity: 1; }
   }
+  /* A meeting marker: a coloured disc with the meeting's emoji in it. The
+     white ring is what keeps it legible over both the pale streets and the
+     darker green of parks. */
+  .metz-bubble {
+    box-sizing: border-box; width: 38px; height: 38px; border-radius: 50%;
+    border: 3px solid #ffffff;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 8px rgba(20,25,50,0.32);
+  }
+  /* line-height 1 stops the taller emoji from sitting low in the circle. */
+  .metz-bubble-emoji { font-size: 18px; line-height: 1; }
   .metz-drop { box-sizing: border-box; width: 22px; height: 22px; border-radius: 50%;
                border: 3px solid #fff;
                background: ${config.accent}; box-shadow: 0 2px 6px rgba(0,0,0,0.4); }
@@ -210,40 +223,31 @@ function buildHtml(config) {
   var dropMarker = null;
   var userMarker = null;
 
-  // The web's pinImage(): a teardrop with a diagonal gradient fill, a white
-  // stroke, a soft ground shadow and a white dot in the head. Drawn at the
-  // same 33x43 the map uses after its icon-size: 0.5, and anchored at the
-  // point so the tip sits on the coordinate.
-  function teardrop(id, from, to) {
-    return '<svg xmlns="http://www.w3.org/2000/svg" width="33" height="43" viewBox="0 0 33 43">'
-      + '<defs><linearGradient id="' + id + '" x1="0" y1="0" x2="1" y2="1">'
-      + '<stop offset="0" stop-color="' + from + '"/><stop offset="1" stop-color="' + to + '"/>'
-      + '</linearGradient></defs>'
-      + '<ellipse cx="16.5" cy="40" rx="5.5" ry="2" fill="rgba(20,25,50,0.22)"/>'
-      + '<path d="M16.5 1.5C9.6 1.5 4 7.1 4 14c0 8.8 11 22.5 12 23.6.3.3.8.3 1.1 0C18 36.5 29 22.8 29 14c0-6.9-5.6-12.5-12.5-12.5z" '
-      + 'fill="url(#' + id + ')" stroke="#ffffff" stroke-width="2.4"/>'
-      + '<circle cx="16.5" cy="14" r="5" fill="#ffffff"/>'
-      + '</svg>';
-  }
-
-  function pinIcon(kind, order) {
-    // Distinct gradient ids — several of these share one document, and a
-    // repeated id would make every pin use whichever was defined first.
-    var html = kind === "online"
-      ? teardrop("metz-g-online", "#4facfe", "#2b6ef5")
-      : teardrop("metz-g-inperson", init.accent, init.accentStrong);
+  // A coloured disc carrying the meeting's own emoji, replacing the teardrop.
+  //
+  // The colour arrives per marker (markerColorFor in styles/theme.js) rather
+  // than being derived here, so the same meeting is the same colour on this
+  // map and on the native MapLibre one.
+  //
+  // Anchored at its centre, not its base: a disc marks the coordinate it sits
+  // on, whereas the teardrop pointed at it from above.
+  function pinIcon(color, emoji, order) {
     // Cap the stagger: past a dozen pins the tail would still be arriving
     // long after the map looked settled.
     var delay = Math.min(order || 0, 12) * 28;
+    var glyph = emoji ? escapeHtml(emoji) : "";
     // The animation goes on an inner wrapper, never on the icon element
     // itself: Leaflet positions markers by writing transform: translate3d()
     // onto that element, and animating transform there replaces the
     // positioning — which drops every pin off its coordinate.
     return L.divIcon({
       className: "",
-      html: '<div class="metz-pin-drop" style="animation-delay:' + delay + 'ms">' + html + "</div>",
-      iconSize: [33, 43],
-      iconAnchor: [16.5, 43],
+      html: '<div class="metz-pin-drop" style="animation-delay:' + delay + 'ms">'
+        + '<div class="metz-bubble" style="background:' + (color || init.accent) + '">'
+        + '<span class="metz-bubble-emoji">' + glyph + "</span>"
+        + "</div></div>",
+      iconSize: [38, 38],
+      iconAnchor: [19, 19],
     });
   }
 
@@ -264,11 +268,13 @@ function buildHtml(config) {
     var pins = [];
     markers.forEach(function (m, i) {
       if (typeof m.lat !== "number" || typeof m.lng !== "number") return;
-      var pin = L.marker([m.lat, m.lng], { icon: pinIcon(m.kind, i) })
+      var pin = L.marker([m.lat, m.lng], { icon: pinIcon(m.color, m.emoji, i) })
         .on("click", function () { send({ type: "marker", id: m.id }); });
       pins.push(pin);
       if (m.title) {
-        // Sits just under the pin's tip, like the web's text-anchor: top.
+        // Sits just under the marker. The disc is centred on the coordinate
+        // and reaches 19px below it, so the label clears that rather than the
+        // -5 that suited a teardrop sitting entirely above its point.
         labelled.push({
           pin: pin,
           label: L.marker([m.lat, m.lng], {
@@ -277,7 +283,7 @@ function buildHtml(config) {
               className: "metz-label",
               html: escapeHtml(m.title),
               iconSize: [104, 0],
-              iconAnchor: [52, -5],
+              iconAnchor: [52, -24],
             }),
           }),
         });
