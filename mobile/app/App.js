@@ -35,8 +35,14 @@ const AuthStack = createNativeStackNavigator();
 const RootStack = createNativeStackNavigator();
 
 function AuthNavigator() {
+  // "Create a new account" from the logout sheet lands straight on Signup;
+  // everything else opens on Login.
+  const { authLanding } = useAuth();
   return (
-    <AuthStack.Navigator screenOptions={{ headerShown: false, animation: "slide_from_right" }}>
+    <AuthStack.Navigator
+      initialRouteName={authLanding === "Signup" ? "Signup" : "Login"}
+      screenOptions={{ headerShown: false, animation: "slide_from_right" }}
+    >
       <AuthStack.Screen name="Login" component={LoginScreen} />
       <AuthStack.Screen name="Signup" component={SignupScreen} />
       <AuthStack.Screen name="Verify" component={VerifyScreen} />

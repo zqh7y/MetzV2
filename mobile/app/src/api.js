@@ -10,6 +10,11 @@ export async function loadStoredUid() {
   return currentUid;
 }
 
+/** The token for whoever is signed in, so the account switcher can store it. */
+export async function loadStoredToken() {
+  return currentToken || (await AsyncStorage.getItem("token"));
+}
+
 /** Save the signed session token the API issues at login/verify. The uid is
  *  kept only for display — the server derives identity from the token. */
 export function setSession(uid, token) {
@@ -82,6 +87,9 @@ export const api = {
   readAllInbox: () => request("/api/inbox/read-all", { method: "POST" }),
 
   getAttendees: (id) => request(`/api/meetings/${id}/attendees`),
+  /** status: "went" | "missed". Returns the updated reliability. */
+  checkIn: (id, status) =>
+    request(`/api/meetings/${id}/checkin`, { method: "POST", body: { status } }),
 
   getComments: (id) => request(`/api/meetings/${id}/comments`),
   addComment: (id, text) =>

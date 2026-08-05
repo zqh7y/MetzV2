@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, Linking } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../api";
@@ -9,6 +9,7 @@ import ReliabilityCard from "../components/ReliabilityCard";
 import MeetingCard from "../components/MeetingCard";
 import Appear from "../components/Appear";
 import CountUp from "../components/CountUp";
+import AccountSheet from "../components/AccountSheet";
 import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
 import { RADIUS, SHADOW } from "../styles/theme";
@@ -27,6 +28,7 @@ export default function ProfileScreen({ navigation }) {
   const { profile, refreshProfile, signOut } = useAuth();
   const [loading, setLoading] = useState(!profile);
   const [error, setError] = useState(false);
+  const [accountSheet, setAccountSheet] = useState(false);
 
   // My Meetings — what the standalone Joined tab used to show
   const [joined, setJoined] = useState([]);
@@ -109,10 +111,10 @@ export default function ProfileScreen({ navigation }) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
-      <View style={[styles.hero, { paddingTop: insets.top + 32 }]}>
+      <View style={[styles.hero, { paddingTop: insets.top + 28 }]}>
         <View style={styles.avatar}>
           <Text style={profile.avatar_emoji ? styles.avatarEmoji : styles.avatarText}>
-            {profile.avatar_emoji || profile.uid.slice(0, 2)}
+            {profile.avatar_emoji || initialsFor(profile)}
           </Text>
         </View>
         <View style={styles.nameRow}>
@@ -120,16 +122,45 @@ export default function ProfileScreen({ navigation }) {
           {profile.is_trusted ? <TrustBadge /> : null}
         </View>
         <Text style={styles.email}>{profile.email}</Text>
+        {/* The uid is how people find each other in Find People, so it belongs
+            on the profile rather than only in search results. */}
+        <Text style={styles.heroUid}>@{profile.uid}</Text>
         {profile.bio ? <Text style={styles.bio}>{profile.bio}</Text> : null}
+
+        {/* Editing your profile used to be the fourth of six identical grey
+            buttons at the very bottom, under Find People. It is the thing
+            people come to their own profile to do, so it sits with the thing
+            it edits. */}
+        <View style={styles.heroActions}>
+          <TouchableOpacity
+            style={styles.heroBtn}
+            activeOpacity={0.85}
+            onPress={() => navigation.navigate("EditProfile")}
+          >
+            <Text style={styles.heroBtnText}>Edit profile</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.heroBtnGhost}
+            activeOpacity={0.85}
+            onPress={() => navigation.navigate("Settings")}
+          >
+            <Text style={styles.heroBtnGhostText}>Settings</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Blocks arrive a beat apart down the page, so the screen resolves in
           reading order rather than all at once. */}
       <Appear delay={40}>
+        {/* Hairlines between the figures: four numbers spaced apart with
+            nothing between them read as one run-on row. */}
         <View style={styles.statsRow}>
           <Stat styles={styles} number={profile.meetings_created} label="Created" />
+          <View style={styles.statDivider} />
           <Stat styles={styles} number={profile.meetings_joined} label="Joined" />
+          <View style={styles.statDivider} />
           <Stat styles={styles} number={profile.meetings_swiped} label="Seen" />
+          <View style={styles.statDivider} />
           <Stat styles={styles} number={status.stats.participants} label="Signed Up" />
         </View>
       </Appear>
@@ -153,7 +184,31 @@ export default function ProfileScreen({ navigation }) {
           </View>
         </View>
 
-        {status.next ? (
+        {status.next && status.next_is_manual ? (
+          /* Trusted and Moderator are given by a person, not unlocked by a
+             number. Showing a progress bar for them would promise that doing
+             more of something eventually gets you there — so this says who to
+             ask instead, and makes the address tappable. */
+          <View style={styles.nextSection}>
+            <Text style={styles.nextLabel}>
+              Next up: {status.next.emoji} {status.next.name}
+            </Text>
+            <Text style={styles.manualHow}>{status.next_how}</Text>
+            {status.contact_email ? (
+              <TouchableOpacity
+                style={styles.contactBtn}
+                activeOpacity={0.85}
+                onPress={() => Linking.openURL(
+                  `mailto:${status.contact_email}?subject=${encodeURIComponent(
+                    `Metz — ${status.next.name} request (${profile.uid})`
+                  )}`
+                )}
+              >
+                <Text style={styles.contactBtnText}>✉️  Contact the developer</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        ) : status.next ? (
           <View style={styles.nextSection}>
             <Text style={styles.nextLabel}>
               Next up: {status.next.emoji} {status.next.name}
@@ -165,7 +220,11 @@ export default function ProfileScreen({ navigation }) {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.taskLabel, task.done && styles.taskLabelDone]}>{task.label}</Text>
-                  <Text style={styles.taskProgress}>{task.progress} / {task.target}</Text>
+                  <Text style={styles.taskProgress}>
+                    {task.unit === "%"
+                      ? `${task.progress}% of ${task.target}%`
+                      : `${task.progress} / ${task.target}${task.unit ? " " + task.unit : ""}`}
+                  </Text>
                   <View style={styles.taskBar}>
                     <View style={[styles.taskBarFill, { width: `${Math.min(100, (task.progress / task.target) * 100)}%` }]} />
                   </View>
@@ -236,7 +295,7 @@ export default function ProfileScreen({ navigation }) {
         <TextInput
           style={styles.search}
           placeholder="Search by username, email, or ID…"
-          placeholderTextColor="#9aa3ad"
+          placeholderTextColor={theme.text3}
           value={query}
           onChangeText={setQuery}
           autoCapitalize="none"
@@ -294,20 +353,27 @@ export default function ProfileScreen({ navigation }) {
           <Text style={styles.actionBtnText}>+ Create a Meeting</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate("EditProfile")}>
-          <Text style={styles.actionBtnText}>✏️  Edit Profile</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate("Settings")}>
-          <Text style={styles.actionBtnText}>⚙️  Settings</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={[styles.actionBtn, styles.logoutBtn]} onPress={signOut}>
+        {/* Edit profile and Settings now live in the hero, next to what they
+            change, rather than repeating here. */}
+        <TouchableOpacity style={[styles.actionBtn, styles.logoutBtn]} onPress={() => setAccountSheet(true)}>
           <Text style={styles.logoutBtnText}>Logout</Text>
         </TouchableOpacity>
       </View>
+      <AccountSheet visible={accountSheet} onClose={() => setAccountSheet(false)} />
     </ScrollView>
   );
+}
+
+/**
+ * Two letters for the avatar, taken from the person's name rather than their
+ * uid. uid.slice(0, 2) only looked right when the uid happened to be derived
+ * from the same name — for anyone else it showed two arbitrary letters.
+ */
+function initialsFor(profile) {
+  const name = (profile.display_name || profile.username || "").trim();
+  if (!name) return (profile.uid || "?").slice(0, 2).toUpperCase();
+  const parts = name.split(/\s+/).filter(Boolean);
+  return (parts.length > 1 ? parts[0][0] + parts[1][0] : name.slice(0, 2)).toUpperCase();
 }
 
 function Stat({ number, label, styles }) {
@@ -322,16 +388,42 @@ function Stat({ number, label, styles }) {
 const makeStyles = (t) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.bg },
   centered: { flex: 1, alignItems: "center", justifyContent: "center" },
-  hero: { backgroundColor: t.accent, paddingVertical: 32, alignItems: "center" },
-  avatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: "rgba(255,255,255,0.25)", alignItems: "center", justifyContent: "center", marginBottom: 10 },
-  avatarText: { color: t.surface, fontFamily: FONTS.heading, fontSize: 16 },
-  avatarEmoji: { fontSize: 34 },
-  bio: { color: "rgba(255,255,255,0.85)", fontSize: 13, marginTop: 8, textAlign: "center", paddingHorizontal: 32 },
-  nameRow: { flexDirection: "row", alignItems: "center" },
-  name: { color: t.surface, fontSize: 20, fontFamily: FONTS.heading },
-  email: { color: "rgba(255,255,255,0.7)", fontSize: 12, marginTop: 2 },
-  statsRow: { flexDirection: "row", backgroundColor: t.surface, margin: 16, marginBottom: 0, borderRadius: 16, padding: 16, justifyContent: "space-around" },
-  stat: { alignItems: "center" },
+  hero: { backgroundColor: t.accent, paddingBottom: 26, alignItems: "center" },
+  avatar: {
+    width: 84, height: 84, borderRadius: 42,
+    backgroundColor: "rgba(255,255,255,0.22)",
+    alignItems: "center", justifyContent: "center", marginBottom: 12,
+    // A ring lifts the avatar off the flat accent block behind it.
+    borderWidth: 3, borderColor: "rgba(255,255,255,0.35)",
+  },
+  avatarText: { color: t.surface, fontFamily: FONTS.heading, fontSize: 28 },
+  avatarEmoji: { fontSize: 40 },
+  bio: { color: "rgba(255,255,255,0.88)", fontSize: 13.5, lineHeight: 19, marginTop: 10, textAlign: "center", paddingHorizontal: 32 },
+  nameRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  name: { color: t.surface, fontSize: 22, fontFamily: FONTS.heading },
+  email: { color: "rgba(255,255,255,0.72)", fontSize: 12.5, marginTop: 3 },
+  heroUid: { color: "rgba(255,255,255,0.55)", fontSize: 11.5, fontFamily: FONTS.accentMedium, marginTop: 2 },
+  heroActions: { flexDirection: "row", gap: 10, marginTop: 18 },
+  heroBtn: {
+    paddingHorizontal: 20, paddingVertical: 10, borderRadius: RADIUS.pill,
+    backgroundColor: t.surface,
+  },
+  heroBtnText: { color: t.accentStrong, fontFamily: FONTS.headingSemi, fontSize: 13.5 },
+  heroBtnGhost: {
+    paddingHorizontal: 20, paddingVertical: 10, borderRadius: RADIUS.pill,
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.45)",
+  },
+  heroBtnGhostText: { color: t.surface, fontFamily: FONTS.headingSemi, fontSize: 13.5 },
+  statsRow: {
+    flexDirection: "row", backgroundColor: t.surface,
+    marginHorizontal: 16, borderRadius: 16, paddingVertical: 16,
+    justifyContent: "space-around", alignItems: "center",
+    // Pulled up over the hero's bottom edge so the two read as one unit.
+    marginTop: -18, marginBottom: 0,
+    borderWidth: 1, borderColor: t.border, ...SHADOW.s1,
+  },
+  stat: { alignItems: "center", flex: 1 },
+  statDivider: { width: 1, height: 26, backgroundColor: t.border },
   statNumber: { fontSize: 22, fontFamily: FONTS.accent, color: t.text },
   statLabel: { fontSize: 10, fontFamily: FONTS.bodySemi, color: t.text3, textTransform: "uppercase", marginTop: 2 },
   reliability: { marginHorizontal: 16, marginTop: 16 },
@@ -341,29 +433,36 @@ const makeStyles = (t) => StyleSheet.create({
   statusLabel: { fontSize: 10, fontFamily: FONTS.bodySemi, color: t.text3, textTransform: "uppercase" },
   statusName: { fontSize: 17, fontFamily: FONTS.heading, color: t.text },
   statusBlurb: { fontSize: 11, color: t.text3 },
-  nextSection: { borderTopWidth: 1, borderTopColor: "#f0f1f3", paddingTop: 12 },
+  nextSection: { borderTopWidth: 1, borderTopColor: t.border, paddingTop: 12 },
   nextLabel: { fontSize: 12, fontWeight: "700", color: t.text2, marginBottom: 8 },
   task: { flexDirection: "row", gap: 10, paddingVertical: 6, alignItems: "flex-start" },
   taskCheck: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: t.border, alignItems: "center", justifyContent: "center", marginTop: 2 },
   taskCheckDone: { backgroundColor: t.status.good, borderColor: t.status.good },
   taskCheckMark: { color: t.surface, fontSize: 10, fontWeight: "800" },
-  taskLabel: { fontSize: 13, fontWeight: "600", color: "#444" },
+  taskLabel: { fontSize: 13, fontWeight: "600", color: t.text2 },
   taskLabelDone: { color: t.status.good },
   taskProgress: { fontSize: 11, color: t.text3, marginTop: 1 },
+  manualHow: { fontSize: 13, color: t.text2, lineHeight: 19, marginTop: 2, marginBottom: 12 },
+  contactBtn: {
+    alignSelf: "flex-start", paddingHorizontal: 16, paddingVertical: 10,
+    borderRadius: RADIUS.pill, backgroundColor: t.accentSoft,
+    borderWidth: 1, borderColor: t.accent,
+  },
+  contactBtnText: { fontSize: 13, fontFamily: FONTS.headingSemi, color: t.accentStrong },
   taskBar: { height: 5, borderRadius: 3, backgroundColor: t.border, marginTop: 4, overflow: "hidden" },
   taskBarFill: { height: "100%", backgroundColor: t.accent },
   maxed: { textAlign: "center", color: t.text3, fontSize: 13 },
-  tierPills: { flexDirection: "row", flexWrap: "wrap", gap: 6, borderTopWidth: 1, borderTopColor: "#f0f1f3", paddingTop: 12, marginTop: 4 },
+  tierPills: { flexDirection: "row", flexWrap: "wrap", gap: 6, borderTopWidth: 1, borderTopColor: t.border, paddingTop: 12, marginTop: 4 },
   tierPill: { fontSize: 10, fontWeight: "700", color: t.text3, backgroundColor: t.surface2, borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4 },
   tierPillUnlocked: { color: t.accent, backgroundColor: "rgba(102,126,234,0.12)" },
   section: { backgroundColor: t.surface, marginHorizontal: 16, marginTop: 16, borderRadius: 18, padding: 16 },
   sectionHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 },
   sectionTitle: { fontSize: 15, fontFamily: FONTS.heading, color: t.text, marginBottom: 10 },
-  sectionEmpty: { color: "#8b95a5", fontSize: 13, textAlign: "center", paddingVertical: 14 },
-  segmented: { flexDirection: "row", backgroundColor: "#eef0f5", borderRadius: 12, padding: 3 },
+  sectionEmpty: { color: t.text3, fontSize: 13, textAlign: "center", paddingVertical: 14 },
+  segmented: { flexDirection: "row", backgroundColor: t.surface2, borderRadius: 12, padding: 3 },
   segBtn: { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6 },
   segBtnActive: { backgroundColor: t.surface, shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 4, elevation: 1 },
-  segText: { fontSize: 12, fontFamily: FONTS.bodySemi, color: "#7a8598" },
+  segText: { fontSize: 12, fontFamily: FONTS.bodySemi, color: t.text3 },
   segTextActive: { color: t.text },
   pastCard: { opacity: 0.62 },
   search: {
@@ -371,7 +470,7 @@ const makeStyles = (t) => StyleSheet.create({
     fontSize: 15, marginBottom: 12,
   },
   userRow: {
-    flexDirection: "row", alignItems: "center", backgroundColor: "#f7f8fb", borderRadius: 14,
+    flexDirection: "row", alignItems: "center", backgroundColor: t.surface2, borderRadius: 14,
     padding: 12, marginBottom: 10, gap: 12,
   },
   userAvatar: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center" },
@@ -379,14 +478,14 @@ const makeStyles = (t) => StyleSheet.create({
   userNameRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   userName: { fontWeight: "700", color: t.text, fontSize: 14 },
   userUid: { fontSize: 11, color: t.text3, marginTop: 2 },
-  chevron: { fontSize: 20, color: "#ccc" },
+  chevron: { fontSize: 20, color: t.text3 },
   actions: { padding: 16, gap: 10 },
   actionBtn: { backgroundColor: t.surface, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 18 },
   actionBtnText: { fontFamily: FONTS.accentMedium, color: t.text, fontSize: 14 },
-  urgentBtn: { backgroundColor: "#ff6262", flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  urgentBtn: { backgroundColor: t.status.bad, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   urgentBtnText: { fontFamily: FONTS.accentMedium, color: t.surface, fontSize: 14 },
   pendingBadge: { backgroundColor: t.surface, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
-  pendingBadgeText: { color: "#ff6262", fontFamily: FONTS.accent, fontSize: 12 },
+  pendingBadgeText: { color: t.status.bad, fontFamily: FONTS.accent, fontSize: 12 },
   logoutBtn: {},
   logoutBtnText: { fontFamily: FONTS.accentMedium, color: t.status.bad, fontSize: 14 },
   errorText: { color: t.text2, fontSize: 14, marginBottom: 14 },

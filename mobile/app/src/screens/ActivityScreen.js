@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useState } from "react";
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator,
-  RefreshControl,
+  RefreshControl, Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -93,6 +93,49 @@ export default function ActivityScreen({ navigation }) {
   // act on something elsewhere — so refetch on focus, on returning from the
   // background, and periodically while open.
   useAutoRefresh(load, { intervalMs: 30000 });
+
+  // Which meetings are mid-answer, so their row can show a spinner instead of
+  // two buttons that look tappable while a request is already in flight.
+  const [answering, setAnswering] = useState({});
+
+  /**
+   * Answer "did you go?" without leaving the screen.
+   *
+   * This section has always been a dead end in the app: it named the meetings
+   * waiting on an answer and then offered nowhere to give one, because the
+   * mobile API had no check-in route at all. The row is dropped optimistically
+   * — the server has accepted or it has not, and a row that stays put after a
+   * tap reads as a failure even when it worked.
+   */
+  const handleCheckIn = useCallback(async (card, status) => {
+    if (answering[card.id]) return;
+    setAnswering((prev) => ({ ...prev, [card.id]: true }));
+
+    const before = data;
+    setData((prev) => (!prev ? prev : {
+      ...prev,
+      needs_checkin: prev.needs_checkin.filter((c) => c.id !== card.id),
+      action_count: Math.max(0, (prev.action_count || 1) - 1),
+    }));
+
+    try {
+      const result = await api.checkIn(card.id, status);
+      // record_checkin returns the recalculated score, so the card above the
+      // list can move immediately rather than waiting for the next refresh.
+      if (result?.reliability) {
+        setData((prev) => (prev ? { ...prev, reliability: result.reliability } : prev));
+      }
+    } catch (e) {
+      setData(before);   // put the row back; nothing was recorded
+      Alert.alert("Couldn't save that", e.message || "Please try again.");
+    } finally {
+      setAnswering((prev) => {
+        const next = { ...prev };
+        delete next[card.id];
+        return next;
+      });
+    }
+  }, [answering, data]);
 
   const openMeeting = useCallback((card) => {
     // Activity cards are a trimmed shape; the detail screen refetches the
@@ -188,34 +231,64 @@ export default function ActivityScreen({ navigation }) {
             <Text style={styles.sectionBlurb}>{section.blurb}</Text>
 
             {data[section.key].map((card) => (
-              <TouchableOpacity
-                key={`${section.key}-${card.id}`}
-                style={styles.row}
-                activeOpacity={0.75}
-                onPress={() => openMeeting(card)}
-              >
-                <View style={styles.rowEmoji}>
-                  <Text style={{ fontSize: 20 }}>{card.emoji || "📍"}</Text>
-                </View>
-
-                <View style={styles.rowBody}>
-                  <Text style={styles.rowTitle} numberOfLines={1}>{card.title}</Text>
-                  <Text style={styles.rowWhen} numberOfLines={1}>{formatWhen(card.time)}</Text>
-                  <View style={styles.rowMeta}>
-                    {card.is_online
-                      ? <GlobeIcon size={11} color={theme.text3} />
-                      : <MapPinIcon size={11} color={theme.text3} />}
-                    <Text style={styles.rowWhere} numberOfLines={1}>
-                      {card.where || (card.is_online ? "Online" : "")}
-                    </Text>
+              <View key={`${section.key}-${card.id}`}>
+                <TouchableOpacity
+                  style={styles.row}
+                  activeOpacity={0.75}
+                  onPress={() => openMeeting(card)}
+                >
+                  <View style={styles.rowEmoji}>
+                    <Text style={{ fontSize: 20 }}>{card.emoji || "📍"}</Text>
                   </View>
-                </View>
 
-                <View style={styles.rowRight}>
-                  <ClockIcon size={11} color={theme.text3} />
-                  <Text style={styles.rowRel}>{formatRelative(card.time) || "—"}</Text>
-                </View>
-              </TouchableOpacity>
+                  <View style={styles.rowBody}>
+                    <Text style={styles.rowTitle} numberOfLines={1}>{card.title}</Text>
+                    <Text style={styles.rowWhen} numberOfLines={1}>{formatWhen(card.time)}</Text>
+                    <View style={styles.rowMeta}>
+                      {card.is_online
+                        ? <GlobeIcon size={11} color={theme.text3} />
+                        : <MapPinIcon size={11} color={theme.text3} />}
+                      <Text style={styles.rowWhere} numberOfLines={1}>
+                        {card.where || (card.is_online ? "Online" : "")}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.rowRight}>
+                    <ClockIcon size={11} color={theme.text3} />
+                    <Text style={styles.rowRel}>{formatRelative(card.time) || "—"}</Text>
+                  </View>
+                </TouchableOpacity>
+
+                {/* Answer here rather than opening the meeting to do it. Only
+                    on "Did you go?" — the other two action sections need the
+                    detail screen, which has the attendee list and the
+                    organiser's options. */}
+                {section.key === "needs_checkin" ? (
+                  <View style={styles.answerRow}>
+                    {answering[card.id] ? (
+                      <ActivityIndicator color={theme.accent} size="small" style={{ marginVertical: 6 }} />
+                    ) : (
+                      <>
+                        <TouchableOpacity
+                          style={[styles.answerBtn, styles.answerWent]}
+                          activeOpacity={0.85}
+                          onPress={() => handleCheckIn(card, "went")}
+                        >
+                          <Text style={styles.answerWentText}>✓  I went</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.answerBtn, styles.answerMissed]}
+                          activeOpacity={0.85}
+                          onPress={() => handleCheckIn(card, "missed")}
+                        >
+                          <Text style={styles.answerMissedText}>✕  I didn't</Text>
+                        </TouchableOpacity>
+                      </>
+                    )}
+                  </View>
+                ) : null}
+              </View>
             ))}
           </View>
         </Appear>
@@ -276,6 +349,15 @@ const makeStyles = (t) => StyleSheet.create({
   rowWhere: { fontSize: 11.5, color: t.text3, flexShrink: 1 },
   rowRight: { alignItems: "center", flexDirection: "row", gap: 4 },
   rowRel: { fontSize: 11, fontFamily: FONTS.accentMedium, color: t.text3 },
+
+  // Inline answer for "Did you go?". Indented to the row's text so it
+  // reads as belonging to that meeting rather than to the section.
+  answerRow: { flexDirection: "row", gap: 8, paddingLeft: 49, paddingBottom: 10, alignItems: "center" },
+  answerBtn: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: RADIUS.pill, borderWidth: 1 },
+  answerWent: { backgroundColor: t.status.goodSoft, borderColor: t.status.good },
+  answerWentText: { fontSize: 12.5, fontFamily: FONTS.bodySemi, color: t.status.good },
+  answerMissed: { backgroundColor: t.surface2, borderColor: t.border },
+  answerMissedText: { fontSize: 12.5, fontFamily: FONTS.bodySemi, color: t.text2 },
 
   emptyBox: {
     marginTop: 14, padding: 22, borderRadius: RADIUS.lg, alignItems: "center",

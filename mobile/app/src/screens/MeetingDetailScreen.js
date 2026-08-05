@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity, Linking, ScrollView, ActivityIndicator,
-  Platform, TextInput, Alert, KeyboardAvoidingView,
+  Platform, TextInput, Alert, KeyboardAvoidingView, Share,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { api } from "../api";
@@ -16,6 +16,9 @@ import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
 import { RADIUS, SHADOW } from "../styles/theme";
 import { formatTimeUntil, formatAgo } from "../utils/time";
+// The share page is served by the API, not the web app — WEB_BASE_URL
+// points at the web app's port and would 404 in development.
+import { API_BASE_URL as SHARE_BASE_URL } from "../config";
 import { fetchRoute, formatRoute } from "../utils/route";
 
 // Mirrors the web's /meeting/<id> page: a tinted hero, then the details in
@@ -130,6 +133,27 @@ export default function MeetingDetailScreen({ route, navigation }) {
       setPosting(false);
     }
   }, [draft, posting, meeting.id]);
+
+  /**
+   * Hand the meeting's public link to whatever the phone can share with.
+   *
+   * The message carries the title and time as well as the URL, because a
+   * bare link pasted into a group chat says nothing until someone taps it —
+   * and on services that do not unfurl, it never says anything at all.
+   */
+  const handleShare = useCallback(async () => {
+    const url = `${SHARE_BASE_URL}/m/${meeting.id}`;
+    try {
+      await Share.share({
+        message: `${meeting.title} — ${meeting.time}
+${url}`,
+        url,                       // iOS shows this as a proper link card
+        title: meeting.title,
+      });
+    } catch (e) {
+      // Dismissing the share sheet lands here on some Androids; nothing failed.
+    }
+  }, [meeting.id, meeting.title, meeting.time]);
 
   const handleDeleteComment = useCallback((comment) => {
     Alert.alert("Delete comment?", "This cannot be undone.", [
@@ -468,6 +492,15 @@ export default function MeetingDetailScreen({ route, navigation }) {
         )}
       </TouchableOpacity>
 
+      {/* Sharing is how a meeting reaches people who do not have the app: the
+          link opens a public page with the map, the time and a way to say
+          they are coming, no account needed. */}
+      {SHARE_BASE_URL ? (
+        <TouchableOpacity style={styles.shareBtn} onPress={handleShare} activeOpacity={0.85}>
+          <Text style={styles.shareBtnText}>🔗  Share this meeting</Text>
+        </TouchableOpacity>
+      ) : null}
+
       {/* Quiet and last: reporting should be findable without competing with
           the thing most people came here to do. Hidden on your own meeting —
           you can delete that instead. */}
@@ -715,6 +748,12 @@ const makeStyles = (t) => StyleSheet.create({
   },
   chevron: { fontSize: 20, color: t.text3 },
 
+  shareBtn: {
+    marginTop: 10, paddingVertical: 14, borderRadius: RADIUS.base,
+    alignItems: "center", backgroundColor: t.surface,
+    borderWidth: 1, borderColor: t.border,
+  },
+  shareBtnText: { fontSize: 14.5, fontFamily: FONTS.headingSemi, color: t.text },
   reportBtn: { marginTop: 18, paddingVertical: 12, alignItems: "center" },
   reportBtnText: { fontSize: 13, color: t.text3, fontFamily: FONTS.bodySemi },
 });

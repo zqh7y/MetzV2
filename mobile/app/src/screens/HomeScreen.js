@@ -12,6 +12,7 @@ import MeetingCard from "../components/MeetingCard";
 import ForYouCard from "../components/ForYouCard";
 import SectionRule from "../components/SectionRule";
 import HomeDrawer, { MenuButton } from "../components/HomeDrawer";
+import AccountSheet from "../components/AccountSheet";
 import { SearchIcon, SparkleIcon, MapPinIcon, GlobeIcon } from "../components/NavIcons";
 import useMyLocation from "../hooks/useMyLocation";
 import useAutoRefresh from "../hooks/useAutoRefresh";
@@ -32,12 +33,13 @@ const PEEK_VISIBLE = 215;
 export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { height: screenH } = useWindowDimensions();
-  const { uid, profile, refreshProfile, signOut } = useAuth();
+  const { uid, profile, refreshProfile } = useAuth();
   const { theme, sheet: sheetPref, reduceMotion, comfortable } = useTheme();
   const styles = useMemo(() => makeStyles(theme, comfortable), [theme, comfortable]);
 
   // Home has no bottom bar on the web either — the hamburger drawer replaced it
   const [menuOpen, setMenuOpen] = useState(false);
+  const [accountSheet, setAccountSheet] = useState(false);
   const pendingCount = profile?.pending_review_count || 0;
 
   // Pins and clusters follow the accent, the way the web's refreshMapAccent()
@@ -659,8 +661,10 @@ export default function HomeScreen({ navigation }) {
         activityCount={profile?.action_count || 0}
         inboxCount={profile?.unread_inbox_count || 0}
         reportCount={profile?.open_report_count || 0}
-        onLogout={signOut}
+        onLogout={() => setAccountSheet(true)}
       />
+
+      <AccountSheet visible={accountSheet} onClose={() => setAccountSheet(false)} />
     </View>
   );
 }

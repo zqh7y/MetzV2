@@ -6,10 +6,12 @@ import AuthField from "../components/AuthField";
 import AuthButton from "../components/AuthButton";
 import AuthAlt from "../components/AuthAlt";
 import GoogleAuthButton from "../components/GoogleAuthButton";
+import SavedAccounts from "../components/SavedAccounts";
+import { canSwitchTo } from "../accounts";
 
 // Copy, field order and button labels track templates/login.html.
 export default function LoginScreen({ navigation }) {
-  const { signIn } = useAuth();
+  const { signIn, accounts, switchTo, uid } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -72,6 +74,18 @@ export default function LoginScreen({ navigation }) {
       />
       <AuthButton label="Log in" busyLabel="Logging in…" onPress={handleLogin} loading={loading} />
       <GoogleAuthButton />
+
+      {/* Accounts this phone has used before, still holding a valid session —
+          the point of switching is not typing a password, so the shortcut
+          belongs on the screen you land on after choosing to switch. Ones
+          whose token has lapsed are left out: they would need this form
+          anyway, and offering a tap that just refills the email is noise. */}
+      <SavedAccounts
+        accounts={accounts.filter((a) => a.uid !== uid && canSwitchTo(a))}
+        onPick={(account) => {
+          if (!switchTo(account)) setError("That session expired — please log in.");
+        }}
+      />
     </AuthLayout>
   );
 }

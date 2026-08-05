@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, TextInput, Pressable, ActivityIndicator,
   Alert, KeyboardAvoidingView, Platform,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Clipboard from "expo-clipboard";
 
 import { api } from "../api";
@@ -25,6 +26,7 @@ export default function EditProfileScreen({ navigation }) {
   const { theme } = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { profile, refreshProfile } = useAuth();
+  const insets = useSafeAreaInsets();
 
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
@@ -188,7 +190,7 @@ export default function EditProfileScreen({ navigation }) {
     >
       <ScrollView
         style={styles.container}
-        contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.preview}>
@@ -308,6 +310,13 @@ export default function EditProfileScreen({ navigation }) {
           <Text style={styles.hint}>Share your ID so people can find you in Find People.</Text>
         </View>
 
+      </ScrollView>
+
+      {/* Pinned rather than sitting at the end of the scroll. The form is
+          taller than the screen, so changing the display name at the top used
+          to mean scrolling past the bio, the emoji grid and the ID card to
+          reach Save — and nothing on the way down said whether it had saved. */}
+      <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
         <View style={styles.actions}>
           {dirty ? (
             <Pressable style={styles.revertBtn} onPress={handleRevert} disabled={saving}>
@@ -329,7 +338,7 @@ export default function EditProfileScreen({ navigation }) {
             )}
           </Pressable>
         </View>
-      </ScrollView>
+      </View>
     </KeyboardAvoidingView>
   );
 }
@@ -449,7 +458,14 @@ const makeStyles = (t) => StyleSheet.create({
   noticeText: { fontSize: 13.5, color: t.accentStrong, fontFamily: FONTS.bodySemi },
   noticeTextBad: { color: t.status.bad },
 
-  actions: { flexDirection: "row", gap: 10, marginTop: 16 },
+  actions: { flexDirection: "row", gap: 10 },
+  footer: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    backgroundColor: t.surface,
+    borderTopWidth: 1,
+    borderTopColor: t.border,
+  },
   revertBtn: {
     borderRadius: RADIUS.base,
     paddingVertical: 16,
