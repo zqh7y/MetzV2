@@ -156,6 +156,63 @@ def request_password_reset():
     return jsonify({"status": "sent", "email": email})
 
 
+@auth_bp.route("/api/auth/google", methods=["POST"])
+def google_sign_in():
+    """Sign in (or sign up) with a Google account, skipping the emailed code.
+
+    The client sends the ID token Google issued it. Firebase verifies that
+    token's signature against Google's keys and tells us which address it
+    belongs to — so this endpoint never has to trust the client about who it
+    is. The address in the request body is deliberately ignored; accepting one
+    would let anybody claim anybody's account by typing their email.
+
+    No 4-digit code is involved because there is nothing left for it to prove.
+    That code exists to establish that the person controls the address, and
+    Google has already established exactly that. This is also why signing up
+    this way works while the Gmail sender is misconfigured.
+    """
+    body = request.get_json(force=True) or {}
+    id_token = (body.get("id_token") or "").strip()
+    if not id_token:
+        return jsonify({"error": "Missing Google credentials."}), 400
+
+    if rate_limit_exceeded("api-google:ip:" + client_ip(), 20, 3600):
+        return jsonify({"error": "Too many sign-in attempts. Please wait a few minutes."}), 429
+
+    url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key={FIREBASE_API_KEY}"
+    payload = {
+        # requestUri is required by the endpoint but unused for an id_token
+        # grant; Firebase only checks that it is present and well-formed.
+        "postBody": f"id_token={id_token}&providerId=google.com",
+        "requestUri": "http://localhost",
+        "returnSecureToken": True,
+    }
+    try:
+        resp = requests.post(url, json=payload, timeout=15)
+        fb_data = resp.json()
+    except requests.RequestException:
+        return jsonify({"error": "Couldn't reach Google. Please try again shortly."}), 502
+
+    if "idToken" not in fb_data:
+        return jsonify({"error": friendly_auth_error(fb_data.get("error", {}).get("message"))}), 400
+
+    email = (fb_data.get("email") or "").strip().lower()
+    if not email:
+        return jsonify({"error": "That Google account has no email address."}), 400
+
+    # Firebase reports what the provider said rather than assuming. Google only
+    # issues tokens for verified addresses, so this should always pass — but
+    # reading it keeps the guarantee explicit rather than inherited.
+    verified = fb_data.get("emailVerified")
+    if not (verified is True or str(verified).lower() == "true"):
+        return jsonify({"error": "That Google account's email isn't verified."}), 403
+
+    # Registering here is the one place outside /api/verify that may create an
+    # account, and it is allowed for the same reason: the address is proven.
+    uid = register_user(email)
+    return jsonify({"uid": uid, "email": email, "token": issue_token(uid)})
+
+
 @auth_bp.route("/api/login", methods=["POST"])
 def login():
     body = request.get_json(force=True) or {}

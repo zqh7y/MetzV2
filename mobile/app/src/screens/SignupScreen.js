@@ -5,6 +5,7 @@ import AuthField from "../components/AuthField";
 import AuthButton from "../components/AuthButton";
 import AuthStrength from "../components/AuthStrength";
 import AuthAlt from "../components/AuthAlt";
+import GoogleAuthButton from "../components/GoogleAuthButton";
 
 // Copy, field order and button labels track templates/signup.html.
 export default function SignupScreen({ navigation }) {
@@ -74,6 +75,9 @@ export default function SignupScreen({ navigation }) {
         onPress={handleSignup}
         loading={loading}
       />
+      {/* Google has already proved the address, so this route skips the
+          emailed code entirely — no inbox, no 4 digits, no waiting. */}
+      <GoogleAuthButton label="Sign up with Google" />
     </AuthLayout>
   );
 }

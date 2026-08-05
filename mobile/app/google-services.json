@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "909310066730",
+    "firebase_url": "https://metz-1c630-default-rtdb.europe-west1.firebasedatabase.app",
+    "project_id": "metz-1c630",
+    "storage_bucket": "metz-1c630.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:909310066730:android:b5dc4f22875522dd224353",
+        "android_client_info": {
+          "package_name": "com.metz.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "909310066730-uqa829ql0clkbui0538jaohf7u95g6me.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.metz.app",
+            "certificate_hash": "3399428c79de7e2fddfc8ce64ccac106453325e4"
+          }
+        },
+        {
+          "client_id": "909310066730-1m4u297lv95i3a3keq76ckdmb1n13ui5.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA4niiZUz63Rnragcb9pTzgeonbsL6eBQ0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "909310066730-1m4u297lv95i3a3keq76ckdmb1n13ui5.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

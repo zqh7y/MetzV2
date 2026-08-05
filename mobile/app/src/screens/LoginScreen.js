@@ -5,6 +5,7 @@ import AuthLayout from "../components/AuthLayout";
 import AuthField from "../components/AuthField";
 import AuthButton from "../components/AuthButton";
 import AuthAlt from "../components/AuthAlt";
+import GoogleAuthButton from "../components/GoogleAuthButton";
 
 // Copy, field order and button labels track templates/login.html.
 export default function LoginScreen({ navigation }) {
@@ -70,6 +71,7 @@ export default function LoginScreen({ navigation }) {
         returnKeyType="go"
       />
       <AuthButton label="Log in" busyLabel="Logging in…" onPress={handleLogin} loading={loading} />
+      <GoogleAuthButton />
     </AuthLayout>
   );
 }

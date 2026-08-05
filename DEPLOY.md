@@ -94,6 +94,47 @@ cd mobile/app && npx eas-cli build --platform android --profile preview
 the API is currently plain HTTP on a LAN, and leaving it on lets any future
 build talk to unencrypted hosts.
 
+## 5b · Sign in with Google (optional, but it bypasses the emailed code)
+
+Google has already proved the person owns the address, which is the only thing
+the 4-digit code establishes — so an account created this way skips
+verification entirely, and works even while the `GMAIL_` variables are wrong.
+
+The button hides itself until the client id for the running platform is set, so
+shipping without this changes nothing.
+
+1. **Firebase console → Authentication → Sign-in method → enable Google.**
+   This creates an OAuth *Web client* in the linked Google Cloud project.
+2. **Google Cloud console → APIs & Services → Credentials.** Copy the Web
+   client id. Then create an **Android** OAuth client:
+   - package name `com.metz.app`
+   - SHA-1 of the signing certificate — for an EAS build this is EAS's
+     keystore, not a local one. Read it with:
+
+     ```bash
+     npx eas-cli credentials -p android
+     ```
+
+     Keystore → *Download / view* shows the SHA-1 fingerprint. A debug build
+     installed from `expo run:android` uses a different certificate, so add
+     that SHA-1 too if you want it working there.
+3. Paste both into `mobile/app/app.json`:
+
+   ```json
+   "googleAuth": {
+     "webClientId": "…apps.googleusercontent.com",
+     "androidClientId": "…apps.googleusercontent.com",
+     "iosClientId": ""
+   }
+   ```
+
+These are client *identifiers*, not secrets — they identify the app, they do
+not authenticate it — so they belong in app.json rather than the environment.
+
+The app never sees a password and never trusts an address it was handed: it
+sends Google's signed ID token to `POST /api/auth/google`, which passes it to
+Firebase's `signInWithIdp` and reads the address out of Firebase's answer.
+
 ## 6 · Checks
 
 - `GET /healthz` on the web app returns `{"status": "ok"}`

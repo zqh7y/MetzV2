@@ -32,6 +32,12 @@
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="metz"/>
         <data android:scheme="exp+metz-mobile"/>
+        <!-- Google sign-in redirects back to "com.metz.app:/oauthredirect".
+             expo-auth-session builds that from the application id (see
+             providers/Google.js), and without this filter Android has nothing
+             registered for the scheme, so the browser finishes the sign-in and
+             then has nowhere to hand it back to. -->
+        <data android:scheme="com.metz.app"/>
       </intent-filter>
     </activity>
   </application>

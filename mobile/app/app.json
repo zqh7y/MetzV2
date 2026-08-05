@@ -36,13 +36,19 @@
       "eas": {
         "projectId": "1cdc7ba7-3838-4174-8376-80bebcf16925"
       },
-      "apiUrl": "https://metz-api.onrender.com"
+      "apiUrl": "https://metz-api.onrender.com",
+      "googleAuth": {
+        "webClientId": "909310066730-1m4u297lv95i3a3keq76ckdmb1n13ui5.apps.googleusercontent.com",
+        "androidClientId": "909310066730-uqa829ql0clkbui0538jaohf7u95g6me.apps.googleusercontent.com",
+        "iosClientId": ""
+      }
     },
     "owner": "justariel",
     "plugins": [
       "expo-font",
       "@maplibre/maplibre-react-native",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-web-browser"
     ]
   }
 }

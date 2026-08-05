@@ -48,6 +48,10 @@ export const api = {
   verify: (email, code) => request("/api/verify", { method: "POST", body: { email, code }, auth: false }),
   resendVerify: (email) => request("/api/verify/resend", { method: "POST", body: { email }, auth: false }),
   login: (email, password) => request("/api/login", { method: "POST", body: { email, password }, auth: false }),
+  // Only the token goes up: the server reads the address out of it rather than
+  // trusting one sent alongside.
+  googleSignIn: (idToken) =>
+    request("/api/auth/google", { method: "POST", body: { id_token: idToken }, auth: false }),
   requestPasswordReset: (email) =>
     request("/api/password/reset", { method: "POST", body: { email }, auth: false }),
 

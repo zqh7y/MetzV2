@@ -1,4 +1,4 @@
-import { NativeModules } from "react-native";
+import { NativeModules, Platform } from "react-native";
 import Constants from "expo-constants";
 
 // Where mobile/backend/server.py is listening.
@@ -83,3 +83,30 @@ function resolveWebBaseUrl() {
 export const WEB_BASE_URL = resolveWebBaseUrl();
 export const PRIVACY_URL = WEB_BASE_URL ? `${WEB_BASE_URL}/privacy` : "";
 export const TERMS_URL = WEB_BASE_URL ? `${WEB_BASE_URL}/terms` : "";
+
+// ── Sign in with Google ─────────────────────────────────────────────────
+// OAuth client ids, from Google Cloud via Firebase → Authentication → Google.
+// They are not secrets — a client id identifies the app, it does not
+// authenticate it — so app.json is the right place for them, and they can be
+// changed without a code change.
+//
+// GOOGLE_AUTH_READY is what the screens check: with no ids configured the
+// button is hidden rather than shown and then failing on tap, because the
+// error Google returns for an empty client id ("invalid_request") tells the
+// person nothing they can act on.
+const googleAuth = Constants.expoConfig?.extra?.googleAuth || {};
+export const GOOGLE_WEB_CLIENT_ID = googleAuth.webClientId || "";
+export const GOOGLE_ANDROID_CLIENT_ID = googleAuth.androidClientId || "";
+export const GOOGLE_IOS_CLIENT_ID = googleAuth.iosClientId || "";
+
+// "Configured" has to mean the id *this* platform needs, not merely that one of
+// the three was filled in. expo-auth-session validates the platform's own id
+// and throws during render when it is missing — "Client Id property
+// `androidClientId` must be defined" — so a web id alone takes down the login
+// screen on a phone rather than quietly doing nothing.
+const PLATFORM_CLIENT_ID = Platform.select({
+  android: GOOGLE_ANDROID_CLIENT_ID,
+  ios: GOOGLE_IOS_CLIENT_ID,
+  default: GOOGLE_WEB_CLIENT_ID,
+});
+export const GOOGLE_AUTH_READY = Boolean(PLATFORM_CLIENT_ID);
