@@ -294,6 +294,109 @@ def can_delete_meeting(uid, meeting):
     return meeting.get("creator_uid") == uid
 
 
+# ─── The share link ─────────────────────────────────────────────────────────
+# A meeting can be opened by anyone holding its link, with no account, and they
+# can say they are coming. Everything here is written with that in mind: the
+# caller is a stranger, so the public view hands back only what the organiser
+# chose to put on a poster, and never the attendee uids, the discussion, the
+# online meeting's join link, or anything about who else is going beyond a
+# count and their first names.
+
+MAX_GUEST_NAME_LEN = 40
+# A cap on link joins, so one person with a script cannot invent a full room.
+# Deliberately generous: a real meeting hitting this is unusual, and the
+# organiser can still see and remove them in the app.
+MAX_GUESTS_PER_MEETING = 200
+
+
+def public_meeting(meeting_id):
+    """What a stranger holding the link is allowed to see. None if unavailable.
+
+    Pending and cancelled meetings return None: a link should not become a way
+    to read a meeting that is not public yet, or to sign up to one that has
+    been called off.
+    """
+    record = MEETINGS_DB.get(meeting_id)
+    if not record or record.get("status") != "approved":
+        return None
+    if record.get("commit_status") == "cancelled":
+        return None
+
+    guests = record.get("guests") or []
+    joined = record.get("joined_uids") or []
+    return {
+        "id": record.get("id"),
+        "title": record.get("title", ""),
+        "description": record.get("description", ""),
+        "emoji": record.get("emoji") or "📍",
+        "time": record.get("time", ""),
+        "tags": record.get("tags") or [],
+        "is_online": bool(record.get("is_online")),
+        # The address is on the poster; the online meeting's join link is not —
+        # that is the one thing that would let a stranger walk into the room.
+        "location": "" if record.get("is_online") else (record.get("location") or ""),
+        "lat": record.get("lat"),
+        "lng": record.get("lng"),
+        "host": display_name_for(record.get("creator_uid")) or record.get("creator_username") or "",
+        "attending": len(joined) + len(guests),
+        "member_count": len(joined),
+        "guest_count": len(guests),
+        # First names only. Someone forwarding a link to a group chat has not
+        # agreed to their full name being on a public page.
+        "guest_names": [g.get("name", "").split(" ")[0] for g in guests][-12:],
+        "min_attendees": record.get("min_attendees") or 0,
+        "max_attendees": record.get("max_attendees") or 0,
+        "spots_left": (
+            max(0, record["max_attendees"] - len(joined) - len(guests))
+            if record.get("max_attendees") else None
+        ),
+        "commit_status": record.get("commit_status") or "open",
+        "phase": meeting_phase(record),
+    }
+
+
+def add_guest(meeting_id, name):
+    """Record someone who joined through the link. Returns the guest, or None.
+
+    None covers every refusal — unknown or non-public meeting, a full one, an
+    empty name, or the cap being hit — because a stranger cannot act on the
+    difference and telling them which it was only helps someone probing.
+    """
+    from utils.models import sanitize_html
+
+    record = MEETINGS_DB.get(meeting_id)
+    if not record or record.get("status") != "approved":
+        return None
+    if record.get("commit_status") == "cancelled":
+        return None
+    # Joining something that has already happened helps nobody.
+    if meeting_phase(record) == "ended":
+        return None
+
+    clean = sanitize_html(name)[:MAX_GUEST_NAME_LEN].strip()
+    if not clean:
+        return None
+
+    guests = record.setdefault("guests", [])
+    if len(guests) >= MAX_GUESTS_PER_MEETING:
+        return None
+
+    joined = record.get("joined_uids") or []
+    capacity = record.get("max_attendees") or 0
+    if capacity and len(joined) + len(guests) >= capacity:
+        return None
+
+    guest = {
+        "id": max((g.get("id", 0) for g in guests), default=0) + 1,
+        "name": clean,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    guests.append(guest)
+    refresh_all_commit_statuses()   # a link join can be the one that confirms it
+    save_data()
+    return guest
+
+
 # ─── Discussion on a meeting ────────────────────────────────────────────────
 # Comments are stored on the meeting record itself (see Meeting.comments), so
 # these work on the raw dict in MEETINGS_DB the same way delete_meeting does.
@@ -875,52 +978,74 @@ def get_total_participants(uid):
 # Each tier (besides the starting one) lists tasks a user must complete to
 # unlock it. "manual" tiers can't be earned by stats alone — an admin has to
 # grant them (e.g. Developer = actual app maintainers).
+# Status is earned by turning up, not by posting.
+#
+# The old tiers counted meetings created and people signed up, which rewarded
+# exactly the wrong thing: both are free to manufacture. Post eight meetings
+# nobody attends, have a few friends tap Join, and you outrank someone who has
+# quietly gone to twenty. Worse, it pushed people to create meetings for the
+# badge — noise everyone else has to scroll past.
+#
+# These count only what costs something to fake:
+#
+#   attended  meetings that finished and were settled as "went". You cannot
+#             attend a meeting that has not happened yet.
+#   score     the show-up rate. Volume alone cannot raise it — bailing lowers
+#             it — so it caps how far quantity gets you.
+#   days      how long the account has existed. Time cannot be rushed.
+#
+# The last two tiers are not earned by numbers at all. Trust and moderation are
+# judgements about a person, and any automatic rule for them is a rule someone
+# can game; so they are granted by hand, and the app says so plainly rather
+# than showing a progress bar that never fills.
 ACCOUNT_TIERS = [
     {
-        "id": "explorer",
-        "name": "Explorer",
-        "emoji": "🧭",
-        "blurb": "Just getting started around here.",
+        "id": "newcomer",
+        "name": "Newcomer",
+        "emoji": "🌱",
+        "blurb": "Just arrived. Go to something.",
         "requires": [],
     },
     {
-        "id": "creator",
-        "name": "Creator",
-        "emoji": "🎨",
-        "blurb": "Brings new meetings to life.",
+        "id": "regular",
+        "name": "Regular",
+        "emoji": "🚶",
+        "blurb": "Turns up to things.",
         "requires": [
-            {"label": "Create 3 meetings", "key": "created", "target": 3},
+            {"label": "Turn up to 3 meetings", "key": "attended", "target": 3},
+            {"label": "Be around for a week", "key": "days", "target": 7, "unit": "days"},
         ],
     },
     {
-        "id": "connector",
-        "name": "Connector",
-        "emoji": "🤝",
-        "blurb": "Builds meetings people actually show up to.",
+        "id": "reliable",
+        "name": "Reliable",
+        "emoji": "⭐",
+        "blurb": "Says they'll be there, and is.",
         "requires": [
-            {"label": "Create 3 meetings", "key": "created", "target": 3},
-            {"label": "Get 15 people to join your meetings", "key": "participants", "target": 15},
+            {"label": "Turn up to 10 meetings", "key": "attended", "target": 10},
+            {"label": "Keep an 80% show-up rate", "key": "score", "target": 80, "unit": "%"},
+            {"label": "Be around for a month", "key": "days", "target": 30, "unit": "days"},
         ],
     },
     {
-        "id": "organizer",
-        "name": "Organizer",
-        "emoji": "🌟",
-        "blurb": "A pillar of the community.",
-        "requires": [
-            {"label": "Create 8 meetings", "key": "created", "target": 8},
-            {"label": "Get 40 people to join your meetings", "key": "participants", "target": 40},
-        ],
+        "id": "trusted",
+        "name": "Trusted",
+        "emoji": "🛡️",
+        "blurb": "Meetings go live without review.",
+        "requires": [],
+        "manual": "trusted",
+        "how": "Given by the team to people whose meetings have been consistently "
+               "genuine. Message us and we'll take a look at your record.",
     },
     {
-        "id": "developer",
-        "name": "Developer",
+        "id": "moderator",
+        "name": "Moderator",
         "emoji": "🛠️",
-        "blurb": "Helps run Metz behind the scenes.",
-        "requires": [
-            {"label": "Be granted admin access by the team", "key": "admin", "target": 1},
-        ],
-        "manual": True,
+        "blurb": "Helps keep Metz in order.",
+        "requires": [],
+        "manual": "admin",
+        "how": "Moderators are appointed, not unlocked. If you want to help review "
+               "reports and meetings, contact the developer and say why.",
     },
 ]
 
@@ -929,15 +1054,28 @@ def get_account_status(uid):
     """Work out a user's current account-status tier and what's left to
     unlock the next one."""
     user = USERS_DB.get(uid)
+    reliability = get_reliability(uid)
+    age_hours = _hours_since(user.get("joined_at")) if user else None
+
     stats = {
+        # What the tiers are actually measured on.
+        "attended": (reliability or {}).get("went", 0),
+        "score": (reliability or {}).get("score") or 0,
+        "days": int((age_hours or 0) // 24),
+        # Kept because the profile header still shows them as figures, even
+        # though no tier is awarded for them any more.
         "created": len(user.get("created_meeting_ids", [])) if user else 0,
         "participants": get_total_participants(uid),
         "admin": 1 if (user and user.get("is_admin")) else 0,
+        "trusted": 1 if (user and (user.get("is_trusted") or user.get("is_admin"))) else 0,
     }
 
     def tier_met(tier):
-        if tier.get("manual") and not stats["admin"]:
-            return False
+        # A hand-granted tier is held or it is not; its requirements list is
+        # empty and would otherwise make it true for everybody.
+        manual = tier.get("manual")
+        if manual:
+            return bool(stats.get(manual))
         return all(stats.get(r["key"], 0) >= r["target"] for r in tier["requires"])
 
     achieved = [t for t in ACCOUNT_TIERS if tier_met(t)]
@@ -946,13 +1084,14 @@ def get_account_status(uid):
     next_tier = ACCOUNT_TIERS[current_index + 1] if current_index + 1 < len(ACCOUNT_TIERS) else None
 
     next_tasks = []
-    if next_tier:
+    if next_tier and not next_tier.get("manual"):
         for r in next_tier["requires"]:
             progress = stats.get(r["key"], 0)
             next_tasks.append({
                 "label": r["label"],
                 "progress": min(progress, r["target"]),
                 "target": r["target"],
+                "unit": r.get("unit", ""),
                 "done": progress >= r["target"],
             })
 
@@ -961,6 +1100,10 @@ def get_account_status(uid):
         "next": next_tier,
         "next_tasks": next_tasks,
         "next_is_manual": bool(next_tier and next_tier.get("manual")),
+        # How to ask for a hand-granted tier. Shown instead of a progress bar,
+        # which for these would never move no matter what the person did.
+        "next_how": (next_tier or {}).get("how", ""),
+        "contact_email": os.environ.get("CONTACT_EMAIL", "ytevil68@gmail.com"),
         "stats": stats,
         "all_tiers": ACCOUNT_TIERS,
     }

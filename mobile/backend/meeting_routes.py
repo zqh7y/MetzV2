@@ -9,6 +9,7 @@ from data import (
     user_pass, delete_meeting, get_joined_users_preview, MEETINGS_DB,
     generate_user_color, display_name_for, is_trusted, is_admin, get_reliability,
     get_comments, add_comment, delete_comment, can_delete_comment, get_blocked_uids,
+    record_checkin,
 )
 from utils.models import (
     InPersonMeeting, OnlineMeeting, AVAILABLE_TAGS,
@@ -217,6 +218,35 @@ def remove_comment(meeting_id, comment_id):
         # tells a stranger which comment ids exist.
         return jsonify({"error": "forbidden"}), 403
     return jsonify({"status": "deleted"})
+
+
+@meeting_bp.route("/api/meetings/<int:meeting_id>/checkin", methods=["POST"])
+def checkin(meeting_id):
+    """Answer "did you go?" for a meeting that is over.
+
+    Activity has listed this question since it was written, but the mobile API
+    never had a route to answer it — the only way to settle a meeting was the
+    web page. So the show-up rate the app keeps showing could not be moved from
+    inside the app.
+
+    record_checkin does the deciding: it refuses a meeting you never joined, a
+    status outside went/missed, and anything not yet finished. The updated
+    reliability comes back with the answer so the caller can redraw the score
+    without a second request.
+    """
+    uid = current_uid()
+    if not get_user(uid):
+        return jsonify({"error": "unauthorized"}), 401
+
+    body = request.get_json(force=True) or {}
+    status = (body.get("status") or "").strip().lower()
+
+    result = record_checkin(uid, meeting_id, status)
+    if not result:
+        # One answer for every refusal: which of the three it was is not
+        # something the caller can act on differently.
+        return jsonify({"error": "Can't record that yet."}), 400
+    return jsonify(result)
 
 
 @meeting_bp.route("/api/meetings/<int:meeting_id>/pass", methods=["POST"])

@@ -2,10 +2,18 @@
   <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
   <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
   <uses-permission android:name="android.permission.INTERNET"/>
-  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
-  <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
   <uses-permission android:name="android.permission.VIBRATE"/>
-  <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+  <!--
+    READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE and SYSTEM_ALERT_WINDOW were
+    template defaults that nothing in this app ever used: there is no image
+    picker, no media library, and no overlay. Play reviews the permission list
+    against what the app demonstrably does, and SYSTEM_ALERT_WINDOW ("display
+    over other apps") is a restricted permission that needs a justification
+    this app cannot give. The storage pair is also inert on Android 13+.
+
+    Anything re-adding them here is a dependency asking for them — check which
+    before allowing it back.
+  -->
   <queries>
     <intent>
       <action android:name="android.intent.action.VIEW"/>

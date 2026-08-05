@@ -1,0 +1,219 @@
+{#
+  The public face of a meeting: what someone sees when the organiser drops the
+  link into Instagram or a group chat.
+
+  Deliberately standalone rather than {% extends "base.html" %}. base.html is
+  built for the signed-in web app — it carries the nav, the CSRF meta tag and
+  the session-dependent header — and none of that belongs on a page whose whole
+  point is that the reader has no account. Keeping it separate also means the
+  web app can change without breaking the one page strangers actually see.
+#}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ m.title }} · Metz</title>
+
+{# What Instagram, WhatsApp and iMessage read to build the preview card. The
+   description is the meeting's own, trimmed, so the unfurl says something
+   about this meeting rather than about the app. #}
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Metz">
+<meta property="og:title" content="{{ m.title }}">
+<meta property="og:description" content="{{ when_text }}{% if m.location %} · {{ m.location }}{% endif %} — {{ m.description[:120] }}">
+<meta property="og:url" content="{{ page_url }}">
+<meta property="og:image" content="{{ og_image }}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#0d9c8a">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+{% if m.lat is not none and m.lng is not none and not m.is_online %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+{% endif %}
+
+<style>
+  :root {
+    --accent: #0d9c8a; --accent-strong: #0a7a6c; --accent-soft: rgba(13,156,138,0.12);
+    --bg: #eef1f6; --surface: #fff; --text: #1b2536; --text2: #55617a; --text3: #8b95a8;
+    --border: #e3e7ef; --radius: 18px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+    line-height: 1.5; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 20px 16px 56px; }
+
+  .brand { display: flex; align-items: center; gap: 9px; margin-bottom: 18px; }
+  .brand-mark {
+    width: 30px; height: 30px; border-radius: 9px; background: var(--accent);
+    color: #fff; font-weight: 800; display: grid; place-items: center; font-size: 15px;
+  }
+  .brand-name { font-weight: 800; letter-spacing: 0.4px; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px; margin-bottom: 14px;
+    box-shadow: 0 2px 10px rgba(20,25,50,0.05);
+  }
+  .hero-emoji { font-size: 40px; line-height: 1; }
+  h1 { font-size: 26px; line-height: 1.22; margin: 12px 0 10px; font-weight: 800; }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .pill {
+    font-size: 12.5px; font-weight: 600; padding: 6px 11px; border-radius: 999px;
+    background: #f1f3f8; color: var(--text2);
+  }
+  .pill.accent { background: var(--accent-soft); color: var(--accent-strong); }
+  .desc { color: var(--text2); white-space: pre-wrap; }
+  .host { margin-top: 14px; font-size: 13.5px; color: var(--text3); }
+
+  .row { display: flex; align-items: baseline; gap: 8px; }
+  .count { font-size: 30px; font-weight: 800; color: var(--accent-strong); }
+  .count-sub { font-size: 13.5px; color: var(--text3); }
+  .names { margin-top: 8px; font-size: 13px; color: var(--text3); }
+
+  .bar { height: 7px; border-radius: 4px; background: #e8ebf2; overflow: hidden; margin-top: 10px; }
+  .bar > i { display: block; height: 100%; background: var(--accent); }
+
+  #map { height: 190px; border-radius: 13px; margin-top: 12px; border: 1px solid var(--border); }
+
+  label.field { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  input[type=text] {
+    width: 100%; padding: 13px 14px; font: inherit; color: var(--text);
+    border: 1px solid var(--border); border-radius: 12px; background: #f8fAfc;
+  }
+  input[type=text]:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  .check { display: flex; gap: 10px; align-items: flex-start; margin: 14px 0 16px; font-size: 13.5px; color: var(--text2); }
+  .check input { margin-top: 3px; width: 17px; height: 17px; accent-color: var(--accent); }
+  button {
+    width: 100%; padding: 15px; font: inherit; font-weight: 700; color: #fff;
+    background: var(--accent); border: 0; border-radius: 13px; cursor: pointer;
+  }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .done { text-align: center; padding: 8px 0; }
+  .done-tick { font-size: 34px; }
+  .done h2 { margin: 8px 0 4px; font-size: 19px; }
+  .done p { margin: 0; color: var(--text2); font-size: 14px; }
+  .error { color: #c0392b; font-size: 13.5px; margin-bottom: 12px; font-weight: 600; }
+  .closed { color: var(--text2); font-size: 14px; text-align: center; margin: 0; }
+  .foot { text-align: center; font-size: 12.5px; color: var(--text3); margin-top: 20px; line-height: 1.7; }
+  .foot a { color: var(--text2); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="brand">
+    <div class="brand-mark">M</div>
+    <div class="brand-name">METZ</div>
+  </div>
+
+  <div class="card">
+    <div class="hero-emoji">{{ m.emoji }}</div>
+    <h1>{{ m.title }}</h1>
+
+    <div class="meta">
+      <span class="pill accent">{{ when_text }}</span>
+      {% if m.is_online %}
+        <span class="pill">Online</span>
+      {% elif m.location %}
+        <span class="pill">{{ m.location }}</span>
+      {% endif %}
+      {% for tag in m.tags[:4] %}<span class="pill">{{ tag }}</span>{% endfor %}
+    </div>
+
+    {% if m.description %}<div class="desc">{{ m.description }}</div>{% endif %}
+    {% if m.host %}<div class="host">Organised by {{ m.host }}</div>{% endif %}
+
+    {% if m.lat is not none and m.lng is not none and not m.is_online %}
+      <div id="map" data-lat="{{ m.lat }}" data-lng="{{ m.lng }}"></div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <span class="count">{{ m.attending }}</span>
+      <span class="count-sub">
+        going{% if m.guest_count %} · {{ m.guest_count }} via link{% endif %}
+        {%- if m.spots_left is not none %} · {{ m.spots_left }} spot{{ '' if m.spots_left == 1 else 's' }} left{% endif %}
+      </span>
+    </div>
+
+    {% if m.min_attendees %}
+      <div class="bar"><i style="width: {{ progress }}%"></i></div>
+      <div class="names">
+        {% if m.attending >= m.min_attendees %}
+          Confirmed — enough people are coming.
+        {% else %}
+          Happens if {{ m.min_attendees }} come. {{ m.min_attendees - m.attending }} to go.
+        {% endif %}
+      </div>
+    {% endif %}
+
+    {% if m.guest_names %}
+      <div class="names">Coming via this link: {{ m.guest_names | join(', ') }}</div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    {% if joined %}
+      <div class="done">
+        <div class="done-tick">🎉</div>
+        <h2>You're on the list</h2>
+        <p>See you there. The organiser can see your name.</p>
+      </div>
+    {% elif m.phase == 'ended' %}
+      <p class="closed">This meeting has already happened.</p>
+    {% elif m.spots_left == 0 %}
+      <p class="closed">This one is full.</p>
+    {% else %}
+      <form method="post" action="{{ join_url }}">
+        {% if error %}<div class="error">{{ error }}</div>{% endif %}
+        <label class="field" for="name">Your name</label>
+        <input type="text" id="name" name="name" maxlength="40" required
+               autocomplete="name" placeholder="So the organiser knows who's coming">
+
+        <label class="check">
+          <input type="checkbox" name="understood" value="1" required>
+          <span>I've read what this meeting is and when it is, and I'm planning to come.</span>
+        </label>
+
+        <button type="submit">I'm coming</button>
+      </form>
+    {% endif %}
+  </div>
+
+  <p class="foot">
+    Metz — meet people nearby.<br>
+    <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a>
+  </p>
+</div>
+
+{% if m.lat is not none and m.lng is not none and not m.is_online %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  // Read from data- attributes rather than templated into JS: the coordinates
+  // are numbers from the database, but keeping markup and script separate means
+  // nothing from a record can ever land inside a <script> block.
+  (function () {
+    var el = document.getElementById("map");
+    if (!el || !window.L) return;
+    var lat = parseFloat(el.dataset.lat), lng = parseFloat(el.dataset.lng);
+    if (isNaN(lat) || isNaN(lng)) return;
+    var map = L.map(el, { zoomControl: false, scrollWheelZoom: false }).setView([lat, lng], 15);
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+      attribution: '&copy; OpenStreetMap, &copy; CARTO', maxZoom: 19,
+    }).addTo(map);
+    L.circleMarker([lat, lng], {
+      radius: 11, color: "#fff", weight: 3, fillColor: "#0d9c8a", fillOpacity: 1,
+    }).addTo(map);
+  })();
+</script>
+{% endif %}
+</body>
+</html>

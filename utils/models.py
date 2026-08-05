@@ -33,7 +33,7 @@ class Meeting:
     def __init__(self, id, title, description, time,
                  creator_uid=None, creator_username=None, joined_uids=None, emoji=None, tags=None, status=None,
                  min_attendees=0, max_attendees=0, join_deadline="", commit_status=None, waitlist_uids=None,
-                 attendance=None, late_bails=None, comments=None):
+                 attendance=None, late_bails=None, comments=None, guests=None):
         self.id = id
         self.title = title
         self.description = description
@@ -70,6 +70,24 @@ class Meeting:
         # Each entry: {id, uid, username, text, created_at}
         self.comments = list(comments or [])
 
+        # ── People who came in through the share link ──────────────────────
+        # Someone the organiser sent the link to, who said they are coming
+        # without making an account. They have a name and nothing else: no uid,
+        # no show-up record, no way to be messaged. Kept apart from joined_uids
+        # for exactly that reason — everything keyed on a uid (attendance, the
+        # reliability score, blocking) has nothing to key on here.
+        # Each entry: {id, name, created_at}
+        self.guests = list(guests or [])
+
+    @property
+    def attending_count(self):
+        """Everyone expected: members plus link guests.
+
+        Capacity and the threshold both count heads in a room, and a guest
+        takes up a place exactly like a member does.
+        """
+        return len(self.joined_uids) + len(self.guests)
+
     @property
     def has_threshold(self):
         return self.min_attendees > 0
@@ -79,14 +97,14 @@ class Meeting:
         """Remaining places, or None when the meeting is uncapped."""
         if not self.max_attendees:
             return None
-        return max(0, self.max_attendees - len(self.joined_uids))
+        return max(0, self.max_attendees - self.attending_count)
 
     @property
     def threshold_progress(self):
         """0-100, how close this meeting is to actually happening."""
         if not self.min_attendees:
             return 100
-        return min(100, round(len(self.joined_uids) / self.min_attendees * 100))
+        return min(100, round(self.attending_count / self.min_attendees * 100))
 
     def get_display_text(self):
         """Base method – overridden by subclasses to provide specific display."""
@@ -103,7 +121,12 @@ class Meeting:
             "creator_uid": self.creator_uid,
             "creator_username": self.creator_username,
             "joined_uids": self.joined_uids,
-            "joined_count": len(self.joined_uids),
+            # Counted together, reported separately: the organiser can see
+            # which of the heads have a show-up record behind them.
+            "joined_count": self.attending_count,
+            "member_count": len(self.joined_uids),
+            "guest_count": len(self.guests),
+            "guests": self.guests,
             "emoji": self.emoji,
             "tags": self.tags,
             "status": self.status,
@@ -274,6 +297,8 @@ def meeting_from_dict(data):
         late_bails=data.get("late_bails", {}),
         # Meetings created before the discussion existed simply have none.
         comments=data.get("comments", []),
+        # Meetings created before the share link existed simply have none.
+        guests=data.get("guests", []),
     )
     if data.get("type") == "InPersonMeeting":
         return InPersonMeeting(

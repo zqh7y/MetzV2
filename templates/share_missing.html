@@ -1,0 +1,36 @@
+{# Shown for any link that leads nowhere: unknown id, not yet approved, or
+   cancelled. Deliberately the same page for all three — a link should not
+   become a way to find out which meetings exist. #}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meeting not available · Metz</title>
+<meta name="theme-color" content="#0d9c8a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  body {
+    margin: 0; min-height: 100vh; display: grid; place-items: center;
+    background: #eef1f6; color: #1b2536; text-align: center; padding: 24px;
+    font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  }
+  .box { max-width: 380px; }
+  .mark {
+    width: 44px; height: 44px; border-radius: 13px; background: #0d9c8a; color: #fff;
+    font-weight: 800; display: grid; place-items: center; margin: 0 auto 18px; font-size: 20px;
+  }
+  h1 { font-size: 21px; margin: 0 0 8px; font-weight: 800; }
+  p { color: #55617a; margin: 0; font-size: 14.5px; line-height: 1.6; }
+</style>
+</head>
+<body>
+  <div class="box">
+    <div class="mark">M</div>
+    <h1>This meeting isn't available</h1>
+    <p>The link may be out of date, or the meeting was called off. Ask whoever sent it for a new one.</p>
+  </div>
+</body>
+</html>
