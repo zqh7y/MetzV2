@@ -113,6 +113,52 @@ account deletion exists in-app, bans enforced API-wide.
 Outstanding: data-safety form, a public account-deletion URL, store assets,
 and confirming `versionCode` before the first upload.
 
+## Next missions, roughly in order
+
+**1 — Blocked on the owner. Ask, do not work around.**
+- `GMAIL_ADDRESS` / `GMAIL_APP_PASSWORD` on Render. Until then `/api/signup`
+  returns 502 and Google is the only way in. Confirm with a real POST.
+- Once those are set: ship the held-back login fix in
+  `mobile/backend/auth_routes.py` (and `routes/login.py`, already written).
+  It makes login refuse accounts that never verified.
+- `--workers 1` on Render. Until then two processes can delete each other's
+  rows. Check this before investigating any "data vanished" report.
+
+**2 — Never actually observed working. Do not claim otherwise.**
+- Google sign-in end to end. Impossible in Expo Go; needs a fresh APK.
+- The "you are here" marker. The emulator will not produce a GPS fix.
+- `useAutoRefresh`'s 20/25/30s interval. Focus refetch has been seen; the
+  timer has not. Proving it means changing data from outside the app and
+  watching a screen update untouched.
+
+**3 — Two Activity sections are still dead ends.**
+"Did you go?" answers inline now, but **"Mark who came"** and **"Your call"**
+open the meeting detail screen, which has no UI for either — and the mobile API
+has no route for either. `data.set_attendance()` and `data.decide_threshold()`
+exist and are unused by the app. Finishing these means an endpoint plus real UI:
+attendance needs a per-attendee went/missed list, and a threshold decision has
+three outcomes including setting a new deadline, so neither collapses into two
+buttons on a row.
+
+**4 — Guests can be added but never removed.**
+`/m/<id>` lets someone join with a name, deliberately with no way to cancel. The
+organiser has no way to remove one either, so a mistyped or fake name is
+permanent and keeps occupying capacity. A remove action for the organiser is
+the missing half.
+
+**5 — The per-request full database rewrite.**
+Cheapest real win: stop `touch_last_online` calling `save_data()` on every
+request — update memory and persist at most every few minutes. The deeper fix
+(writing only changed rows) is a bigger job worth scoping on its own.
+
+**6 — Play submission leftovers.**
+Data-safety form, a public account-deletion URL, store assets, and confirming
+`versionCode` before the first upload.
+
+**Smaller:** `api.passMeeting` is now unused by the app (the For You shelf was
+its only caller) — the endpoint still exists server-side. `README.md` is stale:
+it describes MySQL and the "For You" shelf, both gone.
+
 ## House style
 
 Comments explain **why**, not what — including what was tried before and why it
