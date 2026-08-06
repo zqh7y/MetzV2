@@ -1,7 +1,7 @@
 import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import {
   View, Text, FlatList, StyleSheet, TextInput, ActivityIndicator,
-  RefreshControl, Animated, PanResponder, TouchableOpacity, useWindowDimensions,
+  RefreshControl, Animated, PanResponder, TouchableOpacity, Pressable, useWindowDimensions,
 } from "react-native";
 import { Map, Camera, GeoJSONSource, Layer, UserLocation, MAPS_AVAILABLE } from "../components/MapShim";
 import WebMap from "../components/WebMap";
@@ -541,6 +541,7 @@ export default function HomeScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
+        <View style={styles.sheetBody}>
         <View style={styles.searchWrap}>
           <SearchIcon size={16} color={theme.text3} />
           <TextInput
@@ -579,6 +580,26 @@ export default function HomeScreen({ navigation }) {
           ListEmptyComponent={<Text style={styles.empty}>No meetings match your search.</Text>}
           contentContainerStyle={{ paddingBottom: 24 + insets.bottom }}
         />
+
+        {/* Collapsed, the whole body is one big "open me".
+
+            Only the grabber and the title did that before, so tapping a
+            meeting you could already see — half of it cut off by the bottom of
+            the screen — was simply ignored.
+
+            Scoped to the body rather than the whole sheet so "+ New" stays
+            reachable without opening the list first, and rendered only while
+            collapsed, so at full height every control underneath behaves
+            exactly as it did. */}
+        {sheetState !== "full" ? (
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => snapTo("full")}
+            accessibilityRole="button"
+            accessibilityLabel="Open the meeting list"
+          />
+        ) : null}
+        </View>
       </Animated.View>
 
       {/* Last child, so it slides over the sheet as well as the map */}
@@ -633,6 +654,7 @@ const makeStyles = (t, comfortable = false) => StyleSheet.create({
   },
   grabberArea: { paddingVertical: 10, alignItems: "center" },
   grabber: { width: 42, height: 5, borderRadius: 3, backgroundColor: t.surface3 },
+  sheetBody: { flex: 1 },
   sheetHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
   titleWrap: { flexDirection: "row", alignItems: "center", gap: 8 },
   panelTitle: { fontSize: 17, fontFamily: FONTS.heading, color: t.text },

@@ -109,4 +109,24 @@ const PLATFORM_CLIENT_ID = Platform.select({
   ios: GOOGLE_IOS_CLIENT_ID,
   default: GOOGLE_WEB_CLIENT_ID,
 });
-export const GOOGLE_AUTH_READY = Boolean(PLATFORM_CLIENT_ID);
+
+/**
+ * Expo Go cannot do Google sign-in, and no amount of configuration changes it.
+ *
+ * The redirect there is exp://<host>:<port>, and Google refuses any redirect
+ * that is not https or a registered custom scheme — the attempt dies on
+ * Google's own page with "Access blocked … Error 400: invalid_request". Expo's
+ * auth proxy used to stand in as an https redirect; it was removed in SDK 48.
+ *
+ * The app's own scheme (com.metz.app:/oauthredirect) only exists in a build
+ * that installed the manifest, so this works in the APK and a dev build, and
+ * nowhere else.
+ */
+export const IS_EXPO_GO = Constants.executionEnvironment === "storeClient";
+
+/** A client id exists for this platform — says nothing about whether the
+  * flow can actually run here. */
+export const GOOGLE_CONFIGURED = Boolean(PLATFORM_CLIENT_ID);
+
+/** Configured *and* in a build where the redirect can come back. */
+export const GOOGLE_AUTH_READY = GOOGLE_CONFIGURED && !IS_EXPO_GO;

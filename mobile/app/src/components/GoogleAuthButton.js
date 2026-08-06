@@ -2,7 +2,7 @@ import React, { useMemo } from "react";
 import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import AnimatedPressable from "./AnimatedPressable";
 import useGoogleSignIn from "../hooks/useGoogleSignIn";
-import { GOOGLE_AUTH_READY } from "../config";
+import { GOOGLE_AUTH_READY, GOOGLE_CONFIGURED, IS_EXPO_GO } from "../config";
 import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
 
@@ -22,8 +22,34 @@ export default function GoogleAuthButton({ label = "Continue with Google" }) {
   // useGoogleSignIn cannot be called conditionally and the provider inside it
   // *throws during render* when this platform's client id is missing. Checking
   // after calling it would be too late — the screen is already down.
+  //
+  // Expo Go is called out rather than hidden: hiding it reads as "not built
+  // yet", and leaving it tappable walks into Google's own "Access blocked"
+  // page, which blames the app for something no setting here can fix.
+  if (IS_EXPO_GO && GOOGLE_CONFIGURED) return <ExpoGoNotice />;
   if (!GOOGLE_AUTH_READY) return null;
   return <GoogleAuthButtonInner label={label} />;
+}
+
+function ExpoGoNotice() {
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
+  return (
+    <View>
+      <View style={styles.dividerRow}>
+        <View style={styles.rule} />
+        <Text style={styles.dividerText}>or</Text>
+        <View style={styles.rule} />
+      </View>
+      <View style={[styles.button, styles.buttonInert]}>
+        <View style={styles.badge}><Text style={styles.badgeText}>G</Text></View>
+        <Text style={styles.label}>Continue with Google</Text>
+      </View>
+      <Text style={styles.note}>
+        Only works in the installed app — Google rejects Expo Go's redirect.
+      </Text>
+    </View>
+  );
 }
 
 function GoogleAuthButtonInner({ label }) {
@@ -90,5 +116,6 @@ const makeStyles = (t) => StyleSheet.create({
   },
   badgeText: { color: "#4285f4", fontFamily: FONTS.heading, fontSize: 13, lineHeight: 16 },
   label: { color: t.text, fontFamily: FONTS.headingSemi, fontSize: 15 },
+  note: { fontSize: 12, color: t.text3, marginTop: 8, textAlign: "center" },
   error: { color: t.status.bad, fontSize: 12.5, marginTop: 8, textAlign: "center" },
 });
