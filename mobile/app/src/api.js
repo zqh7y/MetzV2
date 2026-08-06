@@ -54,9 +54,15 @@ export const api = {
   resendVerify: (email) => request("/api/verify/resend", { method: "POST", body: { email }, auth: false }),
   login: (email, password) => request("/api/login", { method: "POST", body: { email, password }, auth: false }),
   // Only the token goes up: the server reads the address out of it rather than
-  // trusting one sent alongside.
-  googleSignIn: (idToken) =>
-    request("/api/auth/google", { method: "POST", body: { id_token: idToken }, auth: false }),
+  // trusting one sent alongside. Which token exists depends on the platform —
+  // web returns an id_token, a phone returns whatever the code exchange gave —
+  // so both are offered and the server uses whichever it got.
+  googleSignIn: ({ idToken, accessToken }) =>
+    request("/api/auth/google", {
+      method: "POST",
+      body: { id_token: idToken || "", access_token: accessToken || "" },
+      auth: false,
+    }),
   requestPasswordReset: (email) =>
     request("/api/password/reset", { method: "POST", body: { email }, auth: false }),
 

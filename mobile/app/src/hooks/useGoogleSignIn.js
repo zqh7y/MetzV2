@@ -59,21 +59,37 @@ export default function useGoogleSignIn() {
     }
 
     const idToken = response.params?.id_token || response.authentication?.idToken;
-    if (!idToken) {
+    const accessToken = response.params?.access_token || response.authentication?.accessToken;
+
+    if (!idToken && !accessToken) {
+      // On a phone the provider answers twice. Google's Android clients use
+      // the authorisation-code flow, so the first answer carries only `code`;
+      // expo-auth-session then exchanges it and re-answers with the tokens.
+      //
+      // Treating that first answer as a failure is what broke this: it showed
+      // "Google didn't return a usable sign-in token" a moment before the real
+      // result arrived. There is nothing wrong yet — keep the spinner and wait
+      // for the second answer.
+      if (response.params?.code) return undefined;
+
       setError("Google didn't return a usable sign-in token.");
       setBusy(false);
-      return;
+      return undefined;
     }
 
     // A redirect can be delivered more than once (returning to a screen that
     // still holds the same response object), and each delivery would otherwise
     // fire another request.
-    if (handled.current === idToken) return;
-    handled.current = idToken;
+    const key = idToken || accessToken;
+    if (handled.current === key) return undefined;
+    handled.current = key;
 
     let cancelled = false;
     setBusy(true);
-    api.googleSignIn(idToken)
+    // Both are sent because which one exists depends on the platform: the
+    // web flow returns an id_token directly, the phone flow returns whatever
+    // the code exchange produced. Firebase accepts either for Google.
+    api.googleSignIn({ idToken, accessToken })
       .then((data) => {
         if (cancelled) return;
         // storeSession puts the app into its signed-in state; the navigator

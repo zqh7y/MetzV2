@@ -9,11 +9,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
 import MeetingCard from "../components/MeetingCard";
-import ForYouCard from "../components/ForYouCard";
 import SectionRule from "../components/SectionRule";
 import HomeDrawer, { MenuButton } from "../components/HomeDrawer";
 import AccountSheet from "../components/AccountSheet";
-import { SearchIcon, SparkleIcon, MapPinIcon, GlobeIcon } from "../components/NavIcons";
+import { SearchIcon, MapPinIcon, GlobeIcon } from "../components/NavIcons";
 import useMyLocation from "../hooks/useMyLocation";
 import useAutoRefresh from "../hooks/useAutoRefresh";
 import { distanceToMeeting, formatDistance } from "../utils/distance";
@@ -25,7 +24,6 @@ const DEFAULT_CENTER = [35.2137, 31.7683]; // [lng, lat] — MapLibre order
 // Reuse a fontstack the basemap already ships glyphs for, or labels don't draw.
 const LABEL_FONT = ["Montserrat Medium", "Open Sans Bold", "Noto Sans Regular",
                     "HanWangHeiLight Regular", "NanumBarunGothic Regular"];
-const FOR_YOU_LIMIT = 12;
 // Sheet height left visible at "peek" — enough to clear the tab bar and still
 // show the title and search box above it.
 const PEEK_VISIBLE = 215;
@@ -106,31 +104,6 @@ export default function HomeScreen({ navigation }) {
     }
   }, [applyLocal, load, refreshProfile]);
 
-  // Both actions mark the meeting as seen, so it drops off the shelf either way
-  const handlePass = useCallback(async (meeting) => {
-    applyLocal(meeting.id, { is_seen: true });
-    try {
-      await api.passMeeting(meeting.id);
-    } catch (e) {
-      applyLocal(meeting.id, { is_seen: false });
-    }
-  }, [applyLocal]);
-
-  const handleShelfJoin = useCallback(async (meeting) => {
-    applyLocal(meeting.id, {
-      is_seen: true,
-      is_joined: true,
-      joined_count: (meeting.joined_count || 0) + 1,
-    });
-    try {
-      await api.joinMeeting(meeting.id);
-      load();
-      refreshProfile();
-    } catch (e) {
-      applyLocal(meeting.id, { is_seen: false, is_joined: false, joined_count: meeting.joined_count });
-    }
-  }, [applyLocal, load, refreshProfile]);
-
   // The box keeps `search` so every keystroke paints at once; the list filters
   // off the deferred copy, so a slow re-render lags a frame behind the caret
   // instead of blocking it.
@@ -146,12 +119,6 @@ export default function HomeScreen({ navigation }) {
       return words.every((w) => haystack.includes(w));
     });
   }, [meetings, deferredSearch]);
-
-  // "For You": everything not joined or passed yet, minus your own meetings
-  const forYou = useMemo(
-    () => meetings.filter((m) => !m.is_seen && m.creator_uid !== uid).slice(0, FOR_YOU_LIMIT),
-    [meetings, uid]
-  );
 
   /**
    * What the map actually plots, and nothing else.
@@ -417,16 +384,6 @@ export default function HomeScreen({ navigation }) {
     )
   ), [focusMeeting, handleJoin]);
 
-  const renderShelfCard = useCallback(({ item, index }) => (
-    <ForYouCard
-      meeting={item}
-      index={index}
-      onPress={focusMeeting}
-      onJoin={handleShelfJoin}
-      onPass={handlePass}
-    />
-  ), [focusMeeting, handleShelfJoin, handlePass]);
-
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -610,32 +567,6 @@ export default function HomeScreen({ navigation }) {
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />
           }
-          ListHeaderComponent={
-            forYou.length ? (
-              <View style={styles.shelf}>
-                <View style={styles.shelfHead}>
-                  <View style={styles.shelfTitleWrap}>
-                    <SparkleIcon size={15} color={theme.accent} />
-                    <Text style={styles.shelfTitle}>For You</Text>
-                  </View>
-                  <Text style={styles.shelfHint}>Not seen yet · {forYou.length} left</Text>
-                </View>
-                <FlatList
-                  horizontal
-                  data={forYou}
-                  keyExtractor={(m) => `foryou-${m.id}`}
-                  showsHorizontalScrollIndicator={false}
-                  renderItem={renderShelfCard}
-                  // Every card mounts a tile-fetching MiniMap, so only the
-                  // ones near the viewport are worth building up front.
-                  removeClippedSubviews
-                  initialNumToRender={3}
-                  maxToRenderPerBatch={3}
-                  windowSize={5}
-                />
-              </View>
-            ) : null
-          }
           renderItem={renderRow}
           // Rows are cheap and the list is short, but these keep the sheet
           // responsive while it is being dragged: offscreen rows detach, and
@@ -742,12 +673,7 @@ const makeStyles = (t, comfortable = false) => StyleSheet.create({
     includeFontPadding: false,
   },
   searchClear: { color: t.text3, fontSize: 13, paddingHorizontal: 2 },
-  shelf: { marginBottom: 14 },
   // Centred, not baseline-aligned: the title is a row (icon + text) rather than
   // a bare Text, and a View has no baseline to align the hint against.
-  shelfHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
-  shelfTitleWrap: { flexDirection: "row", alignItems: "center", gap: 6 },
-  shelfTitle: { fontSize: 15, fontFamily: FONTS.heading, color: t.text },
-  shelfHint: { fontSize: 11, color: t.text3, fontWeight: "600" },
   empty: { textAlign: "center", color: t.text3, marginTop: 40 },
 });

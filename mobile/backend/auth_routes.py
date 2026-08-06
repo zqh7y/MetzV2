@@ -160,9 +160,9 @@ def request_password_reset():
 def google_sign_in():
     """Sign in (or sign up) with a Google account, skipping the emailed code.
 
-    The client sends the ID token Google issued it. Firebase verifies that
-    token's signature against Google's keys and tells us which address it
-    belongs to — so this endpoint never has to trust the client about who it
+    The client sends whichever token Google gave it. Firebase verifies that
+    token against Google and tells us which address it belongs to — so this
+    endpoint never has to trust the client about who it
     is. The address in the request body is deliberately ignored; accepting one
     would let anybody claim anybody's account by typing their email.
 
@@ -173,7 +173,19 @@ def google_sign_in():
     """
     body = request.get_json(force=True) or {}
     id_token = (body.get("id_token") or "").strip()
-    if not id_token:
+    access_token = (body.get("access_token") or "").strip()
+
+    # Which one arrives depends on the platform, not on the caller's choice.
+    # Google's Android and iOS OAuth clients use the authorisation-code flow,
+    # so the app ends up holding whatever the exchange returned; only the web
+    # flow yields an id_token directly. Firebase's signInWithIdp accepts either
+    # for google.com, so both are honoured rather than making the phone do a
+    # flow Google does not offer it.
+    if id_token:
+        post_body = f"id_token={id_token}&providerId=google.com"
+    elif access_token:
+        post_body = f"access_token={access_token}&providerId=google.com"
+    else:
         return jsonify({"error": "Missing Google credentials."}), 400
 
     if rate_limit_exceeded("api-google:ip:" + client_ip(), 20, 3600):
@@ -181,9 +193,9 @@ def google_sign_in():
 
     url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key={FIREBASE_API_KEY}"
     payload = {
-        # requestUri is required by the endpoint but unused for an id_token
-        # grant; Firebase only checks that it is present and well-formed.
-        "postBody": f"id_token={id_token}&providerId=google.com",
+        # requestUri is required by the endpoint but unused for this grant;
+        # Firebase only checks that it is present and well-formed.
+        "postBody": post_body,
         "requestUri": "http://localhost",
         "returnSecureToken": True,
     }
