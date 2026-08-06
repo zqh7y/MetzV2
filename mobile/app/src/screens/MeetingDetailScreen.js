@@ -4,6 +4,7 @@ import {
   Platform, TextInput, Alert, KeyboardAvoidingView, Share,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import * as Clipboard from "expo-clipboard";
 import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
 import TrustBadge from "../components/TrustBadge";
@@ -38,6 +39,7 @@ export default function MeetingDetailScreen({ route, navigation }) {
   const [attendees, setAttendees] = useState([]);
   const [loadingAttendees, setLoadingAttendees] = useState(true);
   const [reporting, setReporting] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   // ─── Discussion ───────────────────────────────────────────────────────
   const [comments, setComments] = useState([]);
@@ -154,6 +156,20 @@ ${url}`,
       // Dismissing the share sheet lands here on some Androids; nothing failed.
     }
   }, [meeting.id, meeting.title, meeting.time]);
+
+  /** Just the address, so it can go straight into a browser or a message. */
+  const handleCopyLink = useCallback(async () => {
+    const url = `${SHARE_BASE_URL}/m/${meeting.id}`;
+    try {
+      await Clipboard.setStringAsync(url);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    } catch (e) {
+      // Clipboard unavailable: show the link so it can be copied by hand
+      // rather than leaving a tap that appears to do nothing.
+      Alert.alert("Meeting link", url);
+    }
+  }, [meeting.id]);
 
   const handleDeleteComment = useCallback((comment) => {
     Alert.alert("Delete comment?", "This cannot be undone.", [
@@ -374,7 +390,11 @@ ${url}`,
             <TouchableOpacity
               key={person.uid}
               style={styles.person}
-              activeOpacity={0.7}
+              activeOpacity={person.is_guest ? 1 : 0.7}
+              // A guest has no account, so there is no profile to open. Left
+              // inert rather than navigating to a screen that would only fail
+              // to load.
+              disabled={person.is_guest}
               onPress={() => navigation.navigate("UserProfile", { uid: person.uid })}
             >
               <View style={[styles.personAvatar, { backgroundColor: person.color }]}>
@@ -384,17 +404,22 @@ ${url}`,
                 <View style={styles.personNameRow}>
                   <Text style={styles.personName}>{person.username}</Text>
                   {person.is_creator ? <Text style={styles.hostTag}>host</Text> : null}
+                  {person.is_guest ? <Text style={styles.guestTag}>via link</Text> : null}
                   {person.is_trusted || person.is_admin ? <TrustBadge /> : null}
                 </View>
                 {/* The web shows a show-up rate under every name, or says so
-                    plainly when there is nothing settled to judge them on. */}
+                    plainly when there is nothing settled to judge them on.
+                    A guest has no record at all — saying "no record yet"
+                    would imply one is being kept. */}
                 <Text style={[styles.record, person.reliability?.score == null && styles.recordNew]}>
-                  {person.reliability?.score == null
-                    ? "No record yet"
-                    : `${person.reliability.score}% show-up rate`}
+                  {person.is_guest
+                    ? "Joined from a shared link"
+                    : person.reliability?.score == null
+                      ? "No record yet"
+                      : `${person.reliability.score}% show-up rate`}
                 </Text>
               </View>
-              <Text style={styles.chevron}>›</Text>
+              {person.is_guest ? null : <Text style={styles.chevron}>›</Text>}
             </TouchableOpacity>
           ))
         ) : (
@@ -496,9 +521,21 @@ ${url}`,
           link opens a public page with the map, the time and a way to say
           they are coming, no account needed. */}
       {SHARE_BASE_URL ? (
-        <TouchableOpacity style={styles.shareBtn} onPress={handleShare} activeOpacity={0.85}>
-          <Text style={styles.shareBtnText}>🔗  Share this meeting</Text>
-        </TouchableOpacity>
+        <View style={styles.shareRow}>
+          <TouchableOpacity style={styles.shareBtn} onPress={handleShare} activeOpacity={0.85}>
+            <Text style={styles.shareBtnText}>🔗  Share</Text>
+          </TouchableOpacity>
+          {/* Separate from Share because Android's share sheet ignores the url
+              field and sends only `message` — copying from it hands you the
+              title and time with the link buried in them, which is not
+              something you can paste into a browser. This copies the address
+              and nothing else. */}
+          <TouchableOpacity style={styles.shareBtn} onPress={handleCopyLink} activeOpacity={0.85}>
+            <Text style={styles.shareBtnText}>
+              {copiedLink ? "✓  Link copied" : "📋  Copy link"}
+            </Text>
+          </TouchableOpacity>
+        </View>
       ) : null}
 
       {/* Quiet and last: reporting should be findable without competing with
@@ -736,6 +773,18 @@ const makeStyles = (t) => StyleSheet.create({
     paddingVertical: 3,
     overflow: "hidden",
   },
+  // Same shape as the host tag, in a neutral tone: it is a fact about how
+  // they joined, not a rank.
+  guestTag: {
+    fontSize: 10,
+    fontFamily: FONTS.accent,
+    color: t.text3,
+    backgroundColor: t.surface2,
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    overflow: "hidden",
+  },
   hostTag: {
     fontSize: 10,
     fontFamily: FONTS.accent,
@@ -748,8 +797,9 @@ const makeStyles = (t) => StyleSheet.create({
   },
   chevron: { fontSize: 20, color: t.text3 },
 
+  shareRow: { flexDirection: "row", gap: 10, marginTop: 10 },
   shareBtn: {
-    marginTop: 10, paddingVertical: 14, borderRadius: RADIUS.base,
+    flex: 1, paddingVertical: 14, borderRadius: RADIUS.base,
     alignItems: "center", backgroundColor: t.surface,
     borderWidth: 1, borderColor: t.border,
   },

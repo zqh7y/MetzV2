@@ -132,7 +132,33 @@ def meeting_attendees(meeting_id):
             # The web's attendee rows carry a show-up rate; same source, so the
             # two clients can't disagree about someone's record.
             "reliability": get_reliability(uid),
+            "is_guest": False,
         })
+
+    # People who came in through the share link. They were counted in
+    # joined_count from the start but were missing from this list, so a meeting
+    # read "4 going" above a list of three — the organiser could see that
+    # someone had joined and never who.
+    #
+    # No uid, so there is nothing to open a profile on and no show-up record to
+    # report; the client is told plainly with is_guest rather than being left to
+    # infer it from missing fields.
+    for guest in meeting.get("guests", []):
+        name = guest.get("name") or "Guest"
+        attendees.append({
+            # Prefixed so it cannot collide with a real uid — the client uses
+            # this as a list key and to decide whether it is looking at itself.
+            "uid": f"guest:{guest.get('id')}",
+            "username": name,
+            "color": generate_user_color(f"guest:{name}"),
+            "initial": name[:1].upper(),
+            "is_trusted": False,
+            "is_admin": False,
+            "is_creator": False,
+            "is_guest": True,
+            "reliability": None,
+        })
+
     return jsonify(attendees)
 
 
