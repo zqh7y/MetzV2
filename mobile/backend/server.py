@@ -191,18 +191,24 @@ def terms():
 # entirely separate from the web app: its own standalone template, no session,
 # no CSRF, nothing shared but the data layer.
 
-def _share_url(meeting_id):
-    """Absolute, because it goes in og:url and into other people's messages.
+def _share_path(meeting_id):
+    """The path a meeting is addressed by: /m/<slug> private, /m/<id> public.
 
-    Private meetings are addressed by their slug, never their id — the ids run
-    1, 2, 3, so a numeric link would let anyone walk the table and find every
-    private meeting on the platform.
+    Everything that builds a URL for a meeting goes through here. The share
+    link and the join form used to derive their paths separately, and when
+    private meetings arrived only the link was taught about slugs — so the page
+    loaded at /m/<slug> while its own form still posted to /m/<id>, which the
+    numeric route then refused. One function means they cannot disagree again.
     """
-    root = request.url_root.rstrip("/")
     record = MEETINGS_DB.get(meeting_id, {})
     if meeting_visibility(record) == PRIVATE and record.get("share_slug"):
-        return f"{root}/m/{record['share_slug']}"
-    return f"{root}/m/{meeting_id}"
+        return f"/m/{record['share_slug']}"
+    return f"/m/{meeting_id}"
+
+
+def _share_url(meeting_id):
+    """Absolute, because it goes in og:url and into other people's messages."""
+    return request.url_root.rstrip("/") + _share_path(meeting_id)
 
 
 def _when_text(value):
@@ -240,7 +246,7 @@ def _render_share(meeting_id, error="", joined=False):
         when_text=_when_text(view["time"]),
         progress=progress,
         page_url=_share_url(meeting_id),
-        join_url=f"/m/{meeting_id}/join",
+        join_url=_share_path(meeting_id) + "/join",
         og_image=request.url_root.rstrip("/") + "/static/metz-og.png",
         error=error,
         joined=joined,
@@ -280,14 +286,19 @@ def share_meeting_join_by_slug(slug):
     record = find_meeting_by_slug(slug)
     if record is None:
         abort(404)
-    return share_meeting_join(record.get("id"))
+    return _do_share_join(record.get("id"))
 
 
 @app.route("/m/<int:meeting_id>/join", methods=["POST"])
 def share_meeting_join(meeting_id):
-    if meeting_visibility(MEETINGS_DB.get(meeting_id, {})) == PRIVATE             and request.path.startswith(f"/m/{meeting_id}"):
-        # Reached by number rather than by slug — same refusal as the page.
+    # A private meeting is not reachable by its number, here or on the page.
+    if meeting_visibility(MEETINGS_DB.get(meeting_id, {})) == PRIVATE:
         abort(404)
+    return _do_share_join(meeting_id)
+
+
+def _do_share_join(meeting_id):
+    """The join itself, once the caller has established it may be reached."""
     if request.cookies.get(f"metz_g{meeting_id}") == "1":
         return _render_share(meeting_id, joined=True)
 

@@ -83,7 +83,27 @@ export async function rememberAccount(entry) {
   const list = await readAll();
   const existing = list.find((a) => a.uid === entry.uid) || {};
   const merged = { ...existing, ...entry, lastUsed: Date.now() };
-  await writeAll([merged, ...list.filter((a) => a.uid !== entry.uid)]);
+
+  // Drop any *other* row for the same person, not just the same uid.
+  //
+  // One human can end up with two uids on a device — a Google sign-in and an
+  // email sign-in record different ids for the same address — and merging on
+  // uid alone left both rows in the switcher. That would be untidy but
+  // harmless, except the stale row kept whatever token was current when it was
+  // written, which could belong to a completely different account. Tapping it
+  // then sent someone else's token, and since the server derives identity from
+  // the token rather than from the uid we claim, it logged you in as them.
+  //
+  // Only rows with a confirmed email are matched: entries recorded before the
+  // profile arrived have no email yet, and collapsing those would merge
+  // genuinely different accounts.
+  const sameEmail = (a) =>
+    entry.email && a.email && a.email.toLowerCase() === entry.email.toLowerCase();
+
+  await writeAll([
+    merged,
+    ...list.filter((a) => a.uid !== entry.uid && !sameEmail(a)),
+  ]);
 }
 
 /** Drop the stored token but keep the account listed, so it can be signed into. */
