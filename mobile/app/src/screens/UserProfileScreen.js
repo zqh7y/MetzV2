@@ -11,13 +11,17 @@ import CountUp from "../components/CountUp";
 import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
 import { RADIUS, SHADOW } from "../styles/theme";
+import { useI18n } from "../context/LocaleContext";
+// Module-scope helper below, so it takes the plain `t` rather than the hook.
+import { t } from "../i18n/active";
+import { getActiveLanguage } from "../i18n/active";
 
 // Convert the UTC timestamp from the API into a date and time people can read.
 function formatProfileTime(value) {
-  if (!value) return "Not available";
+  if (!value) return t("userProfile.notAvailable");
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Not available";
-  return date.toLocaleString(undefined, {
+  if (Number.isNaN(date.getTime())) return t("userProfile.notAvailable");
+  return date.toLocaleString(getActiveLanguage(), {
     day: "numeric", month: "long", year: "numeric",
     hour: "numeric", minute: "2-digit",
   });
@@ -25,6 +29,7 @@ function formatProfileTime(value) {
 
 export default function UserProfileScreen({ route }) {
   const { theme } = useTheme();
+  const { t } = useI18n();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { uid } = route.params;
   const insets = useSafeAreaInsets();
@@ -46,22 +51,22 @@ export default function UserProfileScreen({ route }) {
 
   function confirmBlock() {
     if (blocked) {
-      Alert.alert("Unblock?", "Their meetings will show up again.", [
-        { text: "Cancel", style: "cancel" },
+      Alert.alert(t("userProfile.unblockTitle"), t("userProfile.unblockBody"), [
+        { text: t("common.cancel"), style: "cancel" },
         {
-          text: "Unblock",
+          text: t("userProfile.unblock"),
           onPress: () => api.unblockUser(uid).then(() => setBlocked(false)).catch(() => {}),
         },
       ]);
       return;
     }
     Alert.alert(
-      "Block this person?",
-      "You won't see meetings they create. They aren't told, and you can undo it here.",
+      t("userProfile.blockTitle"),
+      t("userProfile.blockBody"),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t("common.cancel"), style: "cancel" },
         {
-          text: "Block",
+          text: t("userProfile.block"),
           style: "destructive",
           onPress: () => api.blockUser(uid).then(() => setBlocked(true)).catch(() => {}),
         },
@@ -102,9 +107,9 @@ export default function UserProfileScreen({ route }) {
   if (error || !user) {
     return (
       <View style={styles.centered}>
-        <Text style={styles.errorText}>Couldn't load this profile.</Text>
+        <Text style={styles.errorText}>{t("userProfile.loadFailed")}</Text>
         <TouchableOpacity style={styles.retryBtn} onPress={load}>
-          <Text style={styles.retryBtnText}>Retry</Text>
+          <Text style={styles.retryBtnText}>{t("common.retry")}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -145,7 +150,7 @@ export default function UserProfileScreen({ route }) {
             <Text style={{ fontSize: 22 }}>{status.current.emoji}</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.statusLabel}>ACCOUNT STATUS</Text>
+            <Text style={styles.statusLabel}>{t("profile.accountStatus")}</Text>
             <Text style={styles.statusName}>{status.current.name}</Text>
             <Text style={styles.statusBlurb}>{status.current.blurb}</Text>
           </View>
@@ -155,11 +160,11 @@ export default function UserProfileScreen({ route }) {
 
       <Appear delay={160}>
         <View style={styles.statsRow}>
-          <Stat styles={styles} number={user.meetings_created} label="Created" />
+          <Stat styles={styles} number={user.meetings_created} label={t("profile.statCreated")} />
           <View style={styles.statDivider} />
-          <Stat styles={styles} number={user.meetings_joined} label="Joined" />
+          <Stat styles={styles} number={user.meetings_joined} label={t("profile.statJoined")} />
           <View style={styles.statDivider} />
-          <Stat styles={styles} number={user.meetings_swiped} label="Swiped" />
+          <Stat styles={styles} number={user.meetings_swiped} label={t("profile.statSwiped")} />
         </View>
       </Appear>
 
@@ -168,14 +173,14 @@ export default function UserProfileScreen({ route }) {
         <View style={styles.activityRow}>
           <Text style={styles.activityIcon}>📅</Text>
           <View>
-            <Text style={styles.activityLabel}>Member since</Text>
+            <Text style={styles.activityLabel}>{t("userProfile.memberSince")}</Text>
             <Text style={styles.activityValue}>{formatProfileTime(user.joined_at)}</Text>
           </View>
         </View>
         <View style={styles.activityRow}>
           <Text style={styles.activityIcon}>🟢</Text>
           <View>
-            <Text style={styles.activityLabel}>Last online</Text>
+            <Text style={styles.activityLabel}>{t("userProfile.lastOnline")}</Text>
             <Text style={styles.activityValue}>{formatProfileTime(user.last_online)}</Text>
           </View>
         </View>
@@ -187,7 +192,7 @@ export default function UserProfileScreen({ route }) {
       {!isSelf ? (
         <View style={styles.safety}>
           <TouchableOpacity style={styles.safetyBtn} onPress={() => setReporting(true)}>
-            <Text style={styles.safetyText}>⚑  Report this person</Text>
+            <Text style={styles.safetyText}>{`⚑  ${t("userProfile.reportPerson")}`}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.safetyBtn} onPress={confirmBlock}>
             <Text style={[styles.safetyText, blocked && styles.safetyTextOn]}>

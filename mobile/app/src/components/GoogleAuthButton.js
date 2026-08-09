@@ -5,6 +5,7 @@ import useGoogleSignIn from "../hooks/useGoogleSignIn";
 import { GOOGLE_AUTH_READY, GOOGLE_CONFIGURED, IS_EXPO_GO } from "../config";
 import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
+import { useI18n } from "../context/LocaleContext";
 
 /**
  * "Continue with Google", for the login and signup screens.
@@ -17,7 +18,7 @@ import { useTheme } from "../context/ThemeContext";
  * Outlined rather than filled, unlike AuthButton, so it reads as the second
  * way in rather than competing with the form's own submit.
  */
-export default function GoogleAuthButton({ label = "Continue with Google" }) {
+export default function GoogleAuthButton({ label }) {
   // The gate is here, outside the component that owns the hook, because
   // useGoogleSignIn cannot be called conditionally and the provider inside it
   // *throws during render* when this platform's client id is missing. Checking
@@ -33,27 +34,27 @@ export default function GoogleAuthButton({ label = "Continue with Google" }) {
 
 function ExpoGoNotice() {
   const { theme } = useTheme();
+  const { t } = useI18n();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   return (
     <View>
       <View style={styles.dividerRow}>
         <View style={styles.rule} />
-        <Text style={styles.dividerText}>or</Text>
+        <Text style={styles.dividerText}>{t("common.or")}</Text>
         <View style={styles.rule} />
       </View>
       <View style={[styles.button, styles.buttonInert]}>
         <View style={styles.badge}><Text style={styles.badgeText}>G</Text></View>
-        <Text style={styles.label}>Continue with Google</Text>
+        <Text style={styles.label}>{t("common.continueWithGoogle")}</Text>
       </View>
-      <Text style={styles.note}>
-        Only works in the installed app — Google rejects Expo Go's redirect.
-      </Text>
+      <Text style={styles.note}>{t("common.googleExpoGoNote")}</Text>
     </View>
   );
 }
 
 function GoogleAuthButtonInner({ label }) {
   const { theme } = useTheme();
+  const { t } = useI18n();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { available, busy, error, signIn } = useGoogleSignIn();
 
@@ -63,7 +64,7 @@ function GoogleAuthButtonInner({ label }) {
     <View>
       <View style={styles.dividerRow}>
         <View style={styles.rule} />
-        <Text style={styles.dividerText}>or</Text>
+        <Text style={styles.dividerText}>{t("common.or")}</Text>
         <View style={styles.rule} />
       </View>
 
@@ -76,7 +77,8 @@ function GoogleAuthButtonInner({ label }) {
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>G</Text>
               </View>
-              <Text style={styles.label}>{label}</Text>
+              {/* Login passes nothing and gets the default wording. */}
+              <Text style={styles.label}>{label || t("common.continueWithGoogle")}</Text>
             </>
           )}
         </View>

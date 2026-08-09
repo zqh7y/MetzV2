@@ -6,37 +6,45 @@ import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { ACCENTS, RADIUS, SHADOW } from "../styles/theme";
 import { FONTS } from "../styles/fonts";
+import { useI18n, SYSTEM } from "../context/LocaleContext";
+import { LANGUAGES } from "../i18n";
 
 // Mirrors templates/settings.html section for section: Appearance, Accent
 // colour, Layout & motion, Home screen, Account, then the actions row. Same
 // options, same wording, same order, so the two apps read as one product.
 const THEME_CHOICES = [
-  { id: "light", label: "Light" },
-  { id: "dark", label: "Dark" },
-  { id: "system", label: "Match system" },
+  { id: "light", labelKey: "settings.themeLight" },
+  { id: "dark", labelKey: "settings.themeDark" },
+  { id: "system", labelKey: "settings.themeSystem" },
 ];
 
-const ACCENT_LABELS = { teal: "Teal", indigo: "Indigo", coral: "Coral", amber: "Amber" };
+const ACCENT_LABEL_KEYS = {
+  teal: "settings.accentTeal", indigo: "settings.accentIndigo",
+  coral: "settings.accentCoral", amber: "settings.accentAmber",
+};
 
 export default function SettingsScreen({ navigation }) {
   const { theme, choice, accentName, density, motion, minimaps, sheet, setTheme, setAccent, setPref, resetPrefs } =
     useTheme();
   const { profile, signOut } = useAuth();
+  const { t, choice: langChoice, deviceLanguage, setLanguage, restartNeeded } = useI18n();
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
-  const role = profile?.is_admin ? "Admin" : profile?.is_trusted ? "Trusted" : "Member";
+  const role = profile?.is_admin
+    ? t("settings.roleAdmin")
+    : profile?.is_trusted ? t("settings.roleTrusted") : t("settings.roleMember");
 
   function confirmLogout() {
-    Alert.alert("Log out", "You'll need to sign in again to see your meetings.", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Log out", style: "destructive", onPress: signOut },
+    Alert.alert(t("account.logOut"), t("settings.logoutBody"), [
+      { text: t("common.cancel"), style: "cancel" },
+      { text: t("account.logOut"), style: "destructive", onPress: signOut },
     ]);
   }
 
   function confirmReset() {
-    Alert.alert("Reset to defaults", "Every preference on this screen goes back to how it started.", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Reset", style: "destructive", onPress: resetPrefs },
+    Alert.alert(t("settings.resetTitle"), t("settings.resetBody"), [
+      { text: t("common.cancel"), style: "cancel" },
+      { text: t("settings.reset"), style: "destructive", onPress: resetPrefs },
     ]);
   }
 
@@ -49,19 +57,19 @@ export default function SettingsScreen({ navigation }) {
    */
   function confirmDelete() {
     Alert.alert(
-      "Delete your account?",
-      "This removes your profile, the meetings you created, and your place in meetings you joined.",
+      t("settings.deleteTitle"),
+      t("settings.deleteBody"),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t("common.cancel"), style: "cancel" },
         {
-          text: "Continue",
+          text: t("settings.continue"),
           style: "destructive",
           onPress: () => Alert.alert(
-            "This cannot be undone",
-            "There is no way to get the account back afterwards.",
+            t("settings.deleteConfirmTitle"),
+            t("settings.deleteConfirmBody"),
             [
-              { text: "Keep my account", style: "cancel" },
-              { text: "Delete permanently", style: "destructive", onPress: reallyDelete },
+              { text: t("settings.keepAccount"), style: "cancel" },
+              { text: t("settings.deletePermanently"), style: "destructive", onPress: reallyDelete },
             ]
           ),
         },
@@ -73,7 +81,7 @@ export default function SettingsScreen({ navigation }) {
     try {
       await api.deleteAccount();
     } catch (e) {
-      Alert.alert("Couldn't delete", e.message || "Something went wrong. Try again.");
+      Alert.alert(t("settings.deleteFailed"), e.message || t("common.somethingWentWrong"));
       return;
     }
     // The account is gone either way, so the session must not survive it.
@@ -82,13 +90,13 @@ export default function SettingsScreen({ navigation }) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
-      <Section styles={styles} title="🎨 Appearance" hint="Choose how Metz looks. Your choices are remembered on this device.">
+      <Section styles={styles} title={`🎨 ${t("settings.appearance")}`} hint={t("settings.appearanceHint")}>
         <View style={styles.row}>
           {THEME_CHOICES.map((option) => (
             <Choice
               key={option.id}
               styles={styles}
-              label={option.label}
+              label={t(option.labelKey)}
               active={choice === option.id}
               onPress={() => setTheme(option.id)}
             >
@@ -96,16 +104,16 @@ export default function SettingsScreen({ navigation }) {
             </Choice>
           ))}
         </View>
-        <Text style={styles.note}>The map follows your choice — a warm basemap in light, a dark one in dark.</Text>
+        <Text style={styles.note}>{t("settings.themeNote")}</Text>
       </Section>
 
-      <Section styles={styles} title="💧 Accent colour" hint="Used for buttons, links, map pins and highlights.">
+      <Section styles={styles} title={`💧 ${t("settings.accent")}`} hint={t("settings.accentHint")}>
         <View style={styles.row}>
           {Object.keys(ACCENTS).map((name) => (
             <Choice
               key={name}
               styles={styles}
-              label={ACCENT_LABELS[name] || name}
+              label={t(ACCENT_LABEL_KEYS[name]) || name}
               active={accentName === name}
               onPress={() => setAccent(name)}
             >
@@ -115,73 +123,104 @@ export default function SettingsScreen({ navigation }) {
         </View>
       </Section>
 
-      <Section styles={styles} title="📐 Layout & motion">
+      <Section styles={styles} title={`📐 ${t("settings.layoutMotion")}`}>
         <Block
           styles={styles}
-          label="Density"
-          desc="How much fits on screen at once."
+          label={t("settings.density")}
+          desc={t("settings.densityDesc")}
           value={density}
-          options={[["compact", "Compact"], ["comfortable", "Comfortable"]]}
+          options={[["compact", t("settings.compact")], ["comfortable", t("settings.comfortable")]]}
           onChange={(v) => setPref("density", v)}
         />
         <Block
           styles={styles}
-          label="Animations"
-          desc="Turn off if motion bothers you or the app feels slow."
+          label={t("settings.animations")}
+          desc={t("settings.animationsDesc")}
           value={motion}
-          options={[["full", "Full"], ["reduced", "Reduced"]]}
+          options={[["full", t("settings.motionFull")], ["reduced", t("settings.motionReduced")]]}
           onChange={(v) => setPref("motion", v)}
         />
       </Section>
 
-      <Section styles={styles} title="🗺️ Home screen">
+      <Section styles={styles} title={`🗺️ ${t("settings.homeScreen")}`}>
         <Block
           styles={styles}
-          label="Live maps on “For You” cards"
-          desc="Real maps look better but use more battery."
+          label={t("settings.liveMaps")}
+          desc={t("settings.liveMapsDesc")}
           value={minimaps}
-          options={[["on", "On"], ["off", "Off"]]}
+          options={[["on", t("settings.on")], ["off", t("settings.off")]]}
           onChange={(v) => setPref("minimaps", v)}
         />
         <Block
           styles={styles}
-          label="Panel position on open"
-          desc="How much map you see when Home loads."
+          label={t("settings.panelPosition")}
+          desc={t("settings.panelPositionDesc")}
           value={sheet}
-          options={[["peek", "Map"], ["half", "Split"], ["full", "List"]]}
+          options={[["peek", t("settings.panelMap")], ["half", t("settings.panelSplit")], ["full", t("settings.panelList")]]}
           onChange={(v) => setPref("sheet", v)}
         />
       </Section>
 
-      <Section styles={styles} title="👤 Account">
-        <Row styles={styles} label="Signed in as" value={profile?.email || "—"} />
-        <Row styles={styles} label="User ID" value={profile?.uid || "—"} />
-        <Row styles={styles} label="Role" value={role} />
+      <Section
+        styles={styles}
+        title={`🌐 ${t("settings.language")}`}
+        hint={t("settings.languageHint")}
+      >
+        {/* "System default" first and selected out of the box: following the
+            phone is what most people want, and it is the only option that keeps
+            working when they change the phone's language later. */}
+        <LanguageRow
+          styles={styles}
+          label={t("settings.systemDefault")}
+          sublabel={LANGUAGES.find((l) => l.code === deviceLanguage)?.label}
+          active={langChoice === SYSTEM}
+          onPress={() => setLanguage(SYSTEM)}
+        />
+        {LANGUAGES.map((lang) => (
+          <LanguageRow
+            key={lang.code}
+            styles={styles}
+            /* Each language is named in itself — "Hebrew" is no help to someone
+               who only reads Hebrew, which is exactly who needs this row. */
+            label={lang.label}
+            active={langChoice === lang.code}
+            onPress={() => setLanguage(lang.code)}
+          />
+        ))}
+        {restartNeeded ? (
+          /* Right-to-left is decided natively at process start, so a switch
+             between an RTL and an LTR language cannot re-mirror a running app.
+             Saying so is better than leaving half the layout looking broken. */
+          <Text style={styles.restartNote}>{t("settings.restartNeeded")}</Text>
+        ) : null}
+      </Section>
+
+      <Section styles={styles} title={`👤 ${t("settings.account")}`}>
+        <Row styles={styles} label={t("settings.signedInAs")} value={profile?.email || "—"} />
+        <Row styles={styles} label={t("settings.userId")} value={profile?.uid || "—"} />
+        <Row styles={styles} label={t("settings.role")} value={role} />
 
         <Pressable style={styles.action} onPress={() => navigation.navigate("EditProfile")}>
-          <Text style={styles.actionText}>✏️  Edit profile</Text>
+          <Text style={styles.actionText}>{`✏️  ${t("nav.editProfile")}`}</Text>
           <Text style={styles.chevron}>›</Text>
         </Pressable>
       </Section>
 
       <Pressable style={styles.secondary} onPress={confirmReset}>
-        <Text style={styles.secondaryText}>↺  Reset to defaults</Text>
+        <Text style={styles.secondaryText}>{`↺  ${t("settings.resetTitle")}`}</Text>
       </Pressable>
 
       <Pressable style={styles.logout} onPress={confirmLogout}>
-        <Text style={styles.logoutText}>Log out</Text>
+        <Text style={styles.logoutText}>{t("account.logOut")}</Text>
       </Pressable>
 
       {/* Boxed off and last: the only control here that cannot be undone, and
           it has to be reachable in-app for the stores. */}
       <View style={styles.danger}>
-        <Text style={styles.dangerTitle}>Delete your account</Text>
-        <Text style={styles.dangerBody}>
-          Removes your profile, the meetings you created, and your place in meetings
-          you joined. This cannot be undone.
-        </Text>
+        <Text style={styles.dangerTitle}>{t("settings.dangerTitle")}</Text>
+        <Text style={styles.dangerBody}>{t("settings.dangerBody")}</Text>
         <Pressable style={styles.dangerBtn} onPress={confirmDelete}>
-          <Text style={styles.dangerBtnText}>Delete my account</Text>
+          <Text style={styles.dangerBtnText}>{t("settings.deleteMyAccount")}</Text>
         </Pressable>
       </View>
     </ScrollView>
@@ -223,6 +262,24 @@ function ThemeSwatch({ id, theme, styles }) {
       <View style={[styles.swatchBar, { backgroundColor: palette.bar }]} />
       <View style={[styles.swatchDot, { backgroundColor: theme.accent }]} />
     </View>
+  );
+}
+
+/** One language in the picker: name, optional sub-line, tick when chosen. */
+function LanguageRow({ styles, label, sublabel, active, onPress }) {
+  return (
+    <Pressable
+      style={[styles.langRow, active && styles.langRowActive]}
+      onPress={onPress}
+      accessibilityRole="radio"
+      accessibilityState={{ selected: active }}
+    >
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.langLabel, active && styles.langLabelActive]}>{label}</Text>
+        {sublabel ? <Text style={styles.langSub}>{sublabel}</Text> : null}
+      </View>
+      {active ? <Text style={styles.check}>✓</Text> : null}
+    </Pressable>
   );
 }
 
@@ -322,6 +379,29 @@ const makeStyles = (t) => StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: t.border,
+  },
+  langRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: RADIUS.base,
+    borderWidth: 1,
+    borderColor: "transparent",
+    marginBottom: 4,
+  },
+  langRowActive: { borderColor: t.accent, backgroundColor: t.accentSoft },
+  langLabel: { fontSize: 15, fontFamily: FONTS.bodyMedium, color: t.text },
+  langLabelActive: { color: t.accentStrong, fontFamily: FONTS.bodySemi },
+  langSub: { fontSize: 12, color: t.text3, marginTop: 2 },
+  restartNote: {
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: t.text2,
+    marginTop: 10,
+    padding: 10,
+    borderRadius: RADIUS.base,
+    backgroundColor: t.surface2,
   },
   infoLabel: { fontSize: 13, color: t.text3 },
   infoValue: { fontSize: 13.5, fontFamily: FONTS.bodySemi, color: t.text, flexShrink: 1 },

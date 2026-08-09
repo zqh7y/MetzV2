@@ -12,6 +12,8 @@ import useAutoRefresh from "../hooks/useAutoRefresh";
 import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
 import { RADIUS } from "../styles/theme";
+import { useI18n } from "../context/LocaleContext";
+import { localizedTag } from "../i18n/vocab";
 
 /**
  * The list view of every open meeting — a port of templates/explore.html.
@@ -22,22 +24,22 @@ import { RADIUS } from "../styles/theme";
  * filters means the same thing on both.
  */
 const KINDS = [
-  { id: "all", label: "All" },
-  { id: "inperson", label: "In-Person" },
-  { id: "online", label: "Online" },
+  { id: "all", labelKey: "explore.typeAll" },
+  { id: "inperson", labelKey: "common.inPerson" },
+  { id: "online", labelKey: "common.online" },
 ];
 
 const WHENS = [
-  { id: "any", label: "Any time" },
-  { id: "today", label: "Today" },
-  { id: "week", label: "This week" },
-  { id: "month", label: "This month" },
+  { id: "any", labelKey: "explore.whenAny" },
+  { id: "today", labelKey: "time.today" },
+  { id: "week", labelKey: "explore.whenWeek" },
+  { id: "month", labelKey: "explore.whenMonth" },
 ];
 
 const SORTS = [
-  { id: "soonest", label: "Soonest" },
-  { id: "popular", label: "Popular" },
-  { id: "newest", label: "Newest" },
+  { id: "soonest", labelKey: "explore.sortSoonest" },
+  { id: "popular", labelKey: "explore.sortPopular" },
+  { id: "newest", labelKey: "explore.sortNewest" },
 ];
 
 /**
@@ -55,6 +57,7 @@ function toCard(row) {
 
 export default function ExploreScreen({ navigation }) {
   const { theme } = useTheme();
+  const { t } = useI18n();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
 
@@ -132,11 +135,11 @@ export default function ExploreScreen({ navigation }) {
   /** Everything currently narrowing the list, each able to undo just itself. */
   const activeFilters = useMemo(() => {
     const out = [];
-    if (kind !== "all") out.push({ key: "kind", label: KINDS.find((k) => k.id === kind)?.label, clear: () => setKind("all") });
-    if (when !== "any") out.push({ key: "when", label: WHENS.find((w) => w.id === when)?.label, clear: () => setWhen("any") });
-    if (sort !== "soonest") out.push({ key: "sort", label: SORTS.find((s) => s.id === sort)?.label, clear: () => setSort("soonest") });
+    if (kind !== "all") out.push({ key: "kind", label: t(KINDS.find((k) => k.id === kind)?.labelKey), clear: () => setKind("all") });
+    if (when !== "any") out.push({ key: "when", label: t(WHENS.find((w) => w.id === when)?.labelKey), clear: () => setWhen("any") });
+    if (sort !== "soonest") out.push({ key: "sort", label: t(SORTS.find((s) => s.id === sort)?.labelKey), clear: () => setSort("soonest") });
     if (tag) out.push({ key: "tag", label: tag, clear: () => setTag("") });
-    if (hideJoined) out.push({ key: "joined", label: "Not joined", clear: () => setHideJoined(false) });
+    if (hideJoined) out.push({ key: "joined", label: t("explore.notJoined"), clear: () => setHideJoined(false) });
     return out;
   }, [kind, when, sort, tag, hideJoined]);
 
@@ -180,7 +183,7 @@ export default function ExploreScreen({ navigation }) {
           <SearchIcon size={16} color={theme.text3} />
           <TextInput
             style={styles.search}
-            placeholder="Search every meeting…"
+            placeholder={t("explore.searchPlaceholder")}
             placeholderTextColor={theme.text3}
             value={search}
             onChangeText={setSearch}
@@ -207,7 +210,7 @@ export default function ExploreScreen({ navigation }) {
                 (showFilters || activeFilters.length > 0) && styles.controlTextOn,
               ]}
             >
-              {`Filters${activeFilters.length ? ` · ${activeFilters.length}` : ""}  ${showFilters ? "▲" : "▼"}`}
+              {`${t("explore.filters")}${activeFilters.length ? ` · ${activeFilters.length}` : ""}  ${showFilters ? "▲" : "▼"}`}
             </Text>
           </TouchableOpacity>
 
@@ -221,7 +224,7 @@ export default function ExploreScreen({ navigation }) {
           </TouchableOpacity>
 
           <Text style={styles.count}>
-            {loading ? "…" : `${rows.length} ${rows.length === 1 ? "meeting" : "meetings"}`}
+            {loading ? "…" : t("explore.resultCount", { count: rows.length })}
           </Text>
         </View>
 
@@ -257,7 +260,7 @@ export default function ExploreScreen({ navigation }) {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.chipRow}
               renderItem={({ item }) => (
-                <Chip active={kind === item.id} label={item.label} onPress={() => setKind(item.id)} />
+                <Chip active={kind === item.id} label={t(item.labelKey)} onPress={() => setKind(item.id)} />
               )}
             />
 
@@ -268,7 +271,7 @@ export default function ExploreScreen({ navigation }) {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.chipRow}
               renderItem={({ item }) => (
-                <Chip active={when === item.id} label={item.label} onPress={() => setWhen(item.id)} />
+                <Chip active={when === item.id} label={t(item.labelKey)} onPress={() => setWhen(item.id)} />
               )}
             />
 
@@ -279,7 +282,7 @@ export default function ExploreScreen({ navigation }) {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.chipRow}
               renderItem={({ item }) => (
-                <Chip active={sort === item.id} label={item.label} onPress={() => setSort(item.id)} />
+                <Chip active={sort === item.id} label={t(item.labelKey)} onPress={() => setSort(item.id)} />
               )}
             />
 
@@ -295,7 +298,7 @@ export default function ExploreScreen({ navigation }) {
                 renderItem={({ item }) => (
                   <Chip
                     active={tag === item}
-                    label={item || "Any tag"}
+                    label={item ? localizedTag(t, item) : t("explore.anyTag")}
                     onPress={() => setTag(item)}
                   />
                 )}
@@ -339,14 +342,14 @@ export default function ExploreScreen({ navigation }) {
           ListEmptyComponent={
             <View style={styles.empty}>
               <Text style={styles.emptyTitle}>
-                {failed ? "Couldn't load Explore." : "Nothing matches that"}
+                {failed ? t("explore.loadFailed") : t("explore.nothingMatches")}
               </Text>
               <Text style={styles.emptyBody}>
                 {failed
-                  ? "Pull down to try again."
+                  ? t("explore.pullToRetry")
                   : activeFilters.length
-                    ? "Nothing fits all of those at once."
-                    : "There is nothing open right now — try again later, or create one."}
+                    ? t("explore.tooManyFilters")
+                    : t("explore.nothingOpen")}
               </Text>
               {/* Telling someone to clear a filter and making them go and find
                   it are different things. */}
@@ -404,7 +407,7 @@ const makeStyles = (t) => StyleSheet.create({
   chipTextActive: { color: t.accentOn },
 
   metaRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 6, marginBottom: 4 },
-  count: { fontSize: 12, fontFamily: FONTS.accent, color: t.text3, marginLeft: "auto" },
+  count: { fontSize: 12, fontFamily: FONTS.accent, color: t.text3, marginStart: "auto" },
   toggle: { fontSize: 12, color: t.text3, fontFamily: FONTS.bodySemi },
   toggleOn: { color: t.accentStrong },
 

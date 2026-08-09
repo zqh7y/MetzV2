@@ -13,6 +13,7 @@ import AccountSheet from "../components/AccountSheet";
 import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
 import { RADIUS, SHADOW } from "../styles/theme";
+import { useI18n } from "../context/LocaleContext";
 
 /** "2026-07-25 14:30" -> Date, or null if the server sent something odd. */
 function parseTime(value) {
@@ -23,6 +24,7 @@ function parseTime(value) {
 
 export default function ProfileScreen({ navigation }) {
   const { theme } = useTheme();
+  const { t } = useI18n();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
   const { profile, refreshProfile, signOut } = useAuth();
@@ -98,9 +100,9 @@ export default function ProfileScreen({ navigation }) {
   if (error || !profile) {
     return (
       <View style={styles.centered}>
-        <Text style={styles.errorText}>Couldn't load your profile.</Text>
+        <Text style={styles.errorText}>{t("profile.loadFailed")}</Text>
         <TouchableOpacity style={styles.retryBtn} onPress={load}>
-          <Text style={styles.retryBtnText}>Retry</Text>
+          <Text style={styles.retryBtnText}>{t("common.retry")}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -137,14 +139,14 @@ export default function ProfileScreen({ navigation }) {
             activeOpacity={0.85}
             onPress={() => navigation.navigate("EditProfile")}
           >
-            <Text style={styles.heroBtnText}>Edit profile</Text>
+            <Text style={styles.heroBtnText}>{t("nav.editProfile")}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.heroBtnGhost}
             activeOpacity={0.85}
             onPress={() => navigation.navigate("Settings")}
           >
-            <Text style={styles.heroBtnGhostText}>Settings</Text>
+            <Text style={styles.heroBtnGhostText}>{t("nav.settings")}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -155,13 +157,13 @@ export default function ProfileScreen({ navigation }) {
         {/* Hairlines between the figures: four numbers spaced apart with
             nothing between them read as one run-on row. */}
         <View style={styles.statsRow}>
-          <Stat styles={styles} number={profile.meetings_created} label="Created" />
+          <Stat styles={styles} number={profile.meetings_created} label={t("profile.statCreated")} />
           <View style={styles.statDivider} />
-          <Stat styles={styles} number={profile.meetings_joined} label="Joined" />
+          <Stat styles={styles} number={profile.meetings_joined} label={t("profile.statJoined")} />
           <View style={styles.statDivider} />
-          <Stat styles={styles} number={profile.meetings_swiped} label="Seen" />
+          <Stat styles={styles} number={profile.meetings_swiped} label={t("profile.statSeen")} />
           <View style={styles.statDivider} />
-          <Stat styles={styles} number={status.stats.participants} label="Signed Up" />
+          <Stat styles={styles} number={status.stats.participants} label={t("profile.statSignedUp")} />
         </View>
       </Appear>
 
@@ -178,7 +180,7 @@ export default function ProfileScreen({ navigation }) {
             <Text style={{ fontSize: 22 }}>{status.current.emoji}</Text>
           </View>
           <View>
-            <Text style={styles.statusLabel}>ACCOUNT STATUS</Text>
+            <Text style={styles.statusLabel}>{t("profile.accountStatus")}</Text>
             <Text style={styles.statusName}>{status.current.name}</Text>
             <Text style={styles.statusBlurb}>{status.current.blurb}</Text>
           </View>
@@ -204,7 +206,7 @@ export default function ProfileScreen({ navigation }) {
                   )}`
                 )}
               >
-                <Text style={styles.contactBtnText}>✉️  Contact the developer</Text>
+                <Text style={styles.contactBtnText}>{`✉️  ${t("profile.contactDeveloper")}`}</Text>
               </TouchableOpacity>
             ) : null}
           </View>
@@ -283,8 +285,8 @@ export default function ProfileScreen({ navigation }) {
         ) : (
           <Text style={styles.sectionEmpty}>
             {joinedTab === "upcoming"
-              ? "Nothing coming up — check the For You picks on Home."
-              : "No past meetings yet."}
+              ? t("profile.nothingComingUp")
+              : t("profile.noPastMeetings")}
           </Text>
         )}
       </View>
@@ -294,7 +296,7 @@ export default function ProfileScreen({ navigation }) {
         <Text style={styles.sectionTitle}>🔍 Find People</Text>
         <TextInput
           style={styles.search}
-          placeholder="Search by username, email, or ID…"
+          placeholder={t("profile.findPeoplePlaceholder")}
           placeholderTextColor={theme.text3}
           value={query}
           onChangeText={setQuery}
@@ -340,7 +342,7 @@ export default function ProfileScreen({ navigation }) {
             style={[styles.actionBtn, styles.urgentBtn]}
             onPress={() => navigation.navigate("AdminPending")}
           >
-            <Text style={styles.urgentBtnText}>⏳ Review Pending Meetings</Text>
+            <Text style={styles.urgentBtnText}>{`⏳ ${t("profile.reviewPending")}`}</Text>
             {profile.pending_review_count > 0 ? (
               <View style={styles.pendingBadge}>
                 <Text style={styles.pendingBadgeText}>{profile.pending_review_count}</Text>
@@ -350,13 +352,13 @@ export default function ProfileScreen({ navigation }) {
         )}
 
         <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate("Create")}>
-          <Text style={styles.actionBtnText}>+ Create a Meeting</Text>
+          <Text style={styles.actionBtnText}>{`+ ${t("profile.createMeeting")}`}</Text>
         </TouchableOpacity>
 
         {/* Edit profile and Settings now live in the hero, next to what they
             change, rather than repeating here. */}
         <TouchableOpacity style={[styles.actionBtn, styles.logoutBtn]} onPress={() => setAccountSheet(true)}>
-          <Text style={styles.logoutBtnText}>Logout</Text>
+          <Text style={styles.logoutBtnText}>{t("account.logOut")}</Text>
         </TouchableOpacity>
       </View>
       <AccountSheet visible={accountSheet} onClose={() => setAccountSheet(false)} />

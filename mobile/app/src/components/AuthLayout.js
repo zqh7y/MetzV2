@@ -2,10 +2,10 @@ import React, { useEffect, useMemo, useRef } from "react";
 import {
   View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Animated, Easing, Linking,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
 import { AlertIcon } from "./AuthIcons";
+import BrandMark from "./BrandMark";
 import { PRIVACY_URL, TERMS_URL } from "../config";
 
 // Mirrors the .auth shell in templates/auth_base.html as the web renders it
@@ -54,14 +54,12 @@ export default function AuthLayout({ title, subtitle, error, children, footer })
 
             {/* .auth-mini-brand — the phone's stand-in for the brand panel */}
             <View style={styles.brand}>
-              <LinearGradient
-                colors={[theme.accent, theme.accentStrong]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.brandLogo}
-              >
-                <Text style={styles.brandLogoText}>M</Text>
-              </LinearGradient>
+              {/* Same two-circle mark as the launcher icon. It used to be a
+                  gradient rounded square with an "M", which no longer matches
+                  anything the user sees on their home screen. */}
+              <View style={styles.brandLogo}>
+                <BrandMark size={40} color={theme.accent} bg={theme.bg} />
+              </View>
               {/* text-transform: uppercase on .auth-mini-name */}
               <Text style={styles.brandName}>METZ</Text>
             </View>
@@ -129,20 +127,9 @@ const makeStyles = (t) => StyleSheet.create({
   card: { width: "100%", maxWidth: 400, alignSelf: "center" },
 
   brand: { flexDirection: "row", alignItems: "center", marginBottom: 26 },
-  brandLogo: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 10,
-    shadowColor: t.accent,
-    shadowOpacity: 0.45,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 6,
-  },
-  brandLogoText: { color: "#fff", fontFamily: FONTS.headingExtra, fontSize: 19, includeFontPadding: false },
+  // The mark is 3:2, not the old 40x40 square, and it carries no shadow — a
+  // drop shadow under a flat two-colour logo is the thing the redesign dropped.
+  brandLogo: { marginEnd: 10, justifyContent: "center" },
   brandName: {
     fontFamily: FONTS.headingExtra,
     fontSize: 15,
@@ -172,11 +159,11 @@ const makeStyles = (t) => StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 12,
     borderWidth: 1,
-    borderLeftWidth: 4,
+    borderStartWidth: 4,
     borderColor: ERROR_BORDER,
     backgroundColor: ERROR_BG,
   },
-  errorIcon: { marginRight: 10, paddingTop: 1 },
+  errorIcon: { marginEnd: 10, paddingTop: 1 },
   errorText: {
     flex: 1,
     color: ERROR_FG,

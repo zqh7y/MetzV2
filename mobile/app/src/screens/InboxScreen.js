@@ -5,15 +5,17 @@ import { api } from "../api";
 import { useTheme } from "../context/ThemeContext";
 import { FONTS } from "../styles/fonts";
 import { RADIUS, SHADOW } from "../styles/theme";
+import { useI18n } from "../context/LocaleContext";
+import { getActiveLanguage, t } from "../i18n/active";
 
 function when(iso) {
   const time = new Date(iso).getTime();
   const seconds = Math.max(0, Math.floor((Date.now() - time) / 1000));
-  if (seconds < 60) return "Just now";
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
-  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  if (seconds < 60) return t("time.justNowCap");
+  if (seconds < 3600) return t("time.minutesAgoShort", { count: Math.floor(seconds / 60) });
+  if (seconds < 86400) return t("time.hoursAgo", { count: Math.floor(seconds / 3600) });
+  if (seconds < 604800) return t("time.daysAgoShort", { count: Math.floor(seconds / 86400) });
+  return new Date(iso).toLocaleDateString(getActiveLanguage(), { month: "short", day: "numeric" });
 }
 
 // Icon and tint per message kind. Anything the server sends that is not listed
@@ -32,6 +34,7 @@ const KINDS = {
 export default function InboxScreen() {
   const { theme } = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
+  const { t } = useI18n();
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -61,8 +64,8 @@ export default function InboxScreen() {
   if (loading) return <View style={styles.center}><ActivityIndicator size="large" color={theme.accent} /></View>;
   return <View style={styles.page}>
     <View style={styles.header}>
-      <View><Text style={styles.title}>Inbox</Text><Text style={styles.sub}>{unread ? `${unread} unread update${unread === 1 ? "" : "s"}` : "Messages from Metz"}</Text></View>
-      {unread ? <Pressable onPress={readAll} style={styles.readAll} disabled={markingAll}><Text style={styles.readAllText}>{markingAll ? "?" : "Read all"}</Text></Pressable> : null}
+      <View><Text style={styles.title}>{t("nav.inbox")}</Text><Text style={styles.sub}>{unread ? t("inbox.unread", { count: unread }) : t("inbox.subtitle")}</Text></View>
+      {unread ? <Pressable onPress={readAll} style={styles.readAll} disabled={markingAll}><Text style={styles.readAllText}>{markingAll ? "…" : t("inbox.readAll")}</Text></Pressable> : null}
     </View>
     <FlatList data={messages} keyExtractor={(m) => String(m.id)} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} colors={[theme.accent]} />}
       contentContainerStyle={messages.length ? styles.list : styles.emptyList}
@@ -70,7 +73,7 @@ export default function InboxScreen() {
         const kind = KINDS[item.kind] || KINDS.system;
         return <Pressable onPress={() => read(item)} style={[styles.card, !item.read_at && styles.unread]}><View style={[styles.icon, kind.tint && styles[kind.tint]]}><Text style={styles.iconText}>{kind.icon}</Text></View><View style={styles.body}><View style={styles.line}><Text style={styles.cardTitle}>{item.title}</Text>{!item.read_at ? <View style={styles.dot} /> : null}</View><Text style={styles.message}>{item.body}</Text><Text style={styles.time}>{when(item.created_at)}</Text></View></Pressable>;
       }}
-      ListEmptyComponent={<View style={styles.empty}><Text style={styles.emptyTitle}>Your inbox is clear</Text><Text style={styles.emptyText}>Report decisions and important updates from Metz will show up here.</Text></View>} />
+      ListEmptyComponent={<View style={styles.empty}><Text style={styles.emptyTitle}>{t("inbox.emptyTitle")}</Text><Text style={styles.emptyText}>{t("inbox.emptyBody")}</Text></View>} />
   </View>;
 }
 const makeStyles = (t) => StyleSheet.create({

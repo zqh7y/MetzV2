@@ -6,6 +6,8 @@ import { useTheme } from "../context/ThemeContext";
 import { FONTS } from "../styles/fonts";
 import { RADIUS } from "../styles/theme";
 import { CalendarIcon, ClockIcon } from "./NavIcons";
+import { dayName, monthName } from "../utils/time";
+import { useI18n } from "../context/LocaleContext";
 
 /** The server stores "YYYY-MM-DD HH:MM", so that is what leaves this field. */
 function toServer(date) {
@@ -20,13 +22,12 @@ function fromServer(value) {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-/** "Thu 6 Aug · 12:00" — what a person reads, not what the server stores. */
+/** "Thu 6 Aug · 12:00" — what a person reads, not what the server stores.
+ *  Day and month names come from utils/time so this field and the meeting
+ *  cards never disagree about how a date is spelled. */
 function humanise(date) {
   const p = (n) => String(n).padStart(2, "0");
-  return `${DAYS[date.getDay()]} ${date.getDate()} ${MONTHS[date.getMonth()]} · ${p(date.getHours())}:${p(date.getMinutes())}`;
+  return `${dayName(date.getDay())} ${date.getDate()} ${monthName(date.getMonth())} · ${p(date.getHours())}:${p(date.getMinutes())}`;
 }
 
 /**
@@ -42,8 +43,9 @@ function humanise(date) {
  * two-stage sequence; the date chosen in the first stage is carried into the
  * second rather than being committed on its own.
  */
-export default function DateTimeField({ value, onChange, placeholder = "Pick a date & time", minimumDate }) {
+export default function DateTimeField({ value, onChange, placeholder, minimumDate }) {
   const { theme } = useTheme();
+  const { t } = useI18n();
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
   // iOS only: the inline component is mounted while this is true.
@@ -106,7 +108,7 @@ export default function DateTimeField({ value, onChange, placeholder = "Pick a d
           {selected ? <ClockIcon size={18} color={theme.accentStrong} /> : <CalendarIcon size={18} color={theme.text3} />}
         </View>
         <Text style={[styles.value, !selected && styles.placeholder]} numberOfLines={1}>
-          {selected ? humanise(selected) : placeholder}
+          {selected ? humanise(selected) : (placeholder || t("create.pickDateTime"))}
         </Text>
         {selected ? <Text style={styles.change}>Change</Text> : null}
       </Pressable>

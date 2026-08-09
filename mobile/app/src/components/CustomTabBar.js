@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef } from "react";
 import { View, Text, StyleSheet, Pressable, Animated } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../context/ThemeContext";
+import { useI18n } from "../context/LocaleContext";
 
 const ICONS = {
   Home: { active: "🏠", inactive: "🏠" },
@@ -9,13 +10,15 @@ const ICONS = {
   Profile: { active: "👤", inactive: "👤" },
 };
 
-const LABELS = {
-  Home: "Home",
-  Create: "Create",
-  Profile: "Profile",
+// Keys, not words — the bar re-labels itself when the language changes.
+const LABEL_KEYS = {
+  Home: "tabs.home",
+  Create: "tabs.create",
+  Profile: "tabs.profile",
 };
 
 function TabButton({ route, isFocused, onPress, styles }) {
+  const { t } = useI18n();
   const lift = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
 
   useEffect(() => {
@@ -28,7 +31,7 @@ function TabButton({ route, isFocused, onPress, styles }) {
     <Pressable onPress={onPress} style={styles.tabBtn} android_ripple={{ color: styles.ripple.color, radius: 38 }}>
       <Animated.View style={{ alignItems: "center", transform: [{ translateY }] }}>
         <Text style={[styles.icon, { opacity: isFocused ? 1 : 0.45 }]}>{ICONS[route.name].active}</Text>
-        <Text style={[styles.label, isFocused && styles.labelActive]}>{LABELS[route.name]}</Text>
+        <Text style={[styles.label, isFocused && styles.labelActive]}>{t(LABEL_KEYS[route.name])}</Text>
         <View style={[styles.dot, { opacity: isFocused ? 1 : 0 }]} />
       </Animated.View>
     </Pressable>

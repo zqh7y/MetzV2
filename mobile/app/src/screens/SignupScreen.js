@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { api } from "../api";
+import { useI18n } from "../context/LocaleContext";
 import AuthLayout from "../components/AuthLayout";
 import AuthField from "../components/AuthField";
 import AuthButton from "../components/AuthButton";
@@ -9,6 +10,7 @@ import GoogleAuthButton from "../components/GoogleAuthButton";
 
 // Copy, field order and button labels track templates/signup.html.
 export default function SignupScreen({ navigation }) {
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -29,21 +31,21 @@ export default function SignupScreen({ navigation }) {
 
   return (
     <AuthLayout
-      title="Create your account"
-      subtitle="Takes a minute. We'll email you a code to confirm it's you."
+      title={t("signup.title")}
+      subtitle={t("signup.subtitle")}
       error={error}
       footer={
         <AuthAlt
-          text="Already have an account?"
-          linkText="Log in"
+          text={t("signup.haveAccount")}
+          linkText={t("signup.logIn")}
           onPress={() => navigation.navigate("Login")}
         />
       }
     >
       <AuthField
-        label="Email"
+        label={t("common.email")}
         icon="mail"
-        placeholder="you@example.com"
+        placeholder={t("common.emailPlaceholder")}
         keyboardType="email-address"
         textContentType="emailAddress"
         autoComplete="email"
@@ -54,10 +56,10 @@ export default function SignupScreen({ navigation }) {
         onChangeText={setEmail}
       />
       <AuthField
-        label="Password"
+        label={t("common.password")}
         icon="lock"
         reveal
-        placeholder="At least 8 characters"
+        placeholder={t("signup.passwordPlaceholder")}
         textContentType="newPassword"
         autoComplete="new-password"
         autoCapitalize="none"
@@ -70,14 +72,14 @@ export default function SignupScreen({ navigation }) {
         <AuthStrength value={password} />
       </AuthField>
       <AuthButton
-        label="Create account"
-        busyLabel="Creating account…"
+        label={t("signup.submit")}
+        busyLabel={t("signup.submitting")}
         onPress={handleSignup}
         loading={loading}
       />
       {/* Google has already proved the address, so this route skips the
           emailed code entirely — no inbox, no 4 digits, no waiting. */}
-      <GoogleAuthButton label="Sign up with Google" />
+      <GoogleAuthButton label={t("signup.google")} />
     </AuthLayout>
   );
 }

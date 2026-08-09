@@ -6,6 +6,7 @@ from flask import Blueprint, request, jsonify
 
 from data import (
     get_user, get_all_meetings, add_meeting, toggle_join_meeting, filter_blocked,
+    can_view_meeting, PUBLIC, PRIVATE,
     user_pass, delete_meeting, get_joined_users_preview, MEETINGS_DB,
     generate_user_color, display_name_for, is_trusted, is_admin, get_reliability,
     get_comments, add_comment, delete_comment, can_delete_comment, get_blocked_uids,
@@ -16,7 +17,7 @@ from utils.models import (
     validate_meeting_data, sanitize_html, validate_comment,
 )
 
-from helpers import current_uid, serialize_meeting
+from helpers import current_uid, serialize_meeting, share_url_for
 
 # Reuse the web's own threshold parsing and validation rather than writing a
 # second set of rules that could drift from it.
@@ -35,7 +36,10 @@ def list_meetings():
     uid = current_uid()
     # Blocking is only real if it reaches the listings — filtered here rather
     # than at creation, so unblocking brings the meetings straight back.
-    meetings = filter_blocked(uid, get_all_meetings(status="approved"))
+    # viewer_uid, not include_private: this adds back only the private
+    # meetings this person created or joined, so a link-only meeting is still
+    # findable by the people actually in it.
+    meetings = filter_blocked(uid, get_all_meetings(status="approved", viewer_uid=uid))
     return jsonify([serialize_meeting(m, uid) for m in meetings])
 
 
@@ -54,6 +58,9 @@ def create_meeting():
     link = body.get("link", "")
     emoji = (body.get("emoji") or "").strip()
     tags_in = [t for t in body.get("tags", []) if t in AVAILABLE_TAGS]
+    # Anything that is not exactly "private" is public — an unrecognised value
+    # must not silently hide a meeting the organiser meant everyone to see.
+    visibility = PRIVATE if body.get("visibility") == PRIVATE else PUBLIC
 
     # "It only happens if enough people come" — the web's step 4. Without these
     # the app could never create a threshold meeting at all.
@@ -91,13 +98,22 @@ def create_meeting():
             join_deadline=join_deadline,
         )
 
-    add_meeting(new_meeting, creator_uid=uid)
-    return jsonify({"id": new_meeting.id, "status": new_meeting.status})
+    add_meeting(new_meeting, creator_uid=uid, visibility=visibility)
+    record = MEETINGS_DB.get(new_meeting.id, {})
+    return jsonify({
+        "id": new_meeting.id,
+        "status": new_meeting.status,
+        "visibility": record.get("visibility", PUBLIC),
+        "share_url": share_url_for(record),
+    })
 
 
 @meeting_bp.route("/api/meetings/<int:meeting_id>/join", methods=["POST"])
 def join_meeting(meeting_id):
     uid = current_uid()
+    record = MEETINGS_DB.get(meeting_id)
+    if record is not None and not can_view_meeting(uid, record):
+        return jsonify({"error": "not found"}), 404
     # The commitment sheet and the late-bail warning are web-app screens for
     # now, so the mobile client joins straight through rather than being told
     # to show a sheet it doesn't have yet.
@@ -116,7 +132,10 @@ def meeting_attendees(meeting_id):
     usernames), which is enough for a card but not for a "who's coming" list.
     """
     meeting = MEETINGS_DB.get(meeting_id)
-    if meeting is None:
+    # 404 rather than 403 for a private meeting: a "forbidden" would confirm
+    # that a meeting exists at that id, which is the one thing the unguessable
+    # link is meant to prevent.
+    if meeting is None or not can_view_meeting(current_uid(), meeting):
         return jsonify({"error": "not found"}), 404
 
     attendees = []
@@ -192,10 +211,10 @@ def _serialize_comment(comment, meeting, viewer_uid):
 def meeting_comments(meeting_id):
     """The discussion on a meeting, oldest first."""
     meeting = MEETINGS_DB.get(meeting_id)
-    if meeting is None:
+    uid = current_uid()
+    if meeting is None or not can_view_meeting(uid, meeting):
         return jsonify({"error": "not found"}), 404
 
-    uid = current_uid()
     # Blocking is applied on read for the same reason it is for meetings: it
     # only counts if it reaches what you actually look at, and unblocking
     # should bring the comments straight back rather than having lost them.
@@ -214,7 +233,7 @@ def create_comment(meeting_id):
         return jsonify({"error": "unauthorized"}), 401
 
     meeting = MEETINGS_DB.get(meeting_id)
-    if meeting is None:
+    if meeting is None or not can_view_meeting(uid, meeting):
         return jsonify({"error": "not found"}), 404
 
     body = request.get_json(force=True) or {}
@@ -293,6 +312,6 @@ def joined_meetings():
     uid = current_uid()
     user = get_user(uid)
     joined_ids = user["joined_meeting_ids"] if user else []
-    all_meetings = {m.id: m for m in get_all_meetings()}
+    all_meetings = {m.id: m for m in get_all_meetings(viewer_uid=uid)}
     joined = [all_meetings[mid] for mid in joined_ids if mid in all_meetings]
     return jsonify([serialize_meeting(m, uid) for m in joined])

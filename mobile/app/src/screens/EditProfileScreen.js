@@ -429,7 +429,7 @@ const makeStyles = (t) => StyleSheet.create({
     paddingVertical: 11,
     marginBottom: 8,
   },
-  readonlyBody: { flex: 1, marginRight: 10 },
+  readonlyBody: { flex: 1, marginEnd: 10 },
   readonlyLabel: { fontSize: 10.5, color: t.text3, fontFamily: FONTS.bodySemi, textTransform: "uppercase", letterSpacing: 0.4 },
   readonlyValue: { fontSize: 14, color: t.text2, marginTop: 2 },
   lockBadge: { fontSize: 11, color: t.text3, fontFamily: FONTS.bodySemi },

@@ -8,6 +8,7 @@ import AuthAlt from "../components/AuthAlt";
 import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
 import { RADIUS } from "../styles/theme";
+import { useI18n } from "../context/LocaleContext";
 
 /**
  * Password reset — the way back into an account.
@@ -22,6 +23,7 @@ import { RADIUS } from "../styles/theme";
  */
 export default function ForgotPasswordScreen({ navigation }) {
   const { theme } = useTheme();
+  const { t } = useI18n();
   const styles = makeStyles(theme);
 
   const [email, setEmail] = useState("");
@@ -37,7 +39,7 @@ export default function ForgotPasswordScreen({ navigation }) {
       await api.requestPasswordReset(email);
       setSent(true);
     } catch (e) {
-      setError(e.message || "Couldn't send the reset link. Try again.");
+      setError(e.message || t("forgot.failed"));
     } finally {
       setLoading(false);
     }
@@ -45,17 +47,17 @@ export default function ForgotPasswordScreen({ navigation }) {
 
   return (
     <AuthLayout
-      title={sent ? "Check your email" : "Forgot your password?"}
+      title={sent ? t("verify.title") : t("forgot.title")}
       subtitle={
         sent
-          ? "The link expires after a while, so use it soon."
-          : "Give us the email you signed up with and we'll send a reset link."
+          ? t("forgot.sentSubtitle")
+          : t("forgot.subtitle")
       }
       error={error}
       footer={
         <AuthAlt
-          text={sent ? "Done?" : "Remembered it?"}
-          linkText="Back to log in"
+          text={sent ? t("forgot.done") : t("forgot.remembered")}
+          linkText={t("forgot.backToLogin")}
           onPress={() => navigation.navigate("Login")}
         />
       }
@@ -63,17 +65,14 @@ export default function ForgotPasswordScreen({ navigation }) {
       {sent ? (
         <View style={styles.sent}>
           <Text style={styles.sentIcon}>📬</Text>
-          <Text style={styles.sentText}>
-            If that email has an account, a reset link is on its way. Check your
-            inbox, and your spam folder.
-          </Text>
+          <Text style={styles.sentText}>{t("forgot.sentBody")}</Text>
         </View>
       ) : (
         <>
           <AuthField
-            label="Email"
+            label={t("common.email")}
             icon="mail"
-            placeholder="you@example.com"
+            placeholder={t("common.emailPlaceholder")}
             keyboardType="email-address"
             textContentType="username"
             autoComplete="email"
@@ -86,8 +85,8 @@ export default function ForgotPasswordScreen({ navigation }) {
             returnKeyType="send"
           />
           <AuthButton
-            label="Send reset link"
-            busyLabel="Sending…"
+            label={t("forgot.submit")}
+            busyLabel={t("forgot.submitting")}
             onPress={handleSend}
             loading={loading}
           />

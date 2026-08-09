@@ -35,7 +35,7 @@ export default function AvatarStack({ people = [], total = 0, size = 24 }) {
             styles.avatar,
             dim,
             // The first one sits flush; the rest tuck under their neighbour.
-            i === 0 && { marginLeft: 0 },
+            i === 0 && { marginStart: 0 },
             !p.profile_picture && { backgroundColor: p.color || theme.accent },
           ]}
         >
@@ -59,7 +59,7 @@ export default function AvatarStack({ people = [], total = 0, size = 24 }) {
 const makeStyles = (t) => StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", flexShrink: 0 },
   avatar: {
-    marginLeft: -8,
+    marginStart: -8,
     borderWidth: 2,
     // Matches the card it sits on, so the overlap reads as a cut-out.
     borderColor: t.surface,

@@ -5,7 +5,10 @@ module only imports what it needs."""
 import os
 from flask import request, jsonify
 
-from data import is_admin, is_trusted, get_joined_users_preview, shorten_address, get_user
+from data import (
+    is_admin, is_trusted, get_joined_users_preview, shorten_address, get_user,
+    meeting_visibility, MEETINGS_DB, PRIVATE,
+)
 from utils.tokens import verify_token
 
 FIREBASE_API_KEY = os.environ["FIREBASE_API_KEY"]  # same project as the web app
@@ -58,4 +61,29 @@ def serialize_meeting(m, uid):
     # the app's For You shelf offers — same rule the web home page uses.
     user = get_user(uid)
     d["is_seen"] = m.id in (user["swiped_ids"] if user else [])
+
+    # Visibility travels with the meeting so the card can badge it and the
+    # detail screen knows which link to offer. The share URL is only handed to
+    # people who can already see the meeting — serialize_meeting is never
+    # reached for a private meeting by anyone else, because get_all_meetings
+    # filters them out first.
+    record = MEETINGS_DB.get(m.id, {})
+    d["visibility"] = meeting_visibility(record)
+    d["share_url"] = share_url_for(record)
     return d
+
+
+def share_url_for(record):
+    """The public link for a meeting: /m/<slug> when private, /m/<id> when not.
+
+    A private meeting must not be reachable by its id — ids are sequential, so
+    that would make the slug pointless — which is why this returns one form or
+    the other rather than always the numeric one.
+    """
+    if not record:
+        return ""
+    root = request.url_root.rstrip("/") if request else ""
+    if meeting_visibility(record) == PRIVATE:
+        slug = record.get("share_slug")
+        return f"{root}/m/{slug}" if slug else ""
+    return f"{root}/m/{record.get('id')}"

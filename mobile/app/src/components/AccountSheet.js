@@ -6,6 +6,7 @@ import { canSwitchTo } from "../accounts";
 import { useTheme } from "../context/ThemeContext";
 import { FONTS } from "../styles/fonts";
 import { RADIUS, SHADOW } from "../styles/theme";
+import { useI18n } from "../context/LocaleContext";
 
 /**
  * What happens when you tap "Log out".
@@ -21,6 +22,7 @@ import { RADIUS, SHADOW } from "../styles/theme";
  */
 export default function AccountSheet({ visible, onClose }) {
   const { theme } = useTheme();
+  const { t } = useI18n();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { profile, uid, signOut, accounts, switchTo, forget } = useAuth();
 
@@ -66,11 +68,11 @@ export default function AccountSheet({ visible, onClose }) {
 
   function handleForget(account) {
     Alert.alert(
-      "Remove this account?",
-      `${account.name || account.email || account.uid} will stop appearing here. Nothing is deleted — you can sign in again any time.`,
+      t("account.removeTitle"),
+      t("account.removeBody", { name: account.name || account.email || account.uid }),
       [
-        { text: "Cancel", style: "cancel" },
-        { text: "Remove", style: "destructive", onPress: () => forget(account.uid) },
+        { text: t("common.cancel"), style: "cancel" },
+        { text: t("account.remove"), style: "destructive", onPress: () => forget(account.uid) },
       ]
     );
   }
@@ -99,7 +101,7 @@ export default function AccountSheet({ visible, onClose }) {
           {/* Accounts already signed in on this phone: one tap, no password. */}
           {others.length ? (
             <View style={styles.saved}>
-              <Text style={styles.savedLabel}>SWITCH TO</Text>
+              <Text style={styles.savedLabel}>{t("account.switchTo")}</Text>
               {others.map((account) => {
                 const ready = canSwitchTo(account);
                 const label = account.name || account.email || account.uid;
@@ -120,29 +122,29 @@ export default function AccountSheet({ visible, onClose }) {
                       <Text style={styles.optionBody} numberOfLines={1}>
                         {ready
                           ? (account.email || `@${account.uid}`)
-                          : "Signed out — needs your password"}
+                          : t("account.signedOut")}
                       </Text>
                     </View>
                     {!ready ? <Text style={styles.savedStale}>↻</Text> : null}
                   </Pressable>
                 );
               })}
-              <Text style={styles.savedHint}>Press and hold an account to remove it.</Text>
+              <Text style={styles.savedHint}>{t("account.holdToRemove")}</Text>
             </View>
           ) : null}
 
           <Option
             styles={styles}
             icon="⇄"
-            title={others.length ? "Use another account" : "Switch account"}
-            body="Sign out and log in as someone else."
+            title={others.length ? t("account.useAnother") : t("account.switchAccount")}
+            body={t("account.useAnotherBody")}
             onPress={() => choose("Login", true)}
           />
           <Option
             styles={styles}
             icon="＋"
-            title="Create a new account"
-            body="Sign out and go straight to sign-up."
+            title={t("account.createNew")}
+            body={t("account.createNewBody")}
             onPress={() => choose("Signup", true)}
           />
           <Option
@@ -150,14 +152,14 @@ export default function AccountSheet({ visible, onClose }) {
             // Not ⏻ (U+23FB): Android's default font has no glyph for it and
             // it rendered as a tofu box next to two icons that were fine.
             icon="🚪"
-            title="Log out"
-            body="Just sign out of this account."
+            title={t("account.logOut")}
+            body={t("account.logOutBody")}
             tone="bad"
             onPress={() => choose(null, false)}
           />
 
           <Pressable style={styles.cancel} onPress={onClose}>
-            <Text style={styles.cancelText}>Cancel</Text>
+            <Text style={styles.cancelText}>{t("common.cancel")}</Text>
           </Pressable>
         </Pressable>
       </Pressable>
@@ -186,8 +188,8 @@ const makeStyles = (t) => StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: "rgba(12,16,28,0.45)", justifyContent: "flex-end" },
   sheet: {
     backgroundColor: t.surface,
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
+    borderTopStartRadius: 22,
+    borderTopEndRadius: 22,
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 26,

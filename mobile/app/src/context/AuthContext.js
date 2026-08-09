@@ -10,6 +10,8 @@ export function AuthProvider({ children }) {
   const [uid, setUid] = useState(null);
   const [profile, setProfile] = useState(null);
   const [booting, setBooting] = useState(true);
+  // True during an account switch, while the tree is being remounted.
+  const [switching, setSwitching] = useState(false);
   // Which auth screen to show after signing out — see signOut below.
   const [authLanding, setAuthLanding] = useState("Login");
   // Other accounts this device has signed into, for one-tap switching.
@@ -98,13 +100,32 @@ export function AuthProvider({ children }) {
    * them to Login instead of switching into an account whose every request
    * would come back 401.
    */
+  /**
+   * Become another saved account, and reload the app around it.
+   *
+   * Swapping the uid is not enough on its own. Every mounted screen is holding
+   * the previous account's data in local state — and that data was fetched
+   * under their token, so it can include meetings the new account is not
+   * allowed to see at all. A private meeting stayed on screen after switching
+   * for exactly this reason: the list was never refetched, so the server's
+   * filtering never got a say.
+   *
+   * `switching` drives a full remount of the navigator (App.js keys it on the
+   * uid), which drops all of that state and refetches from scratch.
+   */
   function switchTo(account) {
     if (!canSwitchTo(account)) return false;
+    setSwitching(true);
     setProfile(null);
     setSession(account.uid, account.token);
     setUid(account.uid);
     rememberAccount({ uid: account.uid }).then(reloadAccounts);
     refreshProfile();
+    // Long enough for the remounted screens to have asked for their data and,
+    // on a warm API, got it back. It is a floor on how long the splash shows,
+    // not a claim that loading has finished — the screens have their own
+    // spinners for that.
+    setTimeout(() => setSwitching(false), 1200);
     return true;
   }
 
@@ -115,7 +136,7 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider
       value={{
-        uid, profile, booting, signIn, signOut, refreshProfile, authLanding,
+        uid, profile, booting, switching, signIn, signOut, refreshProfile, authLanding,
         accounts, switchTo, forget,
       }}
     >

@@ -63,7 +63,9 @@ def profile():
         # can never disagree about how many things are waiting.
         "action_count": pending_action_count(uid),
         "unread_inbox_count": unread_inbox_count(uid),
-        "pending_review_count": len(get_all_meetings(status="pending")) if is_admin(uid) else 0,
+        "pending_review_count": (
+            len(get_all_meetings(status="pending", include_private=True)) if is_admin(uid) else 0
+        ),
         # Drives the Reports badge in the admin section of the drawer.
         "open_report_count": open_report_count() if is_admin(uid) else 0,
     })

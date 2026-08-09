@@ -72,10 +72,10 @@ const makeStyles = (t) => StyleSheet.create({
     ...SHADOW.s1,
   },
   main: { flexDirection: "row", alignItems: "center" },
-  scoreRow: { flexDirection: "row", alignItems: "flex-end", marginRight: 16 },
+  scoreRow: { flexDirection: "row", alignItems: "flex-end", marginEnd: 16 },
   // The em-dash case carries its own gap; inside scoreRow the row supplies it.
   score: { fontFamily: FONTS.accent, fontSize: 38, lineHeight: 40 },
-  scoreEmpty: { marginRight: 16 },
+  scoreEmpty: { marginEnd: 16 },
   pct: { fontFamily: FONTS.accent, fontSize: 20, lineHeight: 28 },
   text: { flex: 1 },
   title: { fontFamily: FONTS.heading, fontSize: 15, color: t.text },

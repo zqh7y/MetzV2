@@ -2,15 +2,16 @@ import React, { useCallback, useMemo } from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import TrustBadge from "./TrustBadge";
-import TagChip from "./TagChip";
 import AvatarStack from "./AvatarStack";
 import ThresholdBar from "./ThresholdBar";
 import AnimatedPressable from "./AnimatedPressable";
-import { MapPinIcon, GlobeIcon } from "./NavIcons";
+import { MapPinIcon, GlobeIcon, TagIcon } from "./NavIcons";
 import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
 import { formatWhen, formatRelative } from "../utils/time";
 import { CARD_GRADIENTS, RADIUS, SHADOW } from "../styles/theme";
+import { useI18n } from "../context/LocaleContext";
+import { localizedTag } from "../i18n/vocab";
 
 /**
  * A meeting in the Nearby list.
@@ -27,10 +28,31 @@ import { CARD_GRADIENTS, RADIUS, SHADOW } from "../styles/theme";
  * (badges, threshold, blurb), then the social proof and the action, separated
  * by a rule. Previously all three ran together as one stack.
  */
+// Past three the names stop fitting one line; the overflow becomes "+N".
+const MAX_TAGS = 3;
+
 function MeetingCard({ meeting, index = 0, distance, onPress, onJoin, onDelete }) {
   const { theme } = useTheme();
+  const { t } = useI18n();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const isOnline = meeting.type === "OnlineMeeting";
+
+  /**
+   * Every interest on one line: "Sports · Social", or "Art · Fitness · Social
+   * +9" once there are more than three.
+   *
+   * Three is where a single line still fits the narrowest card without
+   * truncating mid-word; past that the count carries more than a clipped
+   * fourth name would. Tags are translated on the way out — they are stored as
+   * the English word (AVAILABLE_TAGS in utils/models.py), not as an id.
+   */
+  const tagLine = useMemo(() => {
+    const tags = meeting.tags || [];
+    if (!tags.length) return "";
+    const shown = tags.slice(0, MAX_TAGS).map((tag) => localizedTag(t, tag));
+    const rest = tags.length - shown.length;
+    return shown.join(" · ") + (rest > 0 ? `  +${rest}` : "");
+  }, [meeting.tags, t]);
   const ramp = CARD_GRADIENTS[index % CARD_GRADIENTS.length];
 
   // The card hands its own meeting back, so a list can pass one stable
@@ -42,7 +64,7 @@ function MeetingCard({ meeting, index = 0, distance, onPress, onJoin, onDelete }
   const when = formatWhen(meeting.time);
   const relative = formatRelative(meeting.time);
   const started = relative === "Started";
-  const place = isOnline ? "Online" : meeting.short_location;
+  const place = isOnline ? t("common.online") : meeting.short_location;
   const going = meeting.joined_count || 0;
 
   return (
@@ -72,11 +94,18 @@ function MeetingCard({ meeting, index = 0, distance, onPress, onJoin, onDelete }
         </View>
       </View>
 
-      {/* ── Context ──────────────────────────────────────────────────── */}
+      {/* ── Context ──────────────────────────────────────────────────────
+          Two rows, not one wrapped pile. The first says what this meeting *is*
+          right now — online or not, how soon, how far — and those three are
+          the ones people scan. Interests used to sit in the same wrap, one
+          chip each, so a meeting tagged with ten of them pushed the status
+          badges onto their own line and buried them under a wall of grey
+          pills. They are one chip now, and they read as a caption rather than
+          competing with the status. */}
       <View style={styles.chipRow}>
         <View style={[styles.chip, isOnline ? styles.chipOnline : styles.chipInPerson]}>
           <Text style={[styles.chipText, isOnline ? styles.chipTextOnline : styles.chipTextInPerson]}>
-            {isOnline ? "Online" : "In-Person"}
+            {isOnline ? t("common.online") : t("common.inPerson")}
           </Text>
         </View>
         <View style={[styles.chip, styles.chipTime, started && styles.chipStarted]}>
@@ -89,8 +118,14 @@ function MeetingCard({ meeting, index = 0, distance, onPress, onJoin, onDelete }
             <Text style={[styles.chipText, styles.chipDistanceText]}>{distance}</Text>
           </View>
         ) : null}
-        {meeting.tags?.map((t) => <TagChip key={t} label={t} />)}
       </View>
+
+      {tagLine ? (
+        <View style={styles.tagChip}>
+          <TagIcon size={11} color={theme.text3} />
+          <Text style={styles.tagChipText} numberOfLines={1}>{tagLine}</Text>
+        </View>
+      ) : null}
 
       <ThresholdBar meeting={meeting} />
 
@@ -105,7 +140,7 @@ function MeetingCard({ meeting, index = 0, distance, onPress, onJoin, onDelete }
         <AvatarStack people={meeting.joined_preview} total={going} size={26} />
         <View style={styles.goingWrap}>
           <Text style={styles.going} numberOfLines={1}>
-            {going === 0 ? "Be the first" : `${going} going`}
+            {going === 0 ? t("card.beTheFirst") : t("card.going", { count: going })}
           </Text>
           {meeting.creator_username ? (
             <View style={styles.creatorRow}>
@@ -121,7 +156,7 @@ function MeetingCard({ meeting, index = 0, distance, onPress, onJoin, onDelete }
           activeOpacity={0.85}
         >
           <Text style={[styles.joinBtnText, meeting.is_joined && styles.joinBtnTextActive]}>
-            {meeting.is_joined ? "Joined" : "Join"}
+            {meeting.is_joined ? t("card.joined") : t("card.join")}
           </Text>
         </TouchableOpacity>
 
@@ -199,7 +234,26 @@ const makeStyles = (t) => StyleSheet.create({
 
   // Every secondary fact is a chip on one wrapping row, instead of each
   // claiming its own line and stretching the card.
-  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 11 },
+  // 8pt between badges rather than 6, and more air above the row: at 6 the
+  // three status chips read as one segmented control instead of three facts.
+  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 13 },
+
+  // Interests sit on their own line, borderless and quiet — a caption under
+  // the status row, deliberately not a fourth badge competing with it.
+  tagChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 6,
+    maxWidth: "100%",
+    marginTop: 9,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: RADIUS.pill,
+    backgroundColor: t.surface2,
+  },
+  tagChipText: { flexShrink: 1, fontSize: 10.5, fontFamily: FONTS.bodyMedium, color: t.text2 },
+
   chip: { borderRadius: RADIUS.pill, paddingHorizontal: 9, paddingVertical: 3.5 },
   chipText: { fontSize: 10.5, fontFamily: FONTS.accent },
   chipInPerson: { backgroundColor: t.accentSoft },

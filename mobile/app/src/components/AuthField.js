@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Text, TextInput, View, Pressable, StyleSheet } from "react-native";
 import { useTheme } from "../context/ThemeContext";
+import { useI18n } from "../context/LocaleContext";
 import { FONTS } from "../styles/fonts";
 import { EyeIcon, LockIcon, MailIcon } from "./AuthIcons";
 
@@ -15,6 +16,7 @@ const ICONS = { mail: MailIcon, lock: LockIcon };
  */
 export default function AuthField({ label, icon = "mail", reveal = false, action, children, ...inputProps }) {
   const { theme } = useTheme();
+  const { t } = useI18n();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [focused, setFocused] = useState(false);
   const [shown, setShown] = useState(false);
@@ -60,7 +62,7 @@ export default function AuthField({ label, icon = "mail", reveal = false, action
               style={styles.reveal}
               hitSlop={6}
               accessibilityRole="button"
-              accessibilityLabel={shown ? "Hide password" : "Show password"}
+              accessibilityLabel={shown ? t("common.hidePassword") : t("common.showPassword")}
               accessibilityState={{ selected: shown }}
             >
               <EyeIcon size={18} color={shown ? theme.text : theme.text3} />
@@ -104,12 +106,12 @@ const makeStyles = (t) => StyleSheet.create({
   boxFocused: { borderColor: t.accent },
 
   // padding-left: 44px on .auth-input, with the icon sitting at left: 14px.
-  iconSlot: { width: 44, paddingLeft: 14, justifyContent: "center" },
+  iconSlot: { width: 44, paddingStart: 14, justifyContent: "center" },
 
   input: {
     flex: 1,
     paddingVertical: 0,
-    paddingRight: 6,
+    paddingEnd: 6,
     fontSize: 15,
     fontFamily: FONTS.body,
     color: t.text,
@@ -120,7 +122,7 @@ const makeStyles = (t) => StyleSheet.create({
   reveal: {
     width: 36,
     height: 36,
-    marginRight: 6,
+    marginEnd: 6,
     borderRadius: 9,
     alignItems: "center",
     justifyContent: "center",

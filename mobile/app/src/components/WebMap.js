@@ -330,6 +330,23 @@ function buildHtml(config) {
   };
 
   /**
+   * Step the zoom, clamped to what the tile layer actually has.
+   *
+   * Leaflet's own zoomIn/zoomOut happily run past maxZoom and then render
+   * blank grey, so the bounds are applied here rather than trusted.
+   */
+  window.zoomBy = function (delta) {
+    var next = Math.max(map.getMinZoom(), Math.min(map.getMaxZoom(), map.getZoom() + delta));
+    map.setZoom(next, { animate: true });
+  };
+
+  // A drag is the one gesture that means "I want to look somewhere else", so
+  // it is what releases the camera from following the user. Pinch-zoom is not
+  // reported: zooming in on yourself is still looking at yourself.
+  map.on("dragstart", function () { send({ type: "userpan" }); });
+  map.on("zoomend", function () { send({ type: "zoom", zoom: map.getZoom() }); });
+
+  /**
    * Draw the road route as the web does: a wide soft glow beneath a solid
    * line, which reads over busy tiles far better than a single stroke.
    *
@@ -402,6 +419,8 @@ const WebMap = forwardRef(function WebMap(
     zoom = 11,
     onMarkerPress,
     onMapPress,
+    onUserPan,
+    onZoomChange,
     showUserLocation = false,
     theme,
     style,
@@ -473,6 +492,9 @@ const WebMap = forwardRef(function WebMap(
     flyTo({ center: to, zoom: z = 15 }) {
       run(`window.flyTo(${JSON.stringify(to)}, ${z})`);
     },
+    zoomBy(delta) {
+      run(`window.zoomBy(${Number(delta) || 0})`);
+    },
   }));
 
   function handleMessage(event) {
@@ -480,6 +502,14 @@ const WebMap = forwardRef(function WebMap(
     try {
       msg = JSON.parse(event.nativeEvent.data);
     } catch (e) {
+      return;
+    }
+    if (msg.type === "userpan") {
+      onUserPan?.();
+      return;
+    }
+    if (msg.type === "zoom") {
+      onZoomChange?.(msg.zoom);
       return;
     }
     if (msg.type === "ready") {

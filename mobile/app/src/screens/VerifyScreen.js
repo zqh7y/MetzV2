@@ -7,11 +7,13 @@ import AuthButton from "../components/AuthButton";
 import AuthAlt from "../components/AuthAlt";
 import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
+import { useI18n } from "../context/LocaleContext";
 
 export default function VerifyScreen({ route }) {
   const { email } = route.params;
   const { signIn } = useAuth();
   const { theme } = useTheme();
+  const { t } = useI18n();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
@@ -32,13 +34,13 @@ export default function VerifyScreen({ route }) {
 
   return (
     <AuthLayout
-      title="Check your email"
-      subtitle={`We sent a 4-digit code to ${email}`}
+      title={t("verify.title")}
+      subtitle={t("verify.subtitle", { email })}
       error={error}
       footer={
         <AuthAlt
-          text="Didn't get it?"
-          linkText="Resend code"
+          text={t("verify.didntGet")}
+          linkText={t("verify.resend")}
           onPress={() => api.resendVerify(email)}
         />
       }
@@ -52,7 +54,7 @@ export default function VerifyScreen({ route }) {
         value={code}
         onChangeText={setCode}
       />
-      <AuthButton label="Verify" onPress={handleVerify} loading={loading} />
+      <AuthButton label={t("verify.submit")} onPress={handleVerify} loading={loading} />
     </AuthLayout>
   );
 }

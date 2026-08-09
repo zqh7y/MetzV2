@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
+import { useI18n } from "../context/LocaleContext";
 import AuthLayout from "../components/AuthLayout";
 import AuthField from "../components/AuthField";
 import AuthButton from "../components/AuthButton";
@@ -12,6 +13,7 @@ import { canSwitchTo } from "../accounts";
 // Copy, field order and button labels track templates/login.html.
 export default function LoginScreen({ navigation }) {
   const { signIn, accounts, switchTo, uid } = useAuth();
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -32,21 +34,21 @@ export default function LoginScreen({ navigation }) {
 
   return (
     <AuthLayout
-      title="Welcome back"
-      subtitle="Log in to pick up where you left off."
+      title={t("login.title")}
+      subtitle={t("login.subtitle")}
       error={error}
       footer={
         <AuthAlt
-          text="New here?"
-          linkText="Create an account"
+          text={t("login.newHere")}
+          linkText={t("login.createAccount")}
           onPress={() => navigation.navigate("Signup")}
         />
       }
     >
       <AuthField
-        label="Email"
+        label={t("common.email")}
         icon="mail"
-        placeholder="you@example.com"
+        placeholder={t("common.emailPlaceholder")}
         keyboardType="email-address"
         textContentType="username"
         autoComplete="email"
@@ -57,12 +59,12 @@ export default function LoginScreen({ navigation }) {
         onChangeText={setEmail}
       />
       <AuthField
-        label="Password"
+        label={t("common.password")}
         icon="lock"
         reveal
         // Sits on the label line, next to the field it belongs to.
-        action={{ label: "Forgot?", onPress: () => navigation.navigate("ForgotPassword") }}
-        placeholder="Your password"
+        action={{ label: t("login.forgot"), onPress: () => navigation.navigate("ForgotPassword") }}
+        placeholder={t("common.passwordPlaceholder")}
         textContentType="password"
         autoComplete="current-password"
         autoCapitalize="none"
@@ -72,7 +74,7 @@ export default function LoginScreen({ navigation }) {
         onSubmitEditing={handleLogin}
         returnKeyType="go"
       />
-      <AuthButton label="Log in" busyLabel="Logging in…" onPress={handleLogin} loading={loading} />
+      <AuthButton label={t("login.submit")} busyLabel={t("login.submitting")} onPress={handleLogin} loading={loading} />
       <GoogleAuthButton />
 
       {/* Accounts this phone has used before, still holding a valid session —
@@ -83,7 +85,7 @@ export default function LoginScreen({ navigation }) {
       <SavedAccounts
         accounts={accounts.filter((a) => a.uid !== uid && canSwitchTo(a))}
         onPick={(account) => {
-          if (!switchTo(account)) setError("That session expired — please log in.");
+          if (!switchTo(account)) setError(t("login.sessionExpired"));
         }}
       />
     </AuthLayout>
