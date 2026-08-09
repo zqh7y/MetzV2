@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
 import { api, loadStoredUid, loadStoredToken, setSession } from "../api";
 import {
   listAccounts, rememberAccount, clearAccountToken, forgetAccount, canSwitchTo,
@@ -12,6 +12,8 @@ export function AuthProvider({ children }) {
   const [booting, setBooting] = useState(true);
   // True during an account switch, while the tree is being remounted.
   const [switching, setSwitching] = useState(false);
+  // The uid of the switcher row that was tapped, awaiting confirmation.
+  const expectedUid = useRef(null);
   // Which auth screen to show after signing out — see signOut below.
   const [authLanding, setAuthLanding] = useState("Login");
   // Other accounts this device has signed into, for one-tap switching.
@@ -36,6 +38,16 @@ export function AuthProvider({ children }) {
   async function refreshProfile() {
     try {
       const p = await api.getProfile();
+
+      // The server derives identity from the token, so if it names someone
+      // other than the row we just tapped, that row's token belongs to a
+      // different account and the row is a lie. Drop it rather than leave a
+      // one-tap button that signs you in as the wrong person. rememberAccount
+      // below then re-records whoever this actually is, under the right uid.
+      if (p?.uid && expectedUid.current && p.uid !== expectedUid.current) {
+        await forgetAccount(expectedUid.current);
+      }
+      expectedUid.current = null;
       setProfile(p);
       // Keep the switcher entry current: the name, colour and emoji shown next
       // to an account come from here, so a rename is reflected the next time
@@ -116,6 +128,8 @@ export function AuthProvider({ children }) {
   function switchTo(account) {
     if (!canSwitchTo(account)) return false;
     setSwitching(true);
+    // Checked against whoever the server says we are, once the profile lands.
+    expectedUid.current = account.uid;
     setProfile(null);
     setSession(account.uid, account.token);
     setUid(account.uid);
