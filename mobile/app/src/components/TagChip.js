@@ -19,7 +19,7 @@ const makeStyles = (t) => StyleSheet.create({
     borderRadius: 9,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    marginRight: 5,
+    marginEnd: 5,
     marginBottom: 5,
     overflow: "hidden",
   },

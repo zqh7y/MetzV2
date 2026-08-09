@@ -8,6 +8,8 @@ import { api } from "../api";
 import { useTheme } from "../context/ThemeContext";
 import { FONTS } from "../styles/fonts";
 import { RADIUS, SHADOW } from "../styles/theme";
+import { useI18n } from "../context/LocaleContext";
+import { localizedReportReason } from "../i18n/vocab";
 
 /**
  * Report a meeting or a person.
@@ -22,6 +24,7 @@ import { RADIUS, SHADOW } from "../styles/theme";
  */
 export default function ReportSheet({ visible, onClose, targetType, targetId, targetLabel }) {
   const { theme } = useTheme();
+  const { t } = useI18n();
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
   const [reasons, setReasons] = useState([]);
@@ -50,7 +53,7 @@ export default function ReportSheet({ visible, onClose, targetType, targetId, ta
       await api.reportContent(targetType, targetId, reason, detail);
       setSent(true);
     } catch (e) {
-      setError(e.message || "Couldn't send that report. Try again.");
+      setError(e.message || t("report.failed"));
     } finally {
       setSending(false);
     }
@@ -69,20 +72,17 @@ export default function ReportSheet({ visible, onClose, targetType, targetId, ta
           {sent ? (
             <View style={styles.done}>
               <Text style={styles.doneIcon}>✅</Text>
-              <Text style={styles.title}>Thanks — that's with us</Text>
-              <Text style={styles.body}>
-                A moderator will look at it. If you'd rather not see this person at
-                all, you can block them from their profile.
-              </Text>
+              <Text style={styles.title}>{t("report.thanksTitle")}</Text>
+              <Text style={styles.body}>{t("report.thanksBody")}</Text>
               <Pressable style={styles.primary} onPress={onClose}>
-                <Text style={styles.primaryText}>Done</Text>
+                <Text style={styles.primaryText}>{t("common.done")}</Text>
               </Pressable>
             </View>
           ) : (
             <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-              <Text style={styles.title}>Report {targetType === "user" ? "this person" : "this meeting"}</Text>
+              <Text style={styles.title}>{targetType === "user" ? t("report.titleUser") : t("report.titleMeeting")}</Text>
               {targetLabel ? <Text style={styles.target} numberOfLines={1}>{targetLabel}</Text> : null}
-              <Text style={styles.body}>What's wrong with it?</Text>
+              <Text style={styles.body}>{t("report.whatsWrong")}</Text>
 
               {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -94,18 +94,18 @@ export default function ReportSheet({ visible, onClose, targetType, targetId, ta
                     onPress={() => setReason(r.id)}
                   >
                     <Text style={[styles.reasonText, reason === r.id && styles.reasonTextActive]}>
-                      {r.label}
+                      {localizedReportReason(t, r)}
                     </Text>
                   </Pressable>
                 ))}
               </View>
 
-              <Text style={styles.label}>Anything else? (optional)</Text>
+              <Text style={styles.label}>{t("report.anythingElse")}</Text>
               <TextInput
                 style={styles.input}
                 value={detail}
                 onChangeText={setDetail}
-                placeholder="Add anything that would help a moderator."
+                placeholder={t("report.detailPlaceholder")}
                 placeholderTextColor={theme.text3}
                 multiline
                 maxLength={500}
@@ -114,7 +114,7 @@ export default function ReportSheet({ visible, onClose, targetType, targetId, ta
 
               <View style={styles.actions}>
                 <Pressable style={styles.secondary} onPress={onClose}>
-                  <Text style={styles.secondaryText}>Cancel</Text>
+                  <Text style={styles.secondaryText}>{t("common.cancel")}</Text>
                 </Pressable>
                 <Pressable
                   style={[styles.primary, (!reason || sending) && styles.primaryInert]}
@@ -123,7 +123,7 @@ export default function ReportSheet({ visible, onClose, targetType, targetId, ta
                 >
                   {sending
                     ? <ActivityIndicator color={theme.accentOn} />
-                    : <Text style={[styles.primaryText, !reason && styles.primaryTextInert]}>Send report</Text>}
+                    : <Text style={[styles.primaryText, !reason && styles.primaryTextInert]}>{t("report.send")}</Text>}
                 </Pressable>
               </View>
             </ScrollView>
@@ -139,8 +139,8 @@ const makeStyles = (t) => StyleSheet.create({
   dock: { flex: 1, justifyContent: "flex-end" },
   sheet: {
     backgroundColor: t.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopStartRadius: 24,
+    borderTopEndRadius: 24,
     padding: 20,
     paddingBottom: 28,
     maxHeight: "88%",

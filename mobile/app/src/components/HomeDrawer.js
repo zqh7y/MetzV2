@@ -3,8 +3,9 @@ import {
   View, Text, StyleSheet, Pressable, Animated, ScrollView, useWindowDimensions, BackHandler,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
+import { I18nManager } from "react-native";
 
+import BrandMark from "./BrandMark";
 import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
 import { RADIUS, SHADOW } from "../styles/theme";
@@ -12,6 +13,7 @@ import {
   HomeIcon, PlusIcon, UserIcon, PencilIcon, GearIcon,
   ToolsIcon, ClockIcon, LogOutIcon, CloseIcon, CompassIcon, BellIcon, FlagIcon,
 } from "./NavIcons";
+import { useI18n } from "../context/LocaleContext";
 
 // The web port of templates/home_menu.html: Home has no bottom bar, so this
 // drawer holds everything the old nav did. Same items, same order, same
@@ -23,20 +25,20 @@ const DRAWER_MAX_WIDTH = 320;
 // Same items in the same order as the web drawer (templates/home_menu.html),
 // so someone moving between the two finds the menu unchanged.
 const NAV_ITEMS = [
-  { route: "Home", label: "Home", Icon: HomeIcon },
-  { route: "Explore", label: "Explore", Icon: CompassIcon },
-  { route: "Activity", label: "Activity", Icon: BellIcon, badgeKey: "activity" },
-  { route: "Inbox", label: "Inbox", Icon: BellIcon, badgeKey: "inbox" },
-  { route: "Create", label: "Create a meeting", Icon: PlusIcon },
-  { route: "Profile", label: "My profile", Icon: UserIcon },
-  { route: "EditProfile", label: "Edit profile", Icon: PencilIcon },
-  { route: "Settings", label: "Settings", Icon: GearIcon },
+  { route: "Home", labelKey: "drawer.home", Icon: HomeIcon },
+  { route: "Explore", labelKey: "drawer.explore", Icon: CompassIcon },
+  { route: "Activity", labelKey: "drawer.activity", Icon: BellIcon, badgeKey: "activity" },
+  { route: "Inbox", labelKey: "drawer.inbox", Icon: BellIcon, badgeKey: "inbox" },
+  { route: "Create", labelKey: "drawer.create", Icon: PlusIcon },
+  { route: "Profile", labelKey: "drawer.myProfile", Icon: UserIcon },
+  { route: "EditProfile", labelKey: "drawer.editProfile", Icon: PencilIcon },
+  { route: "Settings", labelKey: "drawer.settings", Icon: GearIcon },
 ];
 
 const ADMIN_ITEMS = [
-  { route: "AdminDashboard", label: "Dashboard", Icon: ToolsIcon },
-  { route: "AdminPending", label: "Review meetings", Icon: ClockIcon, badgeKey: "pending" },
-  { route: "AdminReports", label: "Reports", Icon: FlagIcon, badgeKey: "reports" },
+  { route: "AdminDashboard", labelKey: "drawer.dashboard", Icon: ToolsIcon },
+  { route: "AdminPending", labelKey: "drawer.reviewMeetings", Icon: ClockIcon, badgeKey: "pending" },
+  { route: "AdminReports", labelKey: "drawer.reports", Icon: FlagIcon, badgeKey: "reports" },
 ];
 
 export function MenuButton({ onPress, showDot }) {
@@ -75,7 +77,8 @@ function Item({ label, Icon, active, badge, onPress, styles, theme, index = 0, p
             translateX: progress.interpolate({
               inputRange: [0, 1],
               // Each row starts a little further out, so they land in sequence.
-              outputRange: [-14 - index * 4, 0],
+              // Outward is the opposite direction in an RTL layout.
+              outputRange: [(I18nManager.isRTL ? 1 : -1) * (14 + index * 4), 0],
             }),
           },
         ],
@@ -105,6 +108,7 @@ export default function HomeDrawer({
 }) {
   const { theme, reduceMotion } = useTheme();
   const insets = useSafeAreaInsets();
+  const { t } = useI18n();
   const { width: screenW } = useWindowDimensions();
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
@@ -147,9 +151,11 @@ export default function HomeDrawer({
     return () => sub.remove();
   }, [open, onClose]);
 
+  // Off-screen is to the left in LTR and to the right in RTL.
+  const hidden = I18nManager.isRTL ? width + 8 : -(width + 8);
   const translateX = slide.interpolate({
     inputRange: [0, 1],
-    outputRange: [-(width + 8), 0],
+    outputRange: [hidden, 0],
   });
 
   function go(route) {
@@ -171,17 +177,14 @@ export default function HomeDrawer({
         style={[styles.drawer, { width, paddingBottom: insets.bottom + 16, transform: [{ translateX }] }]}
       >
         <View style={[styles.head, { paddingTop: insets.top + 16 }]}>
-          <LinearGradient
-            colors={[theme.accent, theme.accentStrong]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.logo}
-          >
-            <Text style={styles.logoText}>M</Text>
-          </LinearGradient>
+          {/* Same mark as the launcher icon — see components/BrandMark.js. The
+              drawer sits on `surface`, not `bg`, so the lens takes that. */}
+          <View style={styles.logo}>
+            <BrandMark size={44} color={theme.accent} bg={theme.surface} />
+          </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.title}>Metz</Text>
-            <Text style={styles.sub}>Meet people nearby</Text>
+            <Text style={styles.sub}>{t("drawer.tagline")}</Text>
           </View>
           <Pressable style={styles.close} onPress={onClose} hitSlop={8}>
             <CloseIcon size={16} color={theme.text2} />
@@ -192,7 +195,7 @@ export default function HomeDrawer({
           {NAV_ITEMS.map((item, i) => (
             <Item
               key={item.route}
-              label={item.label}
+              label={t(item.labelKey)}
               Icon={item.Icon}
               active={activeRoute === item.route}
               badge={item.badgeKey === "activity" ? activityCount : item.badgeKey === "inbox" ? inboxCount : 0}
@@ -214,7 +217,7 @@ export default function HomeDrawer({
               {ADMIN_ITEMS.map((item, i) => (
                 <Item
                   key={item.route}
-                  label={item.label}
+                  label={t(item.labelKey)}
                   Icon={item.Icon}
                   active={activeRoute === item.route}
                   badge={item.badgeKey === "reports" ? reportCount : pendingCount}
@@ -243,14 +246,14 @@ const makeStyles = (t) => StyleSheet.create({
   // ── Floating pill on the map (.map-menu-btn) ─────────────────────────
   menuBtn: {
     position: "absolute",
-    left: 14,
+    start: 14,
     zIndex: 6,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
     paddingVertical: 9,
-    paddingLeft: 12,
-    paddingRight: 14,
+    paddingStart: 12,
+    paddingEnd: 14,
     borderRadius: 22,
     backgroundColor: "rgba(28, 28, 46, 0.86)",
     borderWidth: 1,
@@ -265,7 +268,7 @@ const makeStyles = (t) => StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: t.status.bad,
-    marginLeft: 2,
+    marginStart: 2,
   },
 
   // ── Scrim + panel ────────────────────────────────────────────────────
@@ -273,18 +276,18 @@ const makeStyles = (t) => StyleSheet.create({
   drawer: {
     position: "absolute",
     top: 0,
-    left: 0,
+    start: 0,
     bottom: 0,
     zIndex: 950,
     backgroundColor: t.surface,
-    borderRightWidth: 1,
-    borderRightColor: t.border,
+    borderEndWidth: 1,
+    borderEndColor: t.border,
     ...SHADOW.s3,
   },
 
   head: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingBottom: 16 },
-  logo: { width: 42, height: 42, borderRadius: 13, alignItems: "center", justifyContent: "center" },
-  logoText: { color: "#fff", fontSize: 20, fontFamily: FONTS.heading },
+  // The mark is 3:2 and sizes itself; the row just needs it vertically centred.
+  logo: { justifyContent: "center" },
   title: { fontSize: 17, fontFamily: FONTS.heading, color: t.text },
   sub: { fontSize: 12, color: t.text2 },
   close: {

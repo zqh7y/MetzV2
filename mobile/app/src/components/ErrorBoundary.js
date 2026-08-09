@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
+import { t } from "../i18n/active";
 
 /**
  * Catches render errors so one bad component does not take the app with it.
@@ -43,11 +44,8 @@ export default class ErrorBoundary extends React.Component {
       <View style={styles.page}>
         <ScrollView contentContainerStyle={styles.content}>
           <Text style={styles.emoji}>😵‍💫</Text>
-          <Text style={styles.title}>Something broke</Text>
-          <Text style={styles.body}>
-            That screen hit an error. Nothing you did caused it, and nothing you
-            saved is lost.
-          </Text>
+          <Text style={styles.title}>{t("error.title")}</Text>
+          <Text style={styles.body}>{t("error.body")}</Text>
 
           {__DEV__ ? (
             <View style={styles.devBox}>
@@ -56,7 +54,7 @@ export default class ErrorBoundary extends React.Component {
           ) : null}
 
           <TouchableOpacity style={styles.btn} onPress={this.handleRetry} activeOpacity={0.85}>
-            <Text style={styles.btnText}>Try again</Text>
+            <Text style={styles.btnText}>{t("common.tryAgain")}</Text>
           </TouchableOpacity>
         </ScrollView>
       </View>

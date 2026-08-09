@@ -1,5 +1,6 @@
 import math
 import hashlib
+import secrets
 import json
 import os
 import psycopg
@@ -210,9 +211,54 @@ def load_data():
             save_data()
 
 
-def get_all_meetings(status=None):
+# A meeting with no `visibility` key predates the feature and is public — the
+# default has to be the permissive one for old rows, but every *new* row is
+# written with the key set, so this only ever applies to history.
+PUBLIC = "public"
+PRIVATE = "private"
+
+
+def meeting_visibility(record):
+    """"public" or "private" for a stored meeting dict (or a model object)."""
+    if not isinstance(record, dict):
+        record = getattr(record, "__dict__", {}) or {}
+    return PRIVATE if record.get("visibility") == PRIVATE else PUBLIC
+
+
+def can_view_meeting(uid, record):
+    """Whether `uid` is allowed to see this meeting at all.
+
+    Public meetings are open. A private one is visible only to the person who
+    created it and to the people who have already joined — everyone else must
+    be given the link, and the link goes through the share page rather than
+    through the app's own listings.
+    """
+    if meeting_visibility(record) == PUBLIC:
+        return True
+    if not uid:
+        return False
+    if not isinstance(record, dict):
+        record = MEETINGS_DB.get(getattr(record, "id", None), {})
+    if record.get("creator_uid") == uid:
+        return True
+    return uid in (record.get("joined_uids") or [])
+
+
+def get_all_meetings(status=None, viewer_uid=None, include_private=False):
     """Return meetings as model objects, optionally filtered by status
-    ("approved" or "pending")."""
+    ("approved" or "pending").
+
+    Private meetings are dropped unless the caller opts in. That default is
+    deliberate and load-bearing: this is the one function every listing in both
+    apps goes through — the mobile home list, Explore (via routes/explore.py),
+    the admin queues — so defaulting to "hide" means a new listing added later
+    is private-safe without its author having to know this feature exists.
+    Getting it the other way round would leak silently.
+
+    `viewer_uid` adds back the private meetings that person is entitled to (the
+    ones they created or joined), so their own link-only meeting still appears
+    in their list. `include_private` is the admin escape hatch.
+    """
     from utils.models import meeting_from_dict
     # Deadlines take effect here rather than via a scheduler, so a meeting is
     # always in the right state by the time anyone looks at it.
@@ -220,10 +266,31 @@ def get_all_meetings(status=None):
     meetings = [meeting_from_dict(d) for d in MEETINGS_DB.values()]
     if status:
         meetings = [m for m in meetings if m.status == status]
+    if not include_private:
+        meetings = [
+            m for m in meetings
+            if can_view_meeting(viewer_uid, MEETINGS_DB.get(m.id, {}))
+        ]
     return meetings
 
 
-def add_meeting(meeting_obj, creator_uid=None):
+def find_meeting_by_slug(slug):
+    """The stored record whose share slug matches, or None.
+
+    A linear scan over an in-memory dict — the whole database already lives in
+    MEETINGS_DB, so an index would be a second thing to keep in step for no
+    gain at this size.
+    """
+    slug = (slug or "").strip()
+    if not slug:
+        return None
+    for record in MEETINGS_DB.values():
+        if record.get("share_slug") == slug:
+            return record
+    return None
+
+
+def add_meeting(meeting_obj, creator_uid=None, visibility=PUBLIC):
     """Add a meeting to MEETINGS_DB and record it on the creator's profile.
 
     Meetings from trusted users (and admins) go live immediately; everyone
@@ -241,6 +308,15 @@ def add_meeting(meeting_obj, creator_uid=None):
     # Stamped here rather than on the model so it survives to_dict/from_dict
     # untouched; used by the dashboard's "new this week" figure.
     record["created_at"] = datetime.now(timezone.utc).isoformat()
+    record["visibility"] = PRIVATE if visibility == PRIVATE else PUBLIC
+
+    # A private meeting is reachable only by its link, so the link must not be
+    # guessable. Ids are sequential — /m/2, /m/3 — which means a numeric URL
+    # would let anyone walk the whole table. token_urlsafe(7) is ~9 characters
+    # of CSPRNG output, short enough to paste into a group chat and far too
+    # large to enumerate. Public meetings keep their short /m/<id> links.
+    if record["visibility"] == PRIVATE:
+        record["share_slug"] = secrets.token_urlsafe(7)
     MEETINGS_DB[meeting_obj.id] = record
     save_data()
     return meeting_obj
@@ -1735,6 +1811,20 @@ def get_user(uid):
     return USERS_DB.get(uid)
 
 
+# ── How often touch_last_online is allowed to reach the database ─────────────
+# It runs from a before_request hook in both apps and save_data() rewrites
+# every row of every table, so persisting a "last seen" stamp used to make a
+# full database rewrite the price of serving any request at all. The stamp is
+# still updated in memory on every request; only the write is throttled.
+#
+# Losing up to this much precision on a restart is the whole cost, and in
+# practice usually not even that: save_data() writes the entirety of USERS_DB,
+# so any other call to it in the meantime — joining, posting, a discussion
+# message — flushes the pending stamp as a side effect.
+_LAST_ONLINE_SAVE_INTERVAL = timedelta(minutes=5)
+_last_online_saved_at = None
+
+
 def touch_last_online(uid):
     """Update a user's last-seen timestamp.
 
@@ -1745,15 +1835,30 @@ def touch_last_online(uid):
     value still exists, and only when it is long enough to mean a new visit
     rather than the next request of the one already in progress.
     """
+    global _last_online_saved_at
+
     user = USERS_DB.get(uid)
     if not user:
         return
     now = datetime.now(timezone.utc)
     gap_hours = _hours_since(user.get("last_online"), now)
-    if gap_hours is not None and gap_hours >= 1:
+    returning = gap_hours is not None and gap_hours >= 1
+    if returning:
         user["last_absence_hours"] = gap_hours
     user["last_online"] = now.isoformat()
-    save_data()
+
+    # A returning visit is written through immediately rather than waiting for
+    # the interval: last_absence_hours was derived from the previous stamp,
+    # which the line above has just overwritten, so a process that died before
+    # the next flush would take the only copy of it with it. The plain stamp
+    # can wait — it is recomputed from scratch on the next request either way.
+    due = (
+        _last_online_saved_at is None
+        or now - _last_online_saved_at >= _LAST_ONLINE_SAVE_INTERVAL
+    )
+    if returning or due:
+        _last_online_saved_at = now
+        save_data()
 
 
 def user_pass(uid, meeting_id):

@@ -81,7 +81,7 @@ const makeStyles = (t) => StyleSheet.create({
   },
   top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 },
   label: { flex: 1, fontSize: 11.5, fontFamily: FONTS.accent },
-  deadline: { fontSize: 10.5, fontFamily: FONTS.bodySemi, color: t.text3, marginLeft: 8 },
+  deadline: { fontSize: 10.5, fontFamily: FONTS.bodySemi, color: t.text3, marginStart: 8 },
   track: { height: 6, borderRadius: 4, backgroundColor: t.surface3, overflow: "hidden" },
   fill: { height: "100%", borderRadius: 4 },
   full: { fontSize: 10.5, color: t.status.warn, fontFamily: FONTS.bodySemi, marginTop: 6 },

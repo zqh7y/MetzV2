@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { useTheme } from "../context/ThemeContext";
+import { useI18n } from "../context/LocaleContext";
 import { FONTS } from "../styles/fonts";
 
 // The scoring in auth_base.html's inline script. Advisory only — the server is
@@ -16,7 +17,8 @@ export function scorePassword(v) {
   return Math.max(1, Math.min(4, score));
 }
 
-const WORDS = ["", "Weak", "Fair", "Good", "Strong"];
+// Keyed rather than literal so the meter reads in the user's language.
+const WORD_KEYS = ["", "strength.weak", "strength.fair", "strength.good", "strength.strong"];
 // .auth-strength[data-level="N"] .auth-strength-fill
 const LEVELS = {
   1: { width: "25%", color: "#e74c3c" },
@@ -28,6 +30,7 @@ const LEVELS = {
 /** .auth-strength — reserves its own line so the button never jumps. */
 export default function AuthStrength({ value }) {
   const { theme } = useTheme();
+  const { t } = useI18n();
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
   const level = scorePassword(value);
@@ -38,7 +41,7 @@ export default function AuthStrength({ value }) {
       <View style={styles.track}>
         {fill ? <View style={[styles.fill, { width: fill.width, backgroundColor: fill.color }]} /> : null}
       </View>
-      <Text style={styles.label}>{WORDS[level]}</Text>
+      <Text style={styles.label}>{level ? t(WORD_KEYS[level]) : ""}</Text>
     </View>
   );
 }
@@ -51,7 +54,7 @@ const makeStyles = (t) => StyleSheet.create({
     borderRadius: 3,
     backgroundColor: t.surface3,
     overflow: "hidden",
-    marginRight: 9,
+    marginEnd: 9,
   },
   fill: { height: "100%", borderRadius: 3 },
   label: {

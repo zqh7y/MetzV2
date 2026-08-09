@@ -104,6 +104,16 @@ export const MapPinIcon = (p) => (
   </Icon>
 );
 
+// The recentre control on Home. A ring with a centre dot and four ticks —
+// the conventional "find me" glyph, so it needs no label to be understood.
+export const CrosshairIcon = (p) => (
+  <Icon {...p}>
+    <Circle cx="12" cy="12" r="7" />
+    <Circle cx="12" cy="12" r="1.6" />
+    <Path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+  </Icon>
+);
+
 export const GlobeIcon = (p) => (
   <Icon {...p}>
     <Circle cx="12" cy="12" r="9" />

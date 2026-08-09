@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 
 import { useTheme } from "../context/ThemeContext";
+import { useI18n } from "../context/LocaleContext";
 import { FONTS } from "../styles/fonts";
 import { RADIUS } from "../styles/theme";
 
@@ -13,13 +14,14 @@ import { RADIUS } from "../styles/theme";
  */
 export default function SavedAccounts({ accounts, onPick }) {
   const { theme } = useTheme();
+  const { t } = useI18n();
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
   if (!accounts?.length) return null;
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.label}>Continue as</Text>
+      <Text style={styles.label}>{t("login.continueAs")}</Text>
       {accounts.map((account) => {
         const name = account.name || account.email || account.uid;
         return (

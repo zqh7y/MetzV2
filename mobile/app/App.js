@@ -12,6 +12,7 @@ import { FONTS } from "./src/styles/fonts";
 
 import { AuthProvider, useAuth } from "./src/context/AuthContext";
 import { ThemeProvider, useTheme } from "./src/context/ThemeContext";
+import { LocaleProvider, useI18n } from "./src/context/LocaleContext";
 import LoginScreen from "./src/screens/LoginScreen";
 import SignupScreen from "./src/screens/SignupScreen";
 import VerifyScreen from "./src/screens/VerifyScreen";
@@ -30,6 +31,7 @@ import ExploreScreen from "./src/screens/ExploreScreen";
 import ActivityScreen from "./src/screens/ActivityScreen";
 import InboxScreen from "./src/screens/InboxScreen";
 import ErrorBoundary from "./src/components/ErrorBoundary";
+import BrandSplash from "./src/components/BrandSplash";
 
 const AuthStack = createNativeStackNavigator();
 const RootStack = createNativeStackNavigator();
@@ -53,6 +55,9 @@ function AuthNavigator() {
 
 function MainNavigator() {
   const { theme } = useTheme();
+  // Reading `t` from the hook rather than the plain import is what re-titles
+  // every header the moment the language changes, with no relaunch.
+  const { t } = useI18n();
 
   // One flat stack, no tab bar: the web dropped its bottom nav in favour of
   // the hamburger drawer on Home, and this mirrors that. Create and Profile
@@ -73,34 +78,40 @@ function MainNavigator() {
           .create-header), so a nav title too would say the same thing twice.
           The header stays mounted for the back chevron. */}
       <RootStack.Screen name="Create" component={CreateScreen} options={{ title: "" }} />
-      <RootStack.Screen name="Explore" component={ExploreScreen} options={{ title: "Explore" }} />
-      <RootStack.Screen name="Activity" component={ActivityScreen} options={{ title: "Activity" }} />
-      <RootStack.Screen name="Inbox" component={InboxScreen} options={{ title: "Inbox" }} />
-      <RootStack.Screen name="Profile" component={ProfileScreen} options={{ title: "My profile" }} />
-      <RootStack.Screen name="MeetingDetail" component={MeetingDetailScreen} options={{ title: "Meeting" }} />
-      <RootStack.Screen name="AdminPending" component={AdminPendingScreen} options={{ title: "Pending Meetings" }} />
-      <RootStack.Screen name="UserProfile" component={UserProfileScreen} options={{ title: "Profile" }} />
-      <RootStack.Screen name="Settings" component={SettingsScreen} options={{ title: "Settings" }} />
-      <RootStack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: "Edit profile" }} />
-      <RootStack.Screen name="AdminDashboard" component={AdminDashboardScreen} options={{ title: "Dashboard" }} />
-      <RootStack.Screen name="AdminReports" component={AdminReportsScreen} options={{ title: "Reports" }} />
+      <RootStack.Screen name="Explore" component={ExploreScreen} options={{ title: t("nav.explore") }} />
+      <RootStack.Screen name="Activity" component={ActivityScreen} options={{ title: t("nav.activity") }} />
+      <RootStack.Screen name="Inbox" component={InboxScreen} options={{ title: t("nav.inbox") }} />
+      <RootStack.Screen name="Profile" component={ProfileScreen} options={{ title: t("nav.myProfile") }} />
+      <RootStack.Screen name="MeetingDetail" component={MeetingDetailScreen} options={{ title: t("nav.meeting") }} />
+      <RootStack.Screen name="AdminPending" component={AdminPendingScreen} options={{ title: t("nav.pendingMeetings") }} />
+      <RootStack.Screen name="UserProfile" component={UserProfileScreen} options={{ title: t("nav.profile") }} />
+      <RootStack.Screen name="Settings" component={SettingsScreen} options={{ title: t("nav.settings") }} />
+      <RootStack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: t("nav.editProfile") }} />
+      <RootStack.Screen name="AdminDashboard" component={AdminDashboardScreen} options={{ title: t("nav.dashboard") }} />
+      <RootStack.Screen name="AdminReports" component={AdminReportsScreen} options={{ title: t("nav.reports") }} />
     </RootStack.Navigator>
   );
 }
 
 function Root() {
-  const { uid, booting } = useAuth();
+  const { uid, booting, switching } = useAuth();
   const { theme, scheme, loaded } = useTheme();
+  // Same reason as the theme: rendering before the stored language lands would
+  // paint one frame of English at someone who chose Arabic.
+  const { loaded: localeLoaded } = useI18n();
 
   // Wait for the saved preference as well as the session, or the first frame
   // flashes light before a dark-mode user's choice lands.
-  if (booting || !loaded) {
+  if (booting || !loaded || !localeLoaded) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: theme.bg }}>
         <ActivityIndicator size="large" color={theme.accent} />
       </View>
     );
   }
+
+  // Covers the remount above with the brand screen rather than a blank frame.
+  if (switching) return <BrandSplash />;
 
   return (
     <NavigationContainer
@@ -117,7 +128,11 @@ function Root() {
       }}
     >
       <StatusBar style={scheme === "dark" ? "light" : "dark"} />
-      {uid ? <MainNavigator /> : <AuthNavigator />}
+      {/* Keyed on the uid so switching accounts remounts every screen instead
+          of leaving them holding the previous person's data. Without this a
+          private meeting the last account could see stayed on the list, since
+          nothing ever refetched it under the new token. */}
+      {uid ? <MainNavigator key={uid} /> : <AuthNavigator />}
     </NavigationContainer>
   );
 }
@@ -154,11 +169,16 @@ export default function App() {
     // throws, a boundary nested inside them would go down with it.
     <ErrorBoundary>
       <SafeAreaProvider>
-        <ThemeProvider>
-          <AuthProvider>
-            <Root />
-          </AuthProvider>
-        </ThemeProvider>
+        {/* Outside ThemeProvider so that a screen can translate a label while
+            the theme is still resolving, and so the language is set before
+            anything below it renders its first frame. */}
+        <LocaleProvider>
+          <ThemeProvider>
+            <AuthProvider>
+              <Root />
+            </AuthProvider>
+          </ThemeProvider>
+        </LocaleProvider>
       </SafeAreaProvider>
     </ErrorBoundary>
   );

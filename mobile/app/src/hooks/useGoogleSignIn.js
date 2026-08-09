@@ -10,6 +10,7 @@ import {
   GOOGLE_IOS_CLIENT_ID,
   GOOGLE_AUTH_READY,
 } from "../config";
+import { t } from "../i18n/active";
 
 // Lets the browser tab that handled the sign-in hand control straight back to
 // the app instead of being left open behind it. Called at module scope because
@@ -52,7 +53,7 @@ export default function useGoogleSignIn() {
       // "dismiss" and "cancel" are someone changing their mind, which is not
       // an error and should leave the screen exactly as it was.
       if (response.type === "error") {
-        setError(response.error?.message || "Google sign-in failed. Please try again.");
+        setError(response.error?.message || t("google.failed"));
       }
       setBusy(false);
       return;
@@ -72,7 +73,7 @@ export default function useGoogleSignIn() {
       // for the second answer.
       if (response.params?.code) return undefined;
 
-      setError("Google didn't return a usable sign-in token.");
+      setError(t("google.noToken"));
       setBusy(false);
       return undefined;
     }
@@ -97,7 +98,7 @@ export default function useGoogleSignIn() {
         storeSession(data.uid, data.token);
       })
       .catch((e) => {
-        if (!cancelled) setError(e.message || "Could not finish signing in.");
+        if (!cancelled) setError(e.message || t("google.couldNotFinish"));
       })
       .finally(() => {
         if (!cancelled) setBusy(false);
@@ -112,7 +113,7 @@ export default function useGoogleSignIn() {
     try {
       await promptAsync();
     } catch (e) {
-      setError(e?.message || "Could not open Google sign-in.");
+      setError(e?.message || t("google.couldNotOpen"));
       setBusy(false);
     }
     // busy stays true on success: the effect above clears it once the token has

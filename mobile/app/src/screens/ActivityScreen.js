@@ -14,6 +14,7 @@ import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
 import { RADIUS, SHADOW } from "../styles/theme";
 import { formatWhen, formatRelative } from "../utils/time";
+import { useI18n } from "../context/LocaleContext";
 
 /**
  * Activity — everything that currently wants something from you.
@@ -27,52 +28,18 @@ import { formatWhen, formatRelative } from "../utils/time";
  * then what is coming up, then what is merely for information.
  */
 const SECTIONS = [
-  {
-    key: "needs_checkin",
-    title: "Did you go?",
-    blurb: "These are over. Confirming is what your show-up rate is built from.",
-    tone: "action",
-  },
-  {
-    key: "needs_attendance",
-    title: "Mark who came",
-    blurb: "You organised these and haven't said who turned up.",
-    tone: "action",
-  },
-  {
-    key: "needs_decision",
-    title: "Your call",
-    blurb: "These missed their minimum by the deadline. Decide what happens.",
-    tone: "action",
-  },
-  {
-    key: "coming_up",
-    title: "Coming up",
-    blurb: "Meetings you've joined in the next week.",
-    tone: "info",
-  },
-  {
-    key: "waitlisted",
-    title: "You're on the waitlist",
-    blurb: "You move up automatically if someone drops out.",
-    tone: "info",
-  },
-  {
-    key: "waiting",
-    title: "Waiting for review",
-    blurb: "Yours, not visible to anyone else until an admin approves them.",
-    tone: "info",
-  },
-  {
-    key: "settled",
-    title: "Settled",
-    blurb: "Confirmed or called off — for information.",
-    tone: "info",
-  },
+  { key: "needs_checkin", tone: "action" },
+  { key: "needs_attendance", tone: "action" },
+  { key: "needs_decision", tone: "action" },
+  { key: "coming_up", tone: "info" },
+  { key: "waitlisted", tone: "info" },
+  { key: "waiting", tone: "info" },
+  { key: "settled", tone: "info" },
 ];
 
 export default function ActivityScreen({ navigation }) {
   const { theme } = useTheme();
+  const { t } = useI18n();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
 
@@ -127,7 +94,7 @@ export default function ActivityScreen({ navigation }) {
       }
     } catch (e) {
       setData(before);   // put the row back; nothing was recorded
-      Alert.alert("Couldn't save that", e.message || "Please try again.");
+      Alert.alert(t("activity.saveFailed"), e.message || t("common.pleaseTryAgain"));
     } finally {
       setAnswering((prev) => {
         const next = { ...prev };
@@ -160,9 +127,9 @@ export default function ActivityScreen({ navigation }) {
   if (failed || !data) {
     return (
       <View style={styles.centered}>
-        <Text style={styles.emptyTitle}>Couldn't load Activity.</Text>
+        <Text style={styles.emptyTitle}>{t("activity.loadFailed")}</Text>
         <TouchableOpacity style={styles.retry} onPress={() => { setLoading(true); load(); }}>
-          <Text style={styles.retryText}>Retry</Text>
+          <Text style={styles.retryText}>{t("common.retry")}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -187,13 +154,13 @@ export default function ActivityScreen({ navigation }) {
           <View style={{ flex: 1 }}>
             <Text style={styles.heroTitle}>
               {data.action_count === 0
-                ? "Nothing needs you"
-                : data.action_count === 1 ? "1 thing needs you" : `${data.action_count} things need you`}
+                ? t("activity.nothingNeedsYou")
+                : t("activity.thingsNeedYou", { count: data.action_count })}
             </Text>
             <Text style={styles.heroSub}>
               {data.action_count === 0
-                ? "You're all caught up."
-                : "Answers here keep your show-up rate honest."}
+                ? t("activity.allCaughtUp")
+                : t("activity.answersKeepHonest")}
             </Text>
           </View>
         </View>
@@ -206,12 +173,10 @@ export default function ActivityScreen({ navigation }) {
       {nothing ? (
         <Appear delay={120}>
           <View style={styles.emptyBox}>
-            <Text style={styles.emptyTitle}>All clear</Text>
-            <Text style={styles.emptyBody}>
-              Nothing waiting, nothing coming up in the next week. Have a look at Explore.
-            </Text>
+            <Text style={styles.emptyTitle}>{t("activity.allClear")}</Text>
+            <Text style={styles.emptyBody}>{t("activity.allClearBody")}</Text>
             <TouchableOpacity style={styles.retry} onPress={() => navigation.navigate("Explore")}>
-              <Text style={styles.retryText}>Open Explore</Text>
+              <Text style={styles.retryText}>{t("activity.openExplore")}</Text>
             </TouchableOpacity>
           </View>
         </Appear>
@@ -220,7 +185,7 @@ export default function ActivityScreen({ navigation }) {
           <View style={styles.section}>
             <View style={styles.sectionHead}>
               <Text style={[styles.sectionTitle, section.tone === "action" && styles.sectionTitleAction]}>
-                {section.title}
+                {t(`activity.section.${section.key}.title`)}
               </Text>
               <View style={[styles.pill, section.tone === "action" && styles.pillAction]}>
                 <Text style={[styles.pillText, section.tone === "action" && styles.pillTextAction]}>
@@ -228,7 +193,7 @@ export default function ActivityScreen({ navigation }) {
                 </Text>
               </View>
             </View>
-            <Text style={styles.sectionBlurb}>{section.blurb}</Text>
+            <Text style={styles.sectionBlurb}>{t(`activity.section.${section.key}.blurb`)}</Text>
 
             {data[section.key].map((card) => (
               <View key={`${section.key}-${card.id}`}>
@@ -249,7 +214,7 @@ export default function ActivityScreen({ navigation }) {
                         ? <GlobeIcon size={11} color={theme.text3} />
                         : <MapPinIcon size={11} color={theme.text3} />}
                       <Text style={styles.rowWhere} numberOfLines={1}>
-                        {card.where || (card.is_online ? "Online" : "")}
+                        {card.where || (card.is_online ? t("common.online") : "")}
                       </Text>
                     </View>
                   </View>
@@ -275,14 +240,14 @@ export default function ActivityScreen({ navigation }) {
                           activeOpacity={0.85}
                           onPress={() => handleCheckIn(card, "went")}
                         >
-                          <Text style={styles.answerWentText}>✓  I went</Text>
+                          <Text style={styles.answerWentText}>{`✓  ${t("activity.iWent")}`}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={[styles.answerBtn, styles.answerMissed]}
                           activeOpacity={0.85}
                           onPress={() => handleCheckIn(card, "missed")}
                         >
-                          <Text style={styles.answerMissedText}>✕  I didn't</Text>
+                          <Text style={styles.answerMissedText}>{`✕  ${t("activity.iDidnt")}`}</Text>
                         </TouchableOpacity>
                       </>
                     )}
@@ -352,7 +317,7 @@ const makeStyles = (t) => StyleSheet.create({
 
   // Inline answer for "Did you go?". Indented to the row's text so it
   // reads as belonging to that meeting rather than to the section.
-  answerRow: { flexDirection: "row", gap: 8, paddingLeft: 49, paddingBottom: 10, alignItems: "center" },
+  answerRow: { flexDirection: "row", gap: 8, paddingStart: 49, paddingBottom: 10, alignItems: "center" },
   answerBtn: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: RADIUS.pill, borderWidth: 1 },
   answerWent: { backgroundColor: t.status.goodSoft, borderColor: t.status.good },
   answerWentText: { fontSize: 12.5, fontFamily: FONTS.bodySemi, color: t.status.good },

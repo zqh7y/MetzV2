@@ -32,9 +32,12 @@ from dotenv import load_dotenv
 
 load_dotenv(os.path.join(_ROOT, ".env"))
 
-from flask import Flask, request, jsonify, render_template, make_response
+from flask import Flask, request, jsonify, render_template, make_response, abort
 
-from data import touch_last_online, is_banned, public_meeting, add_guest
+from data import (
+    touch_last_online, is_banned, public_meeting, add_guest,
+    MEETINGS_DB, meeting_visibility, find_meeting_by_slug, PRIVATE,
+)
 
 from utils.security import rate_limit_exceeded, client_ip
 
@@ -189,8 +192,17 @@ def terms():
 # no CSRF, nothing shared but the data layer.
 
 def _share_url(meeting_id):
-    """Absolute, because it goes in og:url and into other people's messages."""
-    return request.url_root.rstrip("/") + f"/m/{meeting_id}"
+    """Absolute, because it goes in og:url and into other people's messages.
+
+    Private meetings are addressed by their slug, never their id — the ids run
+    1, 2, 3, so a numeric link would let anyone walk the table and find every
+    private meeting on the platform.
+    """
+    root = request.url_root.rstrip("/")
+    record = MEETINGS_DB.get(meeting_id, {})
+    if meeting_visibility(record) == PRIVATE and record.get("share_slug"):
+        return f"{root}/m/{record['share_slug']}"
+    return f"{root}/m/{meeting_id}"
 
 
 def _when_text(value):
@@ -237,14 +249,45 @@ def _render_share(meeting_id, error="", joined=False):
 
 @app.route("/m/<int:meeting_id>")
 def share_meeting(meeting_id):
+    # A private meeting is not reachable by its number. Returning 404 rather
+    # than a redirect to the slug matters: a redirect would confirm that the
+    # meeting exists and hand over the secret link to whoever guessed the id.
+    if meeting_visibility(MEETINGS_DB.get(meeting_id, {})) == PRIVATE:
+        abort(404)
     # The cookie is not a login — it only stops the same browser being counted
     # twice and shows the person they are already down, since there is no way
     # to un-join.
     return _render_share(meeting_id, joined=request.cookies.get(f"metz_g{meeting_id}") == "1")
 
 
+@app.route("/m/<slug>")
+def share_meeting_by_slug(slug):
+    """The private form of the share page.
+
+    Registered after the int rule so Flask still routes /m/2 to the numeric
+    handler; this only catches the non-numeric slugs.
+    """
+    record = find_meeting_by_slug(slug)
+    if record is None:
+        abort(404)
+    meeting_id = record.get("id")
+    return _render_share(meeting_id, joined=request.cookies.get(f"metz_g{meeting_id}") == "1")
+
+
+@app.route("/m/<slug>/join", methods=["POST"])
+def share_meeting_join_by_slug(slug):
+    """Joining from a private link — the same flow, reached by slug."""
+    record = find_meeting_by_slug(slug)
+    if record is None:
+        abort(404)
+    return share_meeting_join(record.get("id"))
+
+
 @app.route("/m/<int:meeting_id>/join", methods=["POST"])
 def share_meeting_join(meeting_id):
+    if meeting_visibility(MEETINGS_DB.get(meeting_id, {})) == PRIVATE             and request.path.startswith(f"/m/{meeting_id}"):
+        # Reached by number rather than by slug — same refusal as the page.
+        abort(404)
     if request.cookies.get(f"metz_g{meeting_id}") == "1":
         return _render_share(meeting_id, joined=True)
 

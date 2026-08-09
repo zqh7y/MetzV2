@@ -1,6 +1,11 @@
-// Port of static/time-utils.js. The wording is deliberately identical — a
-// meeting that reads "2 days and 3h left till start" on the web should not
-// read something else in the app.
+// Port of static/time-utils.js, now translated.
+//
+// These are plain functions called from render bodies all over the app, so they
+// read the active language from ../i18n/active rather than taking a `t`
+// argument — threading one through every formatWhen() call site would touch
+// dozens of files to say the same thing. LocaleProvider sets that language
+// during its own render, before any caller runs.
+import { t } from "../i18n/active";
 
 /** "2026-08-06 12:00" -> Date, or null if the server sent something odd. */
 export function parseTime(value) {
@@ -15,7 +20,7 @@ export function formatTimeUntil(timeStr) {
   if (!target) return timeStr;
 
   const diffMs = target.getTime() - Date.now();
-  if (diffMs <= 0) return "Already started";
+  if (diffMs <= 0) return t("time.alreadyStarted");
 
   const totalMinutes = Math.floor(diffMs / 60000);
   const days = Math.floor(totalMinutes / (60 * 24));
@@ -23,11 +28,11 @@ export function formatTimeUntil(timeStr) {
   const minutes = totalMinutes % 60;
 
   const parts = [];
-  if (days > 0) parts.push(`${days} ${days === 1 ? "day" : "days"}`);
-  if (hours > 0) parts.push(`${hours}h`);
-  if (days === 0 && hours === 0) parts.push(`${minutes} min`);
+  if (days > 0) parts.push(t("time.days", { count: days }));
+  if (hours > 0) parts.push(t("time.hoursShort", { count: hours }));
+  if (days === 0 && hours === 0) parts.push(t("time.minutesShort", { count: minutes }));
 
-  return `${parts.join(" and ")} left till start`;
+  return t("time.leftTillStart", { parts: parts.join(` ${t("time.and")} `) });
 }
 
 /** A ticking clock rather than a rounded phrase. */
@@ -38,14 +43,24 @@ export function formatCountdown(totalSeconds) {
   const minutes = Math.floor((total % 3600) / 60);
   const seconds = total % 60;
 
-  if (days > 0) return `${days}d ${hours}h ${minutes}m`;
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  if (minutes > 0) return `${minutes}m ${seconds}s`;
-  return `${seconds}s`;
+  // Unit letters are translated too: "d/h/m/s" mean nothing in Hebrew or Russian.
+  const d = t("time.unitD", { count: days });
+  const h = t("time.unitH", { count: hours });
+  const m = t("time.unitM", { count: minutes });
+  const sec = t("time.unitS", { count: seconds });
+
+  if (days > 0) return `${d} ${h} ${m}`;
+  if (hours > 0) return `${h} ${m}`;
+  if (minutes > 0) return `${m} ${sec}`;
+  return sec;
 }
 
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+// Looked up per call rather than built once at import: a module-level array
+// would freeze whatever language the app started in.
+const DAY_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+const MONTH_KEYS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+export const dayName = (i) => t(`date.${DAY_KEYS[i]}`);
+export const monthName = (i) => t(`date.${MONTH_KEYS[i]}`);
 const pad = (n) => String(n).padStart(2, "0");
 
 /**
@@ -68,11 +83,11 @@ export function formatWhen(timeStr) {
   tomorrow.setDate(now.getDate() + 1);
 
   const clock = `${pad(at.getHours())}:${pad(at.getMinutes())}`;
-  if (sameDay(at, now)) return `Today · ${clock}`;
-  if (sameDay(at, tomorrow)) return `Tomorrow · ${clock}`;
+  if (sameDay(at, now)) return `${t("time.today")} · ${clock}`;
+  if (sameDay(at, tomorrow)) return `${t("time.tomorrow")} · ${clock}`;
 
   const year = at.getFullYear() === now.getFullYear() ? "" : ` ${at.getFullYear()}`;
-  return `${DAYS[at.getDay()]} ${at.getDate()} ${MONTHS[at.getMonth()]}${year} · ${clock}`;
+  return `${dayName(at.getDay())} ${at.getDate()} ${monthName(at.getMonth())}${year} · ${clock}`;
 }
 
 /**
@@ -87,22 +102,22 @@ export function formatRelative(timeStr) {
   if (!at) return "";
 
   const diffMs = at.getTime() - Date.now();
-  if (diffMs <= 0) return "Started";
+  if (diffMs <= 0) return t("time.started");
 
   const minutes = Math.floor(diffMs / 60000);
-  if (minutes < 60) return `in ${Math.max(1, minutes)} min`;
+  if (minutes < 60) return t("time.inMinutes", { count: Math.max(1, minutes) });
 
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `in ${hours}h`;
+  if (hours < 24) return t("time.inHours", { count: hours });
 
   const days = Math.floor(hours / 24);
-  if (days < 7) return `in ${days} ${days === 1 ? "day" : "days"}`;
+  if (days < 7) return t("time.inDays", { count: days });
 
   const weeks = Math.floor(days / 7);
-  if (days < 30) return `in ${weeks} ${weeks === 1 ? "week" : "weeks"}`;
+  if (days < 30) return t("time.inWeeks", { count: weeks });
 
   const months = Math.floor(days / 30);
-  return `in ${months} ${months === 1 ? "month" : "months"}`;
+  return t("time.inMonths", { count: months });
 }
 
 /**
@@ -120,20 +135,20 @@ export function formatAgo(timeStr) {
   const diffMs = Date.now() - at.getTime();
   // A phone whose clock runs behind the server's would otherwise render a
   // just-posted comment as a negative age. "just now" is the honest answer.
-  if (diffMs < 60000) return "just now";
+  if (diffMs < 60000) return t("time.justNow");
 
   const minutes = Math.floor(diffMs / 60000);
-  if (minutes < 60) return `${minutes} min ago`;
+  if (minutes < 60) return t("time.minutesAgo", { count: minutes });
 
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return t("time.hoursAgo", { count: hours });
 
   const days = Math.floor(hours / 24);
-  if (days < 7) return `${days} ${days === 1 ? "day" : "days"} ago`;
+  if (days < 7) return t("time.daysAgo", { count: days });
 
   const weeks = Math.floor(days / 7);
-  if (days < 30) return `${weeks} ${weeks === 1 ? "week" : "weeks"} ago`;
+  if (days < 30) return t("time.weeksAgo", { count: weeks });
 
   const months = Math.floor(days / 30);
-  return `${months} ${months === 1 ? "month" : "months"} ago`;
+  return t("time.monthsAgo", { count: months });
 }

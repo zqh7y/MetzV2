@@ -21,6 +21,7 @@ import { formatTimeUntil, formatAgo } from "../utils/time";
 // points at the web app's port and would 404 in development.
 import { API_BASE_URL as SHARE_BASE_URL } from "../config";
 import { fetchRoute, formatRoute } from "../utils/route";
+import { useI18n } from "../context/LocaleContext";
 
 // Mirrors the web's /meeting/<id> page: a tinted hero, then the details in
 // bordered sections on the neutral background.
@@ -28,6 +29,7 @@ export default function MeetingDetailScreen({ route, navigation }) {
   const { meeting } = route.params;
   const { uid, refreshProfile } = useAuth();
   const { theme } = useTheme();
+  const { t } = useI18n();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const isOnline = meeting.type === "OnlineMeeting";
 
@@ -74,7 +76,7 @@ export default function MeetingDetailScreen({ route, navigation }) {
   /** Hand off to whatever maps app the phone actually has. */
   const openInMaps = useCallback(() => {
     if (!hasPlace) return;
-    const label = encodeURIComponent(meeting.title || "Meeting");
+    const label = encodeURIComponent(meeting.title || t("nav.meeting"));
     const url = Platform.select({
       // Apple Maps takes a saddr/daddr pair; geo: is the Android intent, and
       // both fall back to the destination alone if there is no origin yet.
@@ -130,7 +132,7 @@ export default function MeetingDetailScreen({ route, navigation }) {
     } catch (e) {
       // Posting is deliberate, so failing silently would be wrong here — unlike
       // a background refresh, the user is waiting to see their words appear.
-      Alert.alert("Could not post", e.message || "Please try again.");
+      Alert.alert(t("detail.couldNotPost"), e.message || t("common.pleaseTryAgain"));
     } finally {
       setPosting(false);
     }
@@ -144,7 +146,10 @@ export default function MeetingDetailScreen({ route, navigation }) {
    * and on services that do not unfurl, it never says anything at all.
    */
   const handleShare = useCallback(async () => {
-    const url = `${SHARE_BASE_URL}/m/${meeting.id}`;
+    // Private meetings are addressed by an unguessable slug that only the
+    // server knows, so the link comes from the API rather than being rebuilt
+    // from the id here. The fallback keeps older cached meetings working.
+    const url = meeting.share_url || `${SHARE_BASE_URL}/m/${meeting.id}`;
     try {
       await Share.share({
         message: `${meeting.title} — ${meeting.time}
@@ -159,7 +164,10 @@ ${url}`,
 
   /** Just the address, so it can go straight into a browser or a message. */
   const handleCopyLink = useCallback(async () => {
-    const url = `${SHARE_BASE_URL}/m/${meeting.id}`;
+    // Private meetings are addressed by an unguessable slug that only the
+    // server knows, so the link comes from the API rather than being rebuilt
+    // from the id here. The fallback keeps older cached meetings working.
+    const url = meeting.share_url || `${SHARE_BASE_URL}/m/${meeting.id}`;
     try {
       await Clipboard.setStringAsync(url);
       setCopiedLink(true);
@@ -167,15 +175,15 @@ ${url}`,
     } catch (e) {
       // Clipboard unavailable: show the link so it can be copied by hand
       // rather than leaving a tap that appears to do nothing.
-      Alert.alert("Meeting link", url);
+      Alert.alert(t("detail.meetingLink"), url);
     }
   }, [meeting.id]);
 
   const handleDeleteComment = useCallback((comment) => {
-    Alert.alert("Delete comment?", "This cannot be undone.", [
-      { text: "Cancel", style: "cancel" },
+    Alert.alert(t("detail.deleteComment"), t("detail.cannotUndo"), [
+      { text: t("common.cancel"), style: "cancel" },
       {
-        text: "Delete",
+        text: t("common.delete"),
         style: "destructive",
         onPress: async () => {
           const before = comments;
@@ -184,7 +192,7 @@ ${url}`,
             await api.deleteComment(meeting.id, comment.id);
           } catch (e) {
             setComments(before);   // the server refused; put it back
-            Alert.alert("Could not delete", e.message || "Please try again.");
+            Alert.alert(t("detail.couldNotDelete"), e.message || t("common.pleaseTryAgain"));
           }
         },
       },
@@ -211,13 +219,13 @@ ${url}`,
       } else if (nowJoined) {
         text = `You're in — ${meeting.time}. It's in My Meetings on your profile.`;
       } else {
-        text = "You've left this meeting. Your spot is free for someone else.";
+        text = t("detail.leftMeeting");
       }
       setNotice({ kind: "ok", text });
       loadAttendees();
       refreshProfile();
     } catch (e) {
-      setNotice({ kind: "bad", text: e.message || "That didn't go through. Try again." });
+      setNotice({ kind: "bad", text: e.message || t("detail.didntGoThrough") });
     } finally {
       setBusy(false);
     }
@@ -262,21 +270,21 @@ ${url}`,
           <Text style={styles.callIcon}>{joined ? "🎥" : "🔒"}</Text>
           {joined && meeting.link ? (
             <>
-              <Text style={styles.callTitle}>The call is open</Text>
+              <Text style={styles.callTitle}>{t("detail.callOpen")}</Text>
               <TouchableOpacity style={styles.callBtn} onPress={() => Linking.openURL(meeting.link)}>
-                <Text style={styles.callBtnText}>Join the call →</Text>
+                <Text style={styles.callBtnText}>{t("detail.joinCall")}</Text>
               </TouchableOpacity>
             </>
           ) : (
             <>
-              <Text style={styles.callTitle}>The call link is for people who committed</Text>
-              <Text style={styles.callSub}>Join this meeting and the link appears here.</Text>
+              <Text style={styles.callTitle}>{t("detail.callLocked")}</Text>
+              <Text style={styles.callSub}>{t("detail.callLockedSub")}</Text>
             </>
           )}
         </View>
       ) : hasPlace ? (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>📍 Where</Text>
+          <Text style={styles.sectionTitle}>{`📍 ${t("detail.where")}`}</Text>
           {meeting.location ? <Text style={styles.body}>{meeting.location}</Text> : null}
 
           {/*
@@ -314,30 +322,30 @@ ${url}`,
               ) : routeState === "loading" ? (
                 <>
                   <ActivityIndicator size="small" color={theme.accent} />
-                  <Text style={styles.routeMuted}>Finding route…</Text>
+                  <Text style={styles.routeMuted}>{t("detail.findingRoute")}</Text>
                 </>
               ) : routeState === "none" ? (
-                <Text style={styles.routeMuted}>No driving route found.</Text>
+                <Text style={styles.routeMuted}>{t("detail.noRoute")}</Text>
               ) : (
-                <Text style={styles.routeMuted}>Turn on location to see the way there.</Text>
+                <Text style={styles.routeMuted}>{t("detail.turnOnLocationRoute")}</Text>
               )}
             </View>
 
             <TouchableOpacity style={styles.directionsBtn} onPress={openInMaps} activeOpacity={0.85}>
               <MapPinIcon size={14} color={theme.accentOn} />
-              <Text style={styles.directionsText}>Directions</Text>
+              <Text style={styles.directionsText}>{t("detail.directions")}</Text>
             </TouchableOpacity>
           </View>
         </View>
       ) : meeting.location ? (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>📍 Where</Text>
+          <Text style={styles.sectionTitle}>{`📍 ${t("detail.where")}`}</Text>
           <Text style={styles.body}>{meeting.location}</Text>
         </View>
       ) : null}
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>📝 What it is</Text>
+        <Text style={styles.sectionTitle}>{`📝 ${t("detail.whatItIs")}`}</Text>
         <Text style={styles.body}>{meeting.description}</Text>
         {meeting.tags && meeting.tags.length > 0 ? (
           <View style={styles.tagsRow}>
@@ -363,7 +371,7 @@ ${url}`,
                 {attendees.length} of {meeting.min_attendees} committed
               </Text>
               {meeting.join_deadline ? (
-                <Text style={styles.thresholdDeadline}>by {meeting.join_deadline}</Text>
+                <Text style={styles.thresholdDeadline}>{t("detail.byDeadline", { deadline: meeting.join_deadline })}</Text>
               ) : null}
             </View>
             <View style={styles.thresholdBar}>
@@ -380,7 +388,7 @@ ${url}`,
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>
-          🤝 Who's coming <Text style={styles.count}>{attendees.length}</Text>
+          {`🤝 ${t("detail.whosComing")} `}<Text style={styles.count}>{attendees.length}</Text>
         </Text>
 
         {loadingAttendees ? (
@@ -403,8 +411,8 @@ ${url}`,
               <View style={{ flex: 1 }}>
                 <View style={styles.personNameRow}>
                   <Text style={styles.personName}>{person.username}</Text>
-                  {person.is_creator ? <Text style={styles.hostTag}>host</Text> : null}
-                  {person.is_guest ? <Text style={styles.guestTag}>via link</Text> : null}
+                  {person.is_creator ? <Text style={styles.hostTag}>{t("detail.host")}</Text> : null}
+                  {person.is_guest ? <Text style={styles.guestTag}>{t("detail.viaLink")}</Text> : null}
                   {person.is_trusted || person.is_admin ? <TrustBadge /> : null}
                 </View>
                 {/* The web shows a show-up rate under every name, or says so
@@ -413,9 +421,9 @@ ${url}`,
                     would imply one is being kept. */}
                 <Text style={[styles.record, person.reliability?.score == null && styles.recordNew]}>
                   {person.is_guest
-                    ? "Joined from a shared link"
+                    ? t("detail.joinedViaLink")
                     : person.reliability?.score == null
-                      ? "No record yet"
+                      ? t("detail.noRecordYet")
                       : `${person.reliability.score}% show-up rate`}
                 </Text>
               </View>
@@ -423,7 +431,7 @@ ${url}`,
             </TouchableOpacity>
           ))
         ) : (
-          <Text style={styles.body}>Nobody yet — you could be the first.</Text>
+          <Text style={styles.body}>{t("detail.nobodyYet")}</Text>
         )}
       </View>
 
@@ -432,7 +440,7 @@ ${url}`,
           one action most people came here for off the screen. */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>
-          💬 Discussion <Text style={styles.count}>{comments.length}</Text>
+          {`💬 ${t("detail.discussion")} `}<Text style={styles.count}>{comments.length}</Text>
         </Text>
 
         {loadingComments ? (
@@ -454,7 +462,7 @@ ${url}`,
                   <Text style={styles.commentName} numberOfLines={1}>
                     {comment.username}
                   </Text>
-                  {comment.is_host ? <Text style={styles.hostTag}>host</Text> : null}
+                  {comment.is_host ? <Text style={styles.hostTag}>{t("detail.host")}</Text> : null}
                   {comment.is_trusted || comment.is_admin ? <TrustBadge /> : null}
                   <Text style={styles.commentAge}>{formatAgo(comment.created_at)}</Text>
                 </View>
@@ -465,14 +473,14 @@ ${url}`,
                     what it was told, so the two can never disagree. */}
                 {comment.can_delete ? (
                   <TouchableOpacity onPress={() => handleDeleteComment(comment)}>
-                    <Text style={styles.commentDelete}>Delete</Text>
+                    <Text style={styles.commentDelete}>{t("common.delete")}</Text>
                   </TouchableOpacity>
                 ) : null}
               </View>
             </View>
           ))
         ) : (
-          <Text style={styles.body}>No messages yet — ask the first question.</Text>
+          <Text style={styles.body}>{t("detail.noMessages")}</Text>
         )}
 
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
@@ -481,7 +489,7 @@ ${url}`,
               style={styles.composerInput}
               value={draft}
               onChangeText={setDraft}
-              placeholder="Ask something, or say you're running late…"
+              placeholder={t("detail.composerPlaceholder")}
               placeholderTextColor={theme.text3}
               multiline
               // Matches MAX_COMMENT_LEN on the server. The server is still the
@@ -496,7 +504,7 @@ ${url}`,
               {posting ? (
                 <ActivityIndicator color={theme.accentOn} size="small" />
               ) : (
-                <Text style={styles.composerBtnText}>Send</Text>
+                <Text style={styles.composerBtnText}>{t("detail.send")}</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -512,7 +520,7 @@ ${url}`,
           <ActivityIndicator color={joined ? theme.text2 : theme.accentOn} />
         ) : (
           <Text style={[styles.joinBtnText, joined && styles.joinBtnTextActive]}>
-            {joined ? "You're going — tap to leave" : "Join this meeting"}
+            {joined ? t("detail.goingTapToLeave") : t("detail.joinMeeting")}
           </Text>
         )}
       </TouchableOpacity>
@@ -523,7 +531,7 @@ ${url}`,
       {SHARE_BASE_URL ? (
         <View style={styles.shareRow}>
           <TouchableOpacity style={styles.shareBtn} onPress={handleShare} activeOpacity={0.85}>
-            <Text style={styles.shareBtnText}>🔗  Share</Text>
+            <Text style={styles.shareBtnText}>{`🔗  ${t("detail.share")}`}</Text>
           </TouchableOpacity>
           {/* Separate from Share because Android's share sheet ignores the url
               field and sends only `message` — copying from it hands you the
@@ -532,7 +540,7 @@ ${url}`,
               and nothing else. */}
           <TouchableOpacity style={styles.shareBtn} onPress={handleCopyLink} activeOpacity={0.85}>
             <Text style={styles.shareBtnText}>
-              {copiedLink ? "✓  Link copied" : "📋  Copy link"}
+              {copiedLink ? `✓  ${t("detail.linkCopied")}` : `📋  ${t("detail.copyLink")}`}
             </Text>
           </TouchableOpacity>
         </View>
@@ -543,7 +551,7 @@ ${url}`,
           you can delete that instead. */}
       {meeting.creator_uid !== uid ? (
         <TouchableOpacity style={styles.reportBtn} onPress={() => setReporting(true)}>
-          <Text style={styles.reportBtnText}>⚑  Report this meeting</Text>
+          <Text style={styles.reportBtnText}>{`⚑  ${t("detail.reportMeeting")}`}</Text>
         </TouchableOpacity>
       ) : null}
 
@@ -710,7 +718,7 @@ const makeStyles = (t) => StyleSheet.create({
   },
   commentHead: { flexDirection: "row", alignItems: "center", gap: 6 },
   commentName: { fontSize: 13.5, fontFamily: FONTS.bodySemi, color: t.text, flexShrink: 1 },
-  commentAge: { fontSize: 11, color: t.text3, marginLeft: "auto" },
+  commentAge: { fontSize: 11, color: t.text3, marginStart: "auto" },
   commentText: { fontSize: 14.5, color: t.text2, lineHeight: 20, marginTop: 2 },
   commentDelete: { fontSize: 12, fontFamily: FONTS.accentMedium, color: t.status.bad, marginTop: 4 },
 

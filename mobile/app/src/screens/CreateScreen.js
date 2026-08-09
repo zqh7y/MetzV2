@@ -17,6 +17,7 @@ import {
 import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
 import { RADIUS, SHADOW } from "../styles/theme";
+import { useI18n } from "../context/LocaleContext";
 
 const CENTER = [35.2137, 31.7683]; // [lng, lat] — MapLibre order
 const EMOJIS = ["📍", "🎉", "☕", "🍕", "🎮", "🎵", "📚", "⚽", "🧘", "🎨", "💻", "🌐", "🎬", "🚴", "🏕️", "🍻"];
@@ -63,7 +64,11 @@ export default function CreateScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const { t } = useI18n();
   const [type, setType] = useState("inperson");
+  // Public unless the organiser says otherwise — the safe default is the one
+  // where nothing is hidden by accident.
+  const [isPrivate, setIsPrivate] = useState(false);
   const [time, setTime] = useState("");
   const [locationName, setLocationName] = useState("");
   const [pin, setPin] = useState(null);
@@ -120,6 +125,7 @@ export default function CreateScreen({ navigation }) {
         min_attendees: needsMinimum ? minAttendees : 0,
         max_attendees: needsMinimum ? maxAttendees : "",
         join_deadline: needsMinimum ? joinDeadline : "",
+        visibility: isPrivate ? "private" : "public",
       };
       const res = await api.createMeeting(payload);
       Alert.alert(
@@ -326,6 +332,33 @@ export default function CreateScreen({ navigation }) {
           theme={theme}
           delay={260}
         >
+          <Text style={styles.label}>{t("create.whoCanFind")}</Text>
+          <View style={styles.typeRow}>
+            <Pressable
+              style={[styles.typeBtn, !isPrivate && styles.typeBtnActive]}
+              onPress={() => setIsPrivate(false)}
+            >
+              <Text style={[styles.typeText, !isPrivate && styles.typeTextActive]}>
+                {t("create.visibilityPublic")}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[styles.typeBtn, isPrivate && styles.typeBtnActive]}
+              onPress={() => setIsPrivate(true)}
+            >
+              <Text style={[styles.typeText, isPrivate && styles.typeTextActive]}>
+                {t("create.visibilityPrivate")}
+              </Text>
+            </Pressable>
+          </View>
+          {/* Spelled out rather than left to the label: "private" could equally
+              mean invite-only or hidden-but-joinable, and the difference
+              matters before someone commits to it. */}
+          <Text style={styles.visibilityNote}>
+            {isPrivate ? t("create.visibilityPrivateNote") : t("create.visibilityPublicNote")}
+          </Text>
+
+          <Text style={styles.label}>{t("create.howManyNeeded")}</Text>
           <View style={styles.typeRow}>
             <Pressable
               style={[styles.typeBtn, !needsMinimum && styles.typeBtnActive]}
@@ -473,8 +506,8 @@ const makeStyles = (t) => StyleSheet.create({
     borderRadius: RADIUS.lg,
     borderWidth: 1,
     borderColor: t.border,
-    borderLeftWidth: 4,
-    borderLeftColor: t.accent,
+    borderStartWidth: 4,
+    borderStartColor: t.accent,
     padding: 14,
     marginBottom: 16,
     ...SHADOW.s1,
@@ -540,6 +573,7 @@ const makeStyles = (t) => StyleSheet.create({
   },
   textarea: { height: 88 },
 
+  visibilityNote: { fontSize: 12.5, lineHeight: 18, color: t.text3, marginTop: 8, marginBottom: 4 },
   typeRow: { flexDirection: "row", gap: 10, marginTop: 14 },
   typeBtn: {
     flex: 1,
@@ -639,7 +673,7 @@ const makeStyles = (t) => StyleSheet.create({
     backgroundColor: t.status.badSoft,
     borderColor: t.status.bad,
     borderWidth: 1,
-    borderLeftWidth: 4,
+    borderStartWidth: 4,
     borderRadius: 8,
     padding: 12,
     marginBottom: 14,

@@ -21,7 +21,8 @@ def admin_pending():
     if forbidden:
         return forbidden
     uid = current_uid()
-    pending = get_all_meetings(status="pending")
+    # Moderation has to see private meetings too, or they would skip review.
+    pending = get_all_meetings(status="pending", include_private=True)
     return jsonify([serialize_meeting(m, uid) for m in pending])
 
 
@@ -53,7 +54,7 @@ def admin_dashboard():
     uid = current_uid()
 
     users = sorted(USERS_DB.values(), key=lambda u: u.get("joined_at", ""), reverse=True)
-    meetings = sorted(get_all_meetings(), key=lambda m: m.id, reverse=True)
+    meetings = sorted(get_all_meetings(include_private=True), key=lambda m: m.id, reverse=True)
 
     return jsonify({
         "stats": platform_stats(),

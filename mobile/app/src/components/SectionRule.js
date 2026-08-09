@@ -41,7 +41,7 @@ export default React.memo(SectionRule);
 const makeStyles = (t) => StyleSheet.create({
   wrap: { marginTop: 4, marginBottom: 10 },
   headRow: { flexDirection: "row", alignItems: "center" },
-  icon: { marginRight: 7 },
+  icon: { marginEnd: 7 },
   label: {
     fontSize: 11.5,
     fontFamily: FONTS.accent,
@@ -49,7 +49,7 @@ const makeStyles = (t) => StyleSheet.create({
     textTransform: "uppercase",
   },
   countPill: {
-    marginLeft: 8,
+    marginStart: 8,
     paddingHorizontal: 7,
     paddingVertical: 1,
     borderRadius: 999,
@@ -58,6 +58,6 @@ const makeStyles = (t) => StyleSheet.create({
   countPillFar: { backgroundColor: t.surface3 },
   count: { fontSize: 11, fontFamily: FONTS.accent, color: t.accentStrong },
   countFar: { color: t.text3 },
-  rule: { flex: 1, height: 1, marginLeft: 12 },
+  rule: { flex: 1, height: 1, marginStart: 12 },
   note: { fontSize: 11, color: t.text3, marginTop: 4 },
 });

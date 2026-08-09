@@ -12,13 +12,14 @@ import MeetingCard from "../components/MeetingCard";
 import SectionRule from "../components/SectionRule";
 import HomeDrawer, { MenuButton } from "../components/HomeDrawer";
 import AccountSheet from "../components/AccountSheet";
-import { SearchIcon, MapPinIcon, GlobeIcon } from "../components/NavIcons";
+import { SearchIcon, MapPinIcon, GlobeIcon, CrosshairIcon } from "../components/NavIcons";
 import useMyLocation from "../hooks/useMyLocation";
 import useAutoRefresh from "../hooks/useAutoRefresh";
 import { distanceToMeeting, formatDistance } from "../utils/distance";
 import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
 import { RADIUS, SHADOW, markerColorFor } from "../styles/theme";
+import { useI18n } from "../context/LocaleContext";
 
 const DEFAULT_CENTER = [35.2137, 31.7683]; // [lng, lat] — MapLibre order
 // Reuse a fontstack the basemap already ships glyphs for, or labels don't draw.
@@ -33,6 +34,7 @@ export default function HomeScreen({ navigation }) {
   const { height: screenH } = useWindowDimensions();
   const { uid, profile, refreshProfile } = useAuth();
   const { theme, sheet: sheetPref, reduceMotion, comfortable } = useTheme();
+  const { t } = useI18n();
   const styles = useMemo(() => makeStyles(theme, comfortable), [theme, comfortable]);
 
   // Home has no bottom bar on the web either — the hamburger drawer replaced it
@@ -238,6 +240,17 @@ export default function HomeScreen({ navigation }) {
   // otherwise the end of the list would sit below the bottom of the display
   // and could never be scrolled to.
   const HEADER_BLOCK = 122;   // grabber + title row + search box
+  // Zoom and locate are controls *for the map*. Once the list is at full
+  // height there is no map left to control, so they were floating over the
+  // meeting list. Derived from the sheet's live position rather than from
+  // sheetState, so they fade while it is being dragged instead of popping out
+  // once it settles.
+  const mapControlsOpacity = translateY.interpolate({
+    inputRange: [tops.full, tops.half],
+    outputRange: [0, 1],
+    extrapolate: "clamp",
+  });
+
   const listHeight = Math.max(140, screenH - tops[sheetState] - HEADER_BLOCK);
 
   // ─── Map interaction ───────────────────────────────────────────────────
@@ -271,6 +284,17 @@ export default function HomeScreen({ navigation }) {
   // "You are here". The web draws the same marker with the user's avatar
   // colour and initial, so pass those through rather than a generic dot.
   const myPosition = useMyLocation();
+
+  // The camera follows the user until they drag the map away, which is the
+  // same bargain every maps app makes: auto-centring is helpful right up to
+  // the moment someone is deliberately looking somewhere else, and yanking
+  // them back on the next GPS tick would make the map unusable. The locate
+  // button below re-engages it.
+  const [following, setFollowing] = useState(true);
+  // Mirrors the camera so the +/- buttons have something to step from. The
+  // WebView reports its real zoom back after every change, so this only has to
+  // be right at startup.
+  const zoomRef = useRef(11);
   const me = useMemo(() => {
     if (!myPosition) return null;
     const name = profile?.display_name || profile?.username || uid || "";
@@ -281,6 +305,42 @@ export default function HomeScreen({ navigation }) {
       initial: name ? name.slice(0, 1).toUpperCase() : "",
     };
   }, [myPosition, profile, uid]);
+
+  const centreOnMe = useCallback((zoom) => {
+    if (!myPosition) return;
+    const camera = MAPS_AVAILABLE ? cameraRef.current : webMapRef.current;
+    const next = zoom ?? Math.max(zoomRef.current, 14);
+    zoomRef.current = next;
+    camera?.flyTo({
+      center: [myPosition.longitude, myPosition.latitude],
+      zoom: next,
+      duration: 700,
+    });
+  }, [myPosition]);
+
+  // Re-centres on every fix while following. watchPositionAsync only fires
+  // after 25m of movement, so this is a handful of calls on a walk, not a
+  // per-second fight with the camera.
+  useEffect(() => {
+    if (following) centreOnMe();
+  }, [following, centreOnMe]);
+
+  const handleLocate = useCallback(() => {
+    // Pressing it while already following still recentres — after a pinch or a
+    // small nudge that is exactly what the button is expected to do.
+    setFollowing(true);
+    centreOnMe();
+  }, [centreOnMe]);
+
+  const handleZoom = useCallback((delta) => {
+    if (MAPS_AVAILABLE) {
+      zoomRef.current = Math.max(2, Math.min(19, zoomRef.current + delta));
+      cameraRef.current?.zoomTo(zoomRef.current, 300);
+    } else {
+      // The WebView reads its own live zoom, so it needs the step, not a target.
+      webMapRef.current?.zoomBy(delta);
+    }
+  }, []);
 
   // ─── Nearby list: ordered by distance, grouped by whether there is one ──
   // A meeting you can walk to is worth more than one three towns over, so the
@@ -311,9 +371,9 @@ export default function HomeScreen({ navigation }) {
         key: "rule-near",
         rule: true,
         Icon: MapPinIcon,
-        label: myPosition ? "Near you" : "In person",
+        label: myPosition ? t("home.nearYou") : t("home.inPerson"),
         count: located.length,
-        note: myPosition ? "Closest first" : "Turn on location to sort by distance",
+        note: myPosition ? t("home.closestFirst") : t("home.turnOnLocationSort"),
         tone: "near",
       });
       located.forEach((m) => {
@@ -332,9 +392,9 @@ export default function HomeScreen({ navigation }) {
         key: "rule-remote",
         rule: true,
         Icon: GlobeIcon,
-        label: "Anywhere",
+        label: t("home.anywhere"),
         count: remote.length,
-        note: "No travel needed",
+        note: t("home.noTravel"),
         tone: "far",
       });
       remote.forEach((m) => {
@@ -343,7 +403,7 @@ export default function HomeScreen({ navigation }) {
     }
 
     return out;
-  }, [filtered, myPosition]);
+  }, [filtered, myPosition, t]);
 
   // The WebView map takes a plain marker list rather than GeoJSON. Built from
   // the same stable set, so a join no longer re-injects setMarkers() and makes
@@ -407,6 +467,8 @@ export default function HomeScreen({ navigation }) {
             const meeting = meetings.find((m) => m.id === id);
             if (meeting) navigation.navigate("MeetingDetail", { meeting });
           }}
+          onUserPan={() => setFollowing(false)}
+          onZoomChange={(z) => { zoomRef.current = z; }}
         />
       ) : (
       <Map style={StyleSheet.absoluteFill} mapStyle={theme.mapStyle} attribution compass logo={false}>
@@ -511,6 +573,49 @@ export default function HomeScreen({ navigation }) {
       </Map>
       )}
 
+      {/* Anchored to `end`, the opposite edge from the Metz pill, so the two
+            never collide — including in Hebrew and Arabic where the pill moves
+            to the right and this stack moves to the left. */}
+        <Animated.View
+          style={[styles.mapControls, { top: insets.top + 14, opacity: mapControlsOpacity }]}
+          /* Opacity alone would leave invisible buttons swallowing taps over
+             the list, so hit-testing is switched off at full height too. */
+          pointerEvents={sheetState === "full" ? "none" : "box-none"}
+        >
+          <TouchableOpacity
+            style={[styles.mapBtn, styles.mapBtnTop]}
+            onPress={() => handleZoom(1)}
+            accessibilityRole="button"
+            accessibilityLabel={t("home.zoomIn")}
+          >
+            <Text style={styles.mapBtnText}>+</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.mapBtn, styles.mapBtnBottom]}
+            onPress={() => handleZoom(-1)}
+            accessibilityRole="button"
+            accessibilityLabel={t("home.zoomOut")}
+          >
+            <Text style={styles.mapBtnText}>−</Text>
+          </TouchableOpacity>
+
+          {/* Filled while following, outlined once the map has been dragged
+              away — the button doubles as the answer to "is this still me?" */}
+          <TouchableOpacity
+            style={[styles.mapBtn, styles.locateBtn, following && myPosition && styles.locateBtnOn]}
+            onPress={handleLocate}
+            disabled={!myPosition}
+            accessibilityRole="button"
+            accessibilityLabel={t("home.recenter")}
+            accessibilityState={{ disabled: !myPosition, selected: following }}
+          >
+            <CrosshairIcon
+              size={19}
+              color={!myPosition ? theme.text3 : following ? theme.accentOn : theme.text}
+            />
+          </TouchableOpacity>
+        </Animated.View>
+
       <MenuButton onPress={() => setMenuOpen(true)} showDot={!!profile?.is_admin && pendingCount > 0} />
 
       <Animated.View style={[styles.sheet, { height: screenH - tops.full, transform: [{ translateY }] }]}>
@@ -529,15 +634,15 @@ export default function HomeScreen({ navigation }) {
             activeOpacity={0.6}
             onPress={() => snapTo(sheetState === "full" ? "peek" : "full")}
           >
-            <Text style={styles.panelTitle}>Nearby Meetings</Text>
+            <Text style={styles.panelTitle}>{t("home.nearbyMeetings")}</Text>
             {/* The count is the answer to "is it worth opening this" — worth
                 having in the header rather than only implied by the scrollbar. */}
             <Text style={styles.panelCount}>
-              {filtered.length}{search.trim() ? ` of ${meetings.length}` : ""}
+              {filtered.length}{search.trim() ? t("home.ofTotal", { total: meetings.length }) : ""}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.newBtn} onPress={() => navigation.navigate("Create")}>
-            <Text style={styles.newBtnText}>+ New</Text>
+            <Text style={styles.newBtnText}>{t("home.new")}</Text>
           </TouchableOpacity>
         </View>
 
@@ -546,7 +651,7 @@ export default function HomeScreen({ navigation }) {
           <SearchIcon size={16} color={theme.text3} />
           <TextInput
             style={styles.search}
-            placeholder="Search meetings…"
+            placeholder={t("home.searchPlaceholder")}
             placeholderTextColor={theme.text3}
             value={search}
             onChangeText={setSearch}
@@ -577,7 +682,7 @@ export default function HomeScreen({ navigation }) {
           maxToRenderPerBatch={6}
           updateCellsBatchingPeriod={50}
           windowSize={7}
-          ListEmptyComponent={<Text style={styles.empty}>No meetings match your search.</Text>}
+          ListEmptyComponent={<Text style={styles.empty}>{t("home.noMatches")}</Text>}
           contentContainerStyle={{ paddingBottom: 24 + insets.bottom }}
         />
 
@@ -596,7 +701,7 @@ export default function HomeScreen({ navigation }) {
             style={StyleSheet.absoluteFill}
             onPress={() => snapTo("full")}
             accessibilityRole="button"
-            accessibilityLabel="Open the meeting list"
+            accessibilityLabel={t("home.openList")}
           />
         ) : null}
         </View>
@@ -627,9 +732,36 @@ const makeStyles = (t, comfortable = false) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.bg },
   centered: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: t.bg },
   // The web's brand pill in the top-left of the map (see .home-menu-btn)
+  // Zoom pair joined into one pill, locate button separate below it.
+  mapControls: { position: "absolute", end: 16, zIndex: 6, alignItems: "center" },
+  mapBtn: {
+    width: 42,
+    height: 42,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: t.surface,
+    ...SHADOW.s2,
+  },
+  mapBtnTop: {
+    borderTopStartRadius: RADIUS.base,
+    borderTopEndRadius: RADIUS.base,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: t.border,
+  },
+  mapBtnBottom: { borderBottomStartRadius: RADIUS.base, borderBottomEndRadius: RADIUS.base },
+  mapBtnText: {
+    fontSize: 22,
+    lineHeight: 26,
+    color: t.text,
+    fontFamily: FONTS.accentMedium,
+    includeFontPadding: false,
+  },
+  locateBtn: { marginTop: 10, borderRadius: RADIUS.base },
+  locateBtnOn: { backgroundColor: t.accent },
+
   titlePill: {
     position: "absolute",
-    left: 16,
+    start: 16,
     backgroundColor: t.navBg,
     borderRadius: RADIUS.pill,
     paddingHorizontal: 14,
@@ -643,8 +775,8 @@ const makeStyles = (t, comfortable = false) => StyleSheet.create({
     right: 0,
     top: 0,
     backgroundColor: t.surface,
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
+    borderTopStartRadius: 26,
+    borderTopEndRadius: 26,
     paddingHorizontal: comfortable ? 22 : 16,
     shadowColor: "#101428",
     shadowOpacity: 0.16,
