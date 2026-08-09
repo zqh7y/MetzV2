@@ -1,7 +1,6 @@
 import React, { useCallback, useMemo, useState } from "react";
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator,
-  RefreshControl, Alert,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -15,6 +14,7 @@ import { useTheme } from "../context/ThemeContext";
 import { RADIUS, SHADOW } from "../styles/theme";
 import { formatWhen, formatRelative } from "../utils/time";
 import { useI18n } from "../context/LocaleContext";
+import { Alert } from "../components/AppAlert";
 
 /**
  * Activity — everything that currently wants something from you.

@@ -58,6 +58,44 @@ def families(catalog):
     return {base(k) for k in catalog}
 
 
+# Which script each catalog is written in. Latin, punctuation and digits are
+# allowed everywhere (brand names, {placeholders}, numerals).
+SCRIPTS = {"he": "HEBREW", "ar": "ARABIC", "ru": "CYRILLIC"}
+NEUTRAL = ("LATIN", "CJK", "HIRAGANA", "KATAKANA", "GREEK", "CYRILLIC", "HEBREW", "ARABIC")
+
+
+def _script_of(ch):
+    import unicodedata
+    try:
+        name = unicodedata.name(ch)
+    except ValueError:
+        return None
+    for script in NEUTRAL:
+        if name.startswith(script):
+            return script
+    return None
+
+
+def stray_characters(code, catalog):
+    """Characters from a script this language does not use.
+
+    Worth checking because it is invisible: a Cyrillic "к" sitting inside an
+    Arabic word, or a stray CJK glyph in a Russian sentence, renders as a
+    perfectly ordinary-looking character to anyone who does not read the
+    language. Two slipped in while these files were being written.
+    """
+    expected = SCRIPTS.get(code)
+    out = []
+    for key, value in catalog.items():
+        for ch in value:
+            script = _script_of(ch)
+            if script is None or script == "LATIN":
+                continue
+            if script != expected:
+                out.append((key, ch, script))
+    return out
+
+
 def main():
     english = load("en")
     if not english:
@@ -97,7 +135,9 @@ def main():
             if problem:
                 bad_placeholders.append((key, sorted(want), sorted(got)))
 
-        status = "ok" if not (missing or extra or bad_placeholders) else "PROBLEMS"
+        stray = stray_characters(code, catalog)
+
+        status = "ok" if not (missing or extra or bad_placeholders or stray) else "PROBLEMS"
         print("\n%s: %d keys — %s" % (code, len(catalog), status))
         if missing:
             print("  missing %d:" % len(missing))
@@ -108,7 +148,10 @@ def main():
         for key, want, got in bad_placeholders:
             print("  placeholder mismatch %s: expected %s, found %s" % (key, want, got))
 
-        if missing or extra or bad_placeholders:
+        for key, ch, script in stray:
+            print("  stray %s character in %s: %r" % (script.lower(), key, ch))
+
+        if missing or extra or bad_placeholders or stray:
             failed = True
 
     print()

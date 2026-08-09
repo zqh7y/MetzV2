@@ -9,7 +9,7 @@ import time
 import requests
 from flask import Blueprint, request, jsonify
 
-from data import register_user
+from data import register_user, generate_user_id, get_user
 from utils.auth_errors import friendly_auth_error
 from utils.email_utils import (
     generate_verification_code, send_verification_email, EmailNotSent,
@@ -53,16 +53,31 @@ def signup():
     try:
         send_verification_email(email, code)
     except EmailNotSent as exc:
-        # The Firebase account exists by now, so the pending entry stays put:
-        # once mail is working again /api/verify/resend can finish the signup,
-        # where starting over would only be told the address is already taken.
-        print(f"[Metz] verification email failed for {email}: {exc}", flush=True)
+        # Mail is down, so finish the signup here instead of stranding them.
+        #
+        # The Firebase account already exists at this point — that call
+        # succeeded. Returning an error left the person in the worst possible
+        # state: unable to continue, and unable to start over either, because
+        # signing up again only gets "that address is taken". They had an
+        # account they could not reach.
+        #
+        # So the code step is skipped and the account is registered as if it
+        # had been verified. That is a real trade: an address nobody has proved
+        # they own now gets a working account. It is deliberate, and it lasts
+        # only as long as GMAIL_ADDRESS / GMAIL_APP_PASSWORD are unset on
+        # Render — set them and this branch stops being reached at all.
+        print(f"[Metz] verification email failed for {email}: {exc} "
+              f"— completing signup without it", flush=True)
+        uid = register_user(email)
+        PENDING_SIGNUPS.pop(email, None)
+        # Same shape as /api/verify, so the client signs in and goes straight
+        # to Home rather than to a code screen with no code coming.
         return jsonify({
-            "error": "We couldn't send your verification code. Your account was "
-                     "created — tap resend in a moment to try again.",
+            "uid": uid,
             "email": email,
+            "token": issue_token(uid),
             "email_failed": True,
-        }), 502
+        })
 
     return jsonify({"status": "pending_verification", "email": email})
 
@@ -243,5 +258,45 @@ def login():
     if "idToken" not in fb_data:
         return jsonify({"error": friendly_auth_error(fb_data.get("error", {}).get("message"))}), 400
 
-    uid = register_user(email)
+    # Signing in must not create the account. /api/verify is what turns a
+    # verified email into a Metz account; login used to call register_user too,
+    # which made the whole code step optional — sign up, ignore the email, then
+    # log in with the same details and you were through with a full account.
+    uid = generate_user_id(email)
+    if not get_user(uid):
+        # Firebase knows the address, so the password was right, but this
+        # account was never verified here. Rather than refusing and leaving
+        # them stuck — they cannot sign up again, Firebase already has the
+        # address — issue a fresh code and send them to the verify step.
+        code = generate_verification_code()
+        PENDING_SIGNUPS[email] = {
+            "id_token": fb_data["idToken"],
+            "code": code,
+            "issued_at": time.time(),
+            "attempts": 0,
+        }
+        try:
+            send_verification_email(email, code)
+        except EmailNotSent as exc:
+            # Same call as in signup, for the same reason. Without this, the
+            # rule above ("signing in must not create the account") would lock
+            # out every account that signed up while mail was broken — they
+            # never got a code, so they were never registered, and refusing
+            # them here would leave them with no way in at all.
+            print(f"[Metz] verification email failed for {email}: {exc} "
+                  f"— letting them in without it", flush=True)
+            uid = register_user(email)
+            PENDING_SIGNUPS.pop(email, None)
+            return jsonify({
+                "uid": uid,
+                "email": email,
+                "token": issue_token(uid),
+                "email_failed": True,
+            })
+        return jsonify({
+            "error": "This account hasn't been verified yet — we've sent a new code to your email.",
+            "status": "pending_verification",
+            "email": email,
+        }), 403
+
     return jsonify({"uid": uid, "email": email, "token": issue_token(uid)})

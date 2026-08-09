@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert,
-  Pressable, KeyboardAvoidingView, Platform,
+  View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Pressable, KeyboardAvoidingView, Platform,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Map, Camera, Marker, MAPS_AVAILABLE } from "../components/MapShim";
@@ -18,6 +17,7 @@ import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
 import { RADIUS, SHADOW } from "../styles/theme";
 import { useI18n } from "../context/LocaleContext";
+import { Alert } from "../components/AppAlert";
 
 const CENTER = [35.2137, 31.7683]; // [lng, lat] — MapLibre order
 const EMOJIS = ["📍", "🎉", "☕", "🍕", "🎮", "🎵", "📚", "⚽", "🧘", "🎨", "💻", "🌐", "🎬", "🚴", "🏕️", "🍻"];

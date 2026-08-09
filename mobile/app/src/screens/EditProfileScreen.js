@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  View, Text, StyleSheet, ScrollView, TextInput, Pressable, ActivityIndicator,
-  Alert, KeyboardAvoidingView, Platform,
+  View, Text, StyleSheet, ScrollView, TextInput, Pressable, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Clipboard from "expo-clipboard";
@@ -12,6 +11,7 @@ import { useTheme } from "../context/ThemeContext";
 import { RADIUS, SHADOW } from "../styles/theme";
 import { FONTS } from "../styles/fonts";
 import Appear from "../components/Appear";
+import { Alert } from "../components/AppAlert";
 
 // Falls back only if the profile request fails; normally the server sends the
 // same list the web's edit page offers, so the two can't drift apart.

@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from "react";
 import {
-  View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, RefreshControl,
+  View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, RefreshControl,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 
@@ -9,6 +9,7 @@ import TrustBadge from "../components/TrustBadge";
 import { useTheme } from "../context/ThemeContext";
 import { RADIUS, SHADOW } from "../styles/theme";
 import { FONTS } from "../styles/fonts";
+import { Alert } from "../components/AppAlert";
 
 // The app half of the web's /admin/dashboard: same three tabs, same tiles,
 // same actions. Numbers come from data.platform_stats() on the server, so this

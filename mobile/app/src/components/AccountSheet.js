@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { Modal, View, Text, StyleSheet, Pressable, Alert } from "react-native";
+import { Modal, View, Text, StyleSheet, Pressable } from "react-native";
 
 import { useAuth } from "../context/AuthContext";
 import { canSwitchTo } from "../accounts";
@@ -7,6 +7,7 @@ import { useTheme } from "../context/ThemeContext";
 import { FONTS } from "../styles/fonts";
 import { RADIUS, SHADOW } from "../styles/theme";
 import { useI18n } from "../context/LocaleContext";
+import { Alert } from "./AppAlert";
 
 /**
  * What happens when you tap "Log out".

@@ -7,9 +7,11 @@ import AuthButton from "../components/AuthButton";
 import AuthStrength from "../components/AuthStrength";
 import AuthAlt from "../components/AuthAlt";
 import GoogleAuthButton from "../components/GoogleAuthButton";
+import { useAuth } from "../context/AuthContext";
 
 // Copy, field order and button labels track templates/signup.html.
 export default function SignupScreen({ navigation }) {
+  const { signIn } = useAuth();
   const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,8 +22,14 @@ export default function SignupScreen({ navigation }) {
     setError("");
     setLoading(true);
     try {
-      await api.signup(email, password);
-      navigation.navigate("Verify", { email });
+      const res = await api.signup(email, password);
+      // A token means the server finished the signup itself — it does that
+      // when it cannot send the verification email, rather than leaving
+      // someone with a Firebase account they have no way to reach. Straight
+      // to Home in that case; the code screen would be waiting on a mail that
+      // is never coming.
+      if (res?.uid && res?.token) signIn(res.uid, res.token);
+      else navigation.navigate("Verify", { email });
     } catch (e) {
       setError(e.message);
     } finally {

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, Alert } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
@@ -15,6 +15,7 @@ import { useI18n } from "../context/LocaleContext";
 // Module-scope helper below, so it takes the plain `t` rather than the hook.
 import { t } from "../i18n/active";
 import { getActiveLanguage } from "../i18n/active";
+import { Alert } from "../components/AppAlert";
 
 // Convert the UTC timestamp from the API into a date and time people can read.
 function formatProfileTime(value) {
