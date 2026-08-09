@@ -15,6 +15,13 @@ for user accounts, **MySQL** (encrypted) for storage, and a hand-rolled
 
 ## ✨ Features
 
+- **Public or private meetings** — a public meeting is on the map and in
+  Explore for everyone. A private one is invisible everywhere and reached
+  only through an unguessable link like `/m/b16sYJKl0g`, which the organiser
+  sends to whoever they want. Whoever opens it can join with just a first
+  name, no account needed. See
+  [Private meetings](#private-meetings--link-only-in-practice) for how that
+  plays out in practice.
 - **Email/password authentication** via Firebase Identity Toolkit, with
   friendly, human-readable error messages (no raw `INVALID_LOGIN_CREDENTIALS`
   strings shown to users).
