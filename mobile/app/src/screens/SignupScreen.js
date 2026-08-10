@@ -31,6 +31,27 @@ export default function SignupScreen({ navigation }) {
       if (res?.uid && res?.token) signIn(res.uid, res.token);
       else navigation.navigate("Verify", { email });
     } catch (e) {
+      // `email_failed` means the account really was created and only the
+      // verification mail failed. Older servers report that as a 502 with no
+      // token, which used to leave the person stranded on this screen with an
+      // account they could not reach. Logging in with the details they just
+      // typed finishes the job.
+      //
+      // Kept even though the API now returns a token directly in that case:
+      // the app talks to a deployed server it does not control the version of,
+      // and this is the path that works against both.
+      if (e?.data?.email_failed) {
+        try {
+          const res = await api.login(email, password);
+          if (res?.uid && res?.token) {
+            signIn(res.uid, res.token);
+            return;
+          }
+        } catch (loginError) {
+          // Fall through to the original message — it describes the real
+          // problem better than whatever login just said about it.
+        }
+      }
       setError(e.message);
     } finally {
       setLoading(false);
