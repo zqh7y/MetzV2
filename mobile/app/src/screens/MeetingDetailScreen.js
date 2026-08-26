@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  View, Text, StyleSheet, TouchableOpacity, Linking, ScrollView, ActivityIndicator,
-  Platform, TextInput, Alert, KeyboardAvoidingView, Share,
+  View, Text, StyleSheet, TouchableOpacity, Linking, ScrollView, ActivityIndicator, Platform, TextInput, KeyboardAvoidingView, Share,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Clipboard from "expo-clipboard";
@@ -22,6 +21,7 @@ import { formatTimeUntil, formatAgo } from "../utils/time";
 import { API_BASE_URL as SHARE_BASE_URL } from "../config";
 import { fetchRoute, formatRoute } from "../utils/route";
 import { useI18n } from "../context/LocaleContext";
+import { Alert } from "../components/AppAlert";
 
 // Mirrors the web's /meeting/<id> page: a tinted hero, then the details in
 // bordered sections on the neutral background.

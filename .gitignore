@@ -40,3 +40,12 @@ backups/
 
 # Rendered page snapshots used for visual review
 static/_preview/
+
+# Firebase config. Google intends this file to ship inside the APK, so it is
+# not a secret in the usual sense — but GitHub's scanner flags the key in it,
+# and nothing here actually reads the file: the Google client ids come from
+# app.json (extra.googleAuth) and Gradle would look in android/app/, where it
+# does not exist. It was vestigial, so it is out of the repo rather than
+# sitting there tripping alerts. Regenerate from the Firebase console if a
+# future prebuild ever needs it.
+mobile/app/google-services.json

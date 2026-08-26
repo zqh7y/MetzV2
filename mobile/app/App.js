@@ -32,6 +32,7 @@ import ActivityScreen from "./src/screens/ActivityScreen";
 import InboxScreen from "./src/screens/InboxScreen";
 import ErrorBoundary from "./src/components/ErrorBoundary";
 import BrandSplash from "./src/components/BrandSplash";
+import { AlertHost } from "./src/components/AppAlert";
 
 const AuthStack = createNativeStackNavigator();
 const RootStack = createNativeStackNavigator();
@@ -128,6 +129,9 @@ function Root() {
       }}
     >
       <StatusBar style={scheme === "dark" ? "light" : "dark"} />
+      {/* Inside the providers so it picks up the theme and the language, and
+          above the navigator so an alert survives a screen being popped. */}
+      <AlertHost />
       {/* Keyed on the uid so switching accounts remounts every screen instead
           of leaving them holding the previous person's data. Without this a
           private meeting the last account could see stayed on the list, since

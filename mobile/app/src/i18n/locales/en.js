@@ -27,6 +27,7 @@ export default {
   "common.showPassword": "Show password",
   "common.hidePassword": "Hide password",
   "common.or": "or",
+  "common.ok": "OK",
   "common.cancel": "Cancel",
   "common.save": "Save",
   "common.saving": "Saving…",

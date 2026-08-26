@@ -27,6 +27,7 @@ export default {
   "common.showPassword": "הצגת הסיסמה",
   "common.hidePassword": "הסתרת הסיסמה",
   "common.or": "או",
+  "common.ok": "אישור",
   "common.cancel": "ביטול",
   "common.save": "שמירה",
   "common.saving": "שומר…",

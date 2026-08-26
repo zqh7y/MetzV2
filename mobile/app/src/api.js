@@ -43,7 +43,14 @@ async function request(path, { method = "GET", body, auth = true } = {}) {
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(data.error || `Request failed (${res.status})`);
+    const error = new Error(data.error || `Request failed (${res.status})`);
+    // The body carries more than the message: signup, for instance, reports
+    // `email_failed` alongside its error so the caller can tell "we could not
+    // mail you" apart from "that address is taken". Throwing only the string
+    // meant every caller had to guess from wording.
+    error.status = res.status;
+    error.data = data;
+    throw error;
   }
   return data;
 }

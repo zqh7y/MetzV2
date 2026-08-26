@@ -15,6 +15,13 @@ for user accounts, **MySQL** (encrypted) for storage, and a hand-rolled
 
 ## ✨ Features
 
+- **Public or private meetings** — a public meeting is on the map and in
+  Explore for everyone. A private one is invisible everywhere and reached
+  only through an unguessable link like `/m/b16sYJKl0g`, which the organiser
+  sends to whoever they want. Whoever opens it can join with just a first
+  name, no account needed. See
+  [Private meetings](#private-meetings--link-only-in-practice) for how that
+  plays out in practice.
 - **Email/password authentication** via Firebase Identity Toolkit, with
   friendly, human-readable error messages (no raw `INVALID_LOGIN_CREDENTIALS`
   strings shown to users).
@@ -351,6 +358,46 @@ class OnlineMeeting(Meeting):
     def get_display_text(self):
         return f"[📹] {self.title} – join at {self.link} – {self.time}"
 ```
+
+### Private meetings — link-only, in practice
+
+A meeting is either **public** or **private**, chosen when it is created.
+
+A public meeting behaves as it always has: it shows up on the map, in Explore,
+and in everyone's nearby list, at a short address like `/m/12`.
+
+A private meeting shows up nowhere. It is not on the map, not in Explore, not
+in search, and not in any other person's list — the only way in is a link the
+organiser sends out, and that link looks like:
+
+```
+https://metz-api.onrender.com/m/b16sYJKl0g
+```
+
+The random part matters. Meeting ids run 1, 2, 3, so a numeric address for a
+private meeting would let anyone walk the whole table and read every private
+meeting on the platform. Private meetings therefore get an unguessable slug
+and **cannot be reached by their number at all** — `/m/4` returns 404 for a
+private meeting rather than redirecting to the slug, because a redirect would
+hand the secret to whoever guessed the id.
+
+What that looks like in real life: someone organising a study session for
+their class makes it private, gets the link, and drops it in the class group
+chat. Anyone in that chat opens it, sees the meeting, and joins with just a
+first name — no account needed, exactly like a public share link. Guests count
+toward the capacity and the minimum, and appear in the app tagged "via link".
+Someone who is not in the chat cannot find the meeting by browsing, by
+searching, or by trying id numbers.
+
+The organiser and everyone who has joined still see it in their own lists —
+otherwise there would be no way back to it once the link scrolled away.
+
+Two things worth knowing:
+
+- **Visibility is set at creation and cannot be changed afterwards.** Making a
+  public meeting private means recreating it.
+- **A link is a key.** Anyone who has it can join, and can pass it on. There is
+  no per-person invite and no way to revoke a link.
 
 ### Two-stage input validation
 

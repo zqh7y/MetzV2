@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 
 import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
@@ -8,6 +8,7 @@ import { ACCENTS, RADIUS, SHADOW } from "../styles/theme";
 import { FONTS } from "../styles/fonts";
 import { useI18n, SYSTEM } from "../context/LocaleContext";
 import { LANGUAGES } from "../i18n";
+import { Alert } from "../components/AppAlert";
 
 // Mirrors templates/settings.html section for section: Appearance, Accent
 // colour, Layout & motion, Home screen, Account, then the actions row. Same

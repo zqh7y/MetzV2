@@ -105,9 +105,13 @@ will crash on the Home screen until you rebuild it.
   web app (code `1234` works only when the API runs with FLASK_ENV=development)
 - Home: a full-screen MapLibre vector map (CARTO Voyager basemap, same as the
   web app) with clustered meeting pins, under a draggable bottom sheet with
-  three snap points (peek / half / full) holding the search box, the
-  **For You** shelf (Pass / Join on unseen meetings) and the nearby list
-- Create meeting (in-person via map tap, or online via link), tag picker
+  three snap points (peek / half / full) holding the search box and the
+  nearby list. Zoom and recentre controls sit on the map; the camera follows
+  your position until you drag it away, and the recentre button re-engages
+  that. The controls fade out as the sheet rises and stop responding at full
+  height, where there is no map left to control.
+- Create meeting (in-person via map tap, or online via link), tag picker,
+  and a **public / private** choice — see "Private meetings" below
 - Profile: stats, account-status tier checklist, **My Meetings**
   (Upcoming / Past, with leave) and **Find People** search — the last two
   replace the old standalone Joined and Discover tabs
@@ -118,6 +122,23 @@ will crash on the Home screen until you rebuild it.
   press animations on buttons/cards, and the shared Poppins/Inter/Space
   Grotesk font system
 
+- **Seven languages**, chosen in Settings or followed from the phone:
+  English, Hebrew, Arabic, Russian, Spanish, French and German. Hebrew and
+  Arabic switch the whole layout to right-to-left. Only English and Hebrew
+  are actually translated so far; the other five are empty catalogs that fall
+  back to English rather than showing blanks. `tools/check_locales.py`
+  compares every catalog against `en.js` and is what stops them drifting.
+- **Private meetings** — a meeting can be public or link-only. A private one
+  never appears on the map, in Explore, or in anyone else's list; it is
+  reached through an unguessable link the organiser sends out. You still see
+  your own private meetings in your list, and so does anyone who has joined,
+  or there would be no way back to them.
+- Account switching between saved sessions, with a brand screen covering the
+  reload. Switching remounts the whole navigator rather than swapping the
+  session under mounted screens: the data they were holding was fetched with
+  the previous account's token, and could include a private meeting the new
+  account is not allowed to see.
+
 ## Known gaps vs. the web app (follow-ups, not done yet)
 
 - Meeting pins are drawn as coloured circles rather than the web's teardrop
@@ -126,6 +147,10 @@ will crash on the Home screen until you rebuild it.
 - Tapping a pin opens the MeetingDetail screen instead of the web's floating
   details card, which is the more native pattern here.
 - No image upload / profile picture picker.
+- A meeting's visibility is fixed when it is created — there is no way to make
+  a public meeting private later, or the reverse.
+- `CreateScreen`, `EditProfileScreen` and the two admin screens have not been
+  put through `t()` yet, so they stay English in every language.
 - The API no longer trusts a plain `X-User-Id` header: login and verify return
   a signed token (`utils/tokens.py`) that the client sends as
   `Authorization: Bearer <token>` and the server verifies on every request.
