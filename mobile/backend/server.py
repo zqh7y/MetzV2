@@ -129,6 +129,9 @@ def refuse_when_database_is_down():
     /api/health is allowed through, so the reason can be read from outside
     without a Render dashboard.
     """
+    # Cheap when healthy, throttled when not, so a database that comes back
+    # revives the service without anyone restarting it on Render.
+    _data.retry_load_if_needed()
     if _data.LOAD_ERROR is None or request.path == "/api/health":
         return None
     return jsonify({
@@ -354,6 +357,7 @@ def health():
     # Reports the data layer rather than just "the process is up": a service
     # that boots but cannot read Postgres is down as far as anyone using it is
     # concerned, and this is the only view of that from outside Render.
+    _data.retry_load_if_needed()
     if _data.LOAD_ERROR is not None:
         return jsonify({"status": "degraded", "database": _data.LOAD_ERROR}), 503
     return jsonify({"status": "ok"})
