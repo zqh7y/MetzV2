@@ -7,6 +7,7 @@ from data import (
     get_user, is_admin, is_trusted, set_trusted, get_account_status,
     get_all_meetings, search_users, generate_user_color, update_profile,
     get_reliability, delete_own_account, open_report_count, unread_inbox_count,
+    get_reports, profile_highlights,
     PROFILE_EMOJIS, MAX_DISPLAY_NAME, MAX_BIO,
 )
 
@@ -52,7 +53,11 @@ def profile():
         "is_trusted": is_trusted(uid),
         "meetings_created": len(user.get("created_meeting_ids", [])),
         "meetings_joined": len(user.get("joined_meeting_ids", [])),
+        # Kept so an older build of the app still renders, but the profile now
+        # shows highlights instead: "swiped" counted the For You shelf, which no
+        # longer exists, so the figure could never move again.
         "meetings_swiped": len(user.get("swiped_ids", [])),
+        "highlights": profile_highlights(uid),
         "account_status": get_account_status(uid),
         # Your own record carries the "to confirm" count as well, because the
         # web shows it here and nowhere else — it is a prompt to go and settle
@@ -68,6 +73,22 @@ def profile():
         ),
         # Drives the Reports badge in the admin section of the drawer.
         "open_report_count": open_report_count() if is_admin(uid) else 0,
+        # The newest thing in each admin queue, so the badge can distinguish
+        # "there is work outstanding" from "there is something you have not
+        # seen". The counts alone cannot: a queue of three you have already
+        # read and a queue of three where one is new look identical, so the
+        # marker stayed red forever and stopped meaning anything. The client
+        # remembers the highest id it has shown you and compares.
+        # get_all_meetings() hands back model objects, not the stored dicts.
+        "latest_pending_id": (
+            max((getattr(m, "id", 0) or 0
+                 for m in get_all_meetings(status="pending", include_private=True)),
+                default=0) if is_admin(uid) else 0
+        ),
+        "latest_report_id": (
+            max((r.get("id") or 0 for r in get_reports(status="open")), default=0)
+            if is_admin(uid) else 0
+        ),
     })
 
 
@@ -137,7 +158,11 @@ def user_profile(uid):
         "is_admin": is_admin(uid),
         "meetings_created": len(user.get("created_meeting_ids", [])),
         "meetings_joined": len(user.get("joined_meeting_ids", [])),
+        # Kept so an older build of the app still renders, but the profile now
+        # shows highlights instead: "swiped" counted the For You shelf, which no
+        # longer exists, so the figure could never move again.
         "meetings_swiped": len(user.get("swiped_ids", [])),
+        "highlights": profile_highlights(uid),
         "joined_at": user.get("joined_at"),
         "last_online": user.get("last_online"),
         "account_status": get_account_status(uid),
