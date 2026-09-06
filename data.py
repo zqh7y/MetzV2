@@ -1886,6 +1886,13 @@ def register_user(email):
             "is_trusted": False,
             "joined_at": now,
             "last_online": now,
+            # Drives the one-time welcome flow. Kept on the account rather than
+            # on the device: reinstalling or signing in on a second phone is
+            # not a reason to be asked to choose interests again.
+            "onboarded": False,
+            "interests": [],
+            "profile_frame": "none",
+            "profile_background": "default",
         }
         save_data()
     return uid
@@ -2141,17 +2148,29 @@ def platform_stats():
 PROFILE_EMOJIS = ["😀", "😎", "🤓", "🥳", "🧑‍💻", "🎨", "🎧", "⚽", "🏔️",
                   "🌊", "🍕", "☕", "📚", "🎬", "🐱", "🐶", "🌸", "🚀"]
 
+# Look-and-feel presets. The server stores only the id and the client owns the
+# actual colours: a palette is a design decision that changes far more often
+# than the API, and shipping hex values from here would freeze the look until
+# the next deploy. The whitelist still matters — these ids end up in other
+# people's app, so an arbitrary string must never reach a style.
+PROFILE_FRAMES = ["none", "ring", "gold", "sunset", "ocean", "glow", "dashed"]
+PROFILE_BACKGROUNDS = ["default", "ocean", "sunset", "forest", "berry", "dusk", "mono"]
+
 MAX_DISPLAY_NAME = 32
 MAX_BIO = 160
+# Enough to say who you are without turning the sign-up into a form.
+MAX_INTERESTS = 5
 
 
-def update_profile(uid, display_name=None, bio=None, avatar_emoji=None):
+def update_profile(uid, display_name=None, bio=None, avatar_emoji=None,
+                   profile_frame=None, profile_background=None, interests=None,
+                   onboarded=None):
     """Update the parts of a profile a user is allowed to change.
 
     Everything is length-capped and HTML-escaped, since these strings end up
     in other people's browsers.
     """
-    from utils.models import sanitize_html
+    from utils.models import sanitize_html, AVAILABLE_TAGS
 
     user = USERS_DB.get(uid)
     if not user:
@@ -2165,6 +2184,19 @@ def update_profile(uid, display_name=None, bio=None, avatar_emoji=None):
     if avatar_emoji is not None:
         # Whitelist only — an arbitrary string here would be rendered as-is.
         user["avatar_emoji"] = avatar_emoji if avatar_emoji in PROFILE_EMOJIS else ""
+    if profile_frame is not None:
+        user["profile_frame"] = profile_frame if profile_frame in PROFILE_FRAMES else "none"
+    if profile_background is not None:
+        user["profile_background"] = (
+            profile_background if profile_background in PROFILE_BACKGROUNDS else "default"
+        )
+    if interests is not None:
+        # Stored but not yet acted on: the sign-up asks so the answer exists
+        # when recommendations are built, rather than asking everyone again
+        # later. Restricted to real tags so it can drive filtering unchanged.
+        user["interests"] = [t for t in interests if t in AVAILABLE_TAGS][:MAX_INTERESTS]
+    if onboarded is not None:
+        user["onboarded"] = bool(onboarded)
 
     save_data()
     return True
