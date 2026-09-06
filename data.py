@@ -1070,6 +1070,58 @@ def is_admin(uid):
     return (user.get("email") or "").lower() in ADMIN_EMAILS
 
 
+def profile_highlights(uid):
+    """The handful of facts about someone worth putting on their profile.
+
+    Replaces the old row of counters. "Seen" counted swipes on the For You
+    shelf, which no longer exists, so it was frozen at whatever it reached
+    before the shelf was removed — a number that could never change again.
+    "Created" and "Joined" were lifetime totals that said little the rest of the
+    screen did not already say, sitting directly above the show-up rate, the
+    account status and the upcoming/past lists.
+
+    These answer "who is this person" instead of "how much have they used the
+    app": who they have actually met, what they turn up for, and how long they
+    have been around.
+    """
+    user = USERS_DB.get(uid)
+    if not user:
+        return {"hosted": 0, "people_met": 0, "top_tag": None, "member_since": None}
+
+    created = list(user.get("created_meeting_ids") or [])
+    joined = list(user.get("joined_meeting_ids") or [])
+
+    # Everyone who shared a meeting with them, counted once no matter how many
+    # meetings they shared. Guests have no uid, so they cannot be de-duplicated
+    # and are left out rather than inflating the number with repeats.
+    met = set()
+    tag_counts = {}
+    for mid in set(created) | set(joined):
+        record = MEETINGS_DB.get(mid)
+        if not record:
+            continue
+        met.update(record.get("joined_uids") or [])
+        creator = record.get("creator_uid")
+        if creator:
+            met.add(creator)
+        for tag in record.get("tags") or []:
+            tag_counts[tag] = tag_counts.get(tag, 0) + 1
+    met.discard(uid)
+
+    # Ties broken by name so the figure does not flicker between equal tags on
+    # every refresh.
+    top_tag = None
+    if tag_counts:
+        top_tag = sorted(tag_counts.items(), key=lambda kv: (-kv[1], kv[0]))[0][0]
+
+    return {
+        "hosted": len(created),
+        "people_met": len(met),
+        "top_tag": top_tag,
+        "member_since": user.get("joined_at"),
+    }
+
+
 def get_total_participants(uid):
     """Total number of people who joined any meeting this user created."""
     user = USERS_DB.get(uid)
