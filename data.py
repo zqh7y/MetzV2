@@ -1,5 +1,7 @@
 import math
 import hashlib
+import threading as _threading
+import time as _time
 import secrets
 import json
 import os
@@ -131,7 +133,7 @@ def save_data():
     # start-up read failed the dicts are empty or half-filled and one call would
     # erase the real data. touch_last_online() calls this on *every* request, so
     # that erasure would happen within seconds of a bad boot, not eventually.
-    if LOAD_ERROR is not None:
+    if LOAD_ERROR is not None and not getattr(_loading, "active", False):
         raise RuntimeError(
             "Refusing to write: the database was never loaded successfully "
             f"({LOAD_ERROR}). Fix the connection and restart."
@@ -2151,6 +2153,53 @@ def get_default_meetings():
 def add_meeting_to_session(session, meeting):
     """Deprecated — use add_meeting() instead. Kept so old imports don't break."""
     pass
+
+
+_load_lock = _threading.Lock()
+# load_data() legitimately writes (the migration path), but only the thread
+# actually performing the load may do so. A plain module-level flag would open
+# the same window to every other request running under --threads 8.
+_loading = _threading.local()
+_last_load_attempt = 0.0
+# Long enough that a hard-down database is not hammered once per request,
+# short enough that a fixed one comes back without anyone restarting Render.
+_RELOAD_EVERY_SECONDS = 30
+
+
+def retry_load_if_needed():
+    """Re-attempt the start-up load after it failed, at most every 30s.
+
+    Without this a degraded worker stays degraded for its whole life: LOAD_ERROR
+    is set once at import, so fixing the database changed nothing until someone
+    restarted the service by hand. The old crash-loop was worse in every way but
+    one — it did eventually recover on its own, and that property is worth
+    keeping now that the process survives instead.
+    """
+    global LOAD_ERROR, _last_load_attempt
+    if LOAD_ERROR is None:
+        return
+    now = _time.monotonic()
+    if now - _last_load_attempt < _RELOAD_EVERY_SECONDS:
+        return
+    with _load_lock:
+        # Re-checked inside the lock: with --threads 8 several requests reach
+        # this together, and only the first should pay for the attempt.
+        if LOAD_ERROR is None or _time.monotonic() - _last_load_attempt < _RELOAD_EVERY_SECONDS:
+            return
+        _last_load_attempt = _time.monotonic()
+        # A retry starts from nothing: a partly-filled load left dicts holding
+        # some rows, and merging a second attempt into them would mix two reads
+        # of the database and then persist the mixture.
+        MEETINGS_DB.clear(); USERS_DB.clear(); REPORTS_DB.clear(); INBOX_DB.clear()
+        _loading.active = True
+        try:
+            load_data()
+            LOAD_ERROR = None
+            print("[data] recovered: database loaded", flush=True)
+        except Exception as exc:  # noqa: BLE001
+            LOAD_ERROR = f"{type(exc).__name__}: {exc}"
+        finally:
+            _loading.active = False
 
 
 try:
