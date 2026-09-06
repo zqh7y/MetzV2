@@ -34,6 +34,7 @@ load_dotenv(os.path.join(_ROOT, ".env"))
 
 from flask import Flask, request, jsonify, render_template, make_response, abort
 
+import data as _data
 from data import (
     touch_last_online, is_banned, public_meeting, add_guest,
     MEETINGS_DB, meeting_visibility, find_meeting_by_slug, PRIVATE,
@@ -116,6 +117,26 @@ def add_cors_headers(response):
 @app.route("/api/<path:_any>", methods=["OPTIONS"])
 def cors_preflight(_any):
     return "", 204
+
+
+@app.before_request
+def refuse_when_database_is_down():
+    """Answer honestly while the data layer is unusable.
+
+    data.py loads the whole database at import. If that failed, the dicts are
+    empty or half-filled, and serving from them would tell people their
+    meetings and account no longer exist — a far worse lie than an error. Only
+    /api/health is allowed through, so the reason can be read from outside
+    without a Render dashboard.
+    """
+    if _data.LOAD_ERROR is None or request.path == "/api/health":
+        return None
+    return jsonify({
+        "error": "The server cannot reach its database right now. "
+                 "This is an outage, not a problem with your account — "
+                 "nothing has been lost.",
+        "database_unavailable": True,
+    }), 503
 
 
 @app.before_request
@@ -330,6 +351,11 @@ def _do_share_join(meeting_id):
 
 @app.route("/api/health")
 def health():
+    # Reports the data layer rather than just "the process is up": a service
+    # that boots but cannot read Postgres is down as far as anyone using it is
+    # concerned, and this is the only view of that from outside Render.
+    if _data.LOAD_ERROR is not None:
+        return jsonify({"status": "degraded", "database": _data.LOAD_ERROR}), 503
     return jsonify({"status": "ok"})
 
 
