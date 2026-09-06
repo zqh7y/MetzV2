@@ -9,6 +9,7 @@ from data import (
     get_reliability, delete_own_account, open_report_count, unread_inbox_count,
     get_reports, profile_highlights,
     PROFILE_EMOJIS, MAX_DISPLAY_NAME, MAX_BIO,
+    PROFILE_FRAMES, PROFILE_BACKGROUNDS, MAX_INTERESTS,
 )
 
 from routes.activity import pending_action_count
@@ -45,6 +46,18 @@ def profile():
         "bio": user.get("bio") or "",
         "avatar_emoji": user.get("avatar_emoji") or "",
         "emoji_choices": PROFILE_EMOJIS,
+        # Look-and-feel. The client owns the palettes and only ever sends an id
+        # back, so the lists double as "what may I offer" and "what is valid".
+        "profile_frame": user.get("profile_frame") or "none",
+        "profile_background": user.get("profile_background") or "default",
+        "frame_choices": PROFILE_FRAMES,
+        "background_choices": PROFILE_BACKGROUNDS,
+        "interests": user.get("interests") or [],
+        "max_interests": MAX_INTERESTS,
+        # False for an account that has never finished the welcome flow. Older
+        # accounts predate the field and must not be sent through it again, so
+        # a missing value counts as done.
+        "onboarded": bool(user.get("onboarded", True)),
         "max_display_name": MAX_DISPLAY_NAME,
         "max_bio": MAX_BIO,
         "profile_picture": user.get("profile_picture"),
@@ -113,6 +126,10 @@ def edit_profile():
         display_name=body.get("display_name"),
         bio=body.get("bio"),
         avatar_emoji=body.get("avatar_emoji"),
+        profile_frame=body.get("profile_frame"),
+        profile_background=body.get("profile_background"),
+        interests=body.get("interests"),
+        onboarded=body.get("onboarded"),
     ):
         return jsonify({"error": "not found"}), 404
 
@@ -121,6 +138,10 @@ def edit_profile():
         "display_name": user.get("display_name") or "",
         "bio": user.get("bio") or "",
         "avatar_emoji": user.get("avatar_emoji") or "",
+        "profile_frame": user.get("profile_frame") or "none",
+        "profile_background": user.get("profile_background") or "default",
+        "interests": user.get("interests") or [],
+        "onboarded": bool(user.get("onboarded", True)),
     })
 
 
@@ -154,6 +175,8 @@ def user_profile(uid):
         "username": user["username"],
         "profile_picture": user.get("profile_picture"),
         "profile_color": generate_user_color(uid),
+        "profile_frame": user.get("profile_frame") or "none",
+        "profile_background": user.get("profile_background") or "default",
         "is_trusted": is_trusted(uid),
         "is_admin": is_admin(uid),
         "meetings_created": len(user.get("created_meeting_ids", [])),
