@@ -31,15 +31,46 @@ export function setCurrentUid(uid) {
   setSession(uid, currentToken);
 }
 
+// React Native's fetch has no default timeout, so a server that accepts the
+// connection and then never answers leaves the promise pending forever. That is
+// not hypothetical: when the API could not reach its database it held every
+// request open, and the login button sat on "Logging in..." indefinitely with
+// nothing logged and no way for anyone to tell a hung server from a slow one.
+//
+// The budget has to clear a cold start. Render's free tier spins the service
+// down after ~15 idle minutes and the next request pays ~22s for the boot, so a
+// short timeout would abort perfectly healthy first requests.
+const REQUEST_TIMEOUT_MS = 45000;
+
 async function request(path, { method = "GET", body, auth = true } = {}) {
   const headers = { "Content-Type": "application/json" };
   if (auth && currentToken) headers["Authorization"] = `Bearer ${currentToken}`;
 
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    // A caller cannot act on "AbortError" or "Network request failed"; it can
+    // act on being told the server is unreachable, so both collapse into one
+    // honest message with a flag callers can branch on.
+    const offline = new Error(
+      err.name === "AbortError"
+        ? "The server is taking too long to answer. It may be starting up — try again in a moment."
+        : "Cannot reach the server. Check your connection and try again."
+    );
+    offline.offline = true;
+    throw offline;
+  } finally {
+    clearTimeout(timer);
+  }
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {

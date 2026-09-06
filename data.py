@@ -55,6 +55,24 @@ _LEGACY_JSON_FILE = os.path.join(os.path.dirname(__file__), "app_data.json")
 _LEGACY_DB_FILE = os.path.join(os.path.dirname(__file__), "app_data.db")
 
 
+# Why the start-up load failed, or None when the data layer is healthy.
+#
+# A dead database used to take the whole service down in a way nobody could
+# see: load_data() runs at import, psycopg.connect() had no timeout, so the
+# worker blocked on a TCP connect that never completed. gunicorn killed it at
+# --timeout 60 and restarted it, forever, so the process never bound a port and
+# Render's router held every request open without ever sending a byte — the API
+# looked hung rather than broken, which is far harder to diagnose than a crash.
+# Recording the reason here lets the service boot far enough to *report* it.
+LOAD_ERROR = None
+
+# A connect that cannot finish must fail rather than hang. Ten seconds is well
+# past a healthy Render internal-network connect and well under the gunicorn
+# worker timeout, so a real outage surfaces as an error with a traceback
+# instead of a silent boot loop.
+_CONNECT_TIMEOUT = int(os.environ.get("DB_CONNECT_TIMEOUT", "10"))
+
+
 def _get_connection():
     """Connect to the single Postgres database used by both Render services.
 
@@ -65,7 +83,9 @@ def _get_connection():
     database_url = os.environ.get("DATABASE_URL")
     if not database_url:
         raise RuntimeError("DATABASE_URL is required (use Render's internal Postgres URL).")
-    conn = psycopg.connect(database_url, autocommit=True)
+    conn = psycopg.connect(
+        database_url, autocommit=True, connect_timeout=_CONNECT_TIMEOUT
+    )
     with conn.cursor() as cur:
         cur.execute("""
             CREATE TABLE IF NOT EXISTS meetings (
@@ -105,6 +125,17 @@ def save_data():
     Upserts plus one cleanup statement per table prevent duplicate-key races
     while keeping deleted records from surviving in the database.
     """
+    # Refusing to write after a failed load is the whole reason booting into a
+    # degraded state is safe. This function mirrors memory onto the database and
+    # deletes every row memory does not have (see the DELETE below), so if the
+    # start-up read failed the dicts are empty or half-filled and one call would
+    # erase the real data. touch_last_online() calls this on *every* request, so
+    # that erasure would happen within seconds of a bad boot, not eventually.
+    if LOAD_ERROR is not None:
+        raise RuntimeError(
+            "Refusing to write: the database was never loaded successfully "
+            f"({LOAD_ERROR}). Fix the connection and restart."
+        )
     conn = _get_connection()
     with conn.cursor() as cur:
         tables = (
@@ -2122,4 +2153,13 @@ def add_meeting_to_session(session, meeting):
     pass
 
 
-load_data()
+try:
+    load_data()
+except Exception as _exc:  # noqa: BLE001 - any failure must stay reportable
+    # Booting is deliberate: a process that starts and answers /api/health with
+    # the reason is diagnosable from outside, whereas the previous behaviour
+    # (die at import, get restarted, never bind) was indistinguishable from a
+    # network black hole. Every write is blocked above and the API refuses
+    # traffic, so this degraded process cannot corrupt anything.
+    LOAD_ERROR = f"{type(_exc).__name__}: {_exc}"
+    print(f"[data] FATAL: could not load the database - {LOAD_ERROR}", flush=True)
