@@ -23,15 +23,42 @@ export function AuthProvider({ children }) {
     setAccounts(await listAccounts());
   }, []);
 
+  /**
+   * Decide who is signed in, and get out of the way.
+   *
+   * Two things here are deliberate, and both are about the app opening at all:
+   *
+   * `refreshProfile()` is not awaited. It is a network round-trip, and until it
+   * settled nothing below `booting` rendered — so on Render's free tier, which
+   * sleeps after ~15 idle minutes and takes ~22s to wake, a signed-in person
+   * stared at a spinner for that whole cold start before the app appeared. The
+   * 45s request timeout was the real ceiling. The session comes from storage,
+   * not from that call, so the app can render the moment the uid is known and
+   * let the profile land when it lands; every consumer of `profile` already
+   * handles it being null, because it always was for the first frame.
+   *
+   * The try/finally is the other half. `setBooting(false)` used to sit at the
+   * end of the happy path, so anything that threw above it — a storage read
+   * that rejects rather than returning null — left `booting` true forever and
+   * the app on its loading screen with no error and nothing to retry. Failing
+   * to read a stored session should mean "nobody is signed in", not "the app
+   * never opens". ThemeContext and LocaleContext already treat their own reads
+   * that way.
+   */
   useEffect(() => {
     (async () => {
-      const stored = await loadStoredUid();
-      if (stored) {
-        setUid(stored);
-        await refreshProfile();
+      try {
+        const stored = await loadStoredUid();
+        if (stored) {
+          setUid(stored);
+          refreshProfile();
+        }
+        await reloadAccounts();
+      } catch (e) {
+        // Fall through to booting: false — see above.
+      } finally {
+        setBooting(false);
       }
-      await reloadAccounts();
-      setBooting(false);
     })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
