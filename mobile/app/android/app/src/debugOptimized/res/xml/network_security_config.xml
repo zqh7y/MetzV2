@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  A copy of src/debug/res/xml/network_security_config.xml, and it has to be a
+  copy rather than something inherited.
+
+  `debugOptimized` is not a build type this project declares. The React Native
+  Gradle plugin creates it for every app (AgpConfiguratorUtils.kt does
+  `maybeCreate("debugOptimized").initWith(debug)`), and Android Studio lists it
+  in the Build Variants panel right next to `debug` — which is how you end up
+  running it without deciding to. `initWith` copies the build type's DSL, not
+  its source set, so src/debug/res never reaches this variant.
+
+  Without this file the variant falls back to src/main's config, which forbids
+  cleartext everywhere. `debugOptimized` is still debuggable, so the app asks
+  Metro for its JS over http://10.0.2.2:8081, Android refuses the request, and
+  nothing ever writes the bundle to disk. The splash sits there for as long as
+  the loader retries, and then it throws
+
+      JSBigFileString::fromPath - Could not open file: …
+
+  which names the missing *file*, not the blocked request, and so reads like a
+  broken bundler rather than a manifest that never permitted the download.
+
+  The manifest at src/debugOptimized/AndroidManifest.xml sets
+  android:usesCleartextTraffic="true" and that is not enough on its own:
+  since Android 7 a network security config overrides that attribute, and
+  src/main declares one.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

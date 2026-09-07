@@ -68,6 +68,67 @@ Then press `a` for Android emulator, `i` for iOS simulator, or open the
 connection URL with **Expo Go** on a physical device (scan the QR code, or
 enter it manually as `exp://<your-computer's-LAN-IP>:8081`).
 
+### On the Android emulator
+
+```bash
+cd mobile/app
+npm run emulator          # adb reverse + expo start --go --localhost
+```
+
+Use this rather than `npm run go` when the target is the emulator. `npm run go`
+passes `--host lan`, so pressing `a` sends the emulator out to the machine's
+LAN address for the JS bundle — a round trip through the host's firewall, which
+on Windows blocks inbound connections to `node.exe` unless someone has allowed
+them. `--localhost` plus `adb reverse` keeps the whole conversation on loopback,
+where there is nothing to block and no address to go stale when the machine
+changes networks.
+
+To open Expo Go by hand instead of pressing `a`:
+
+```bash
+emulator -avd metz
+adb shell am start -a android.intent.action.VIEW -d "exp://10.0.2.2:8081" host.exp.exponent
+```
+
+`10.0.2.2` is the emulator's alias for the host's loopback, so that address is
+firewall-proof too, whichever `--host` the dev server was started with: the
+manifest handler builds the bundle URL from the `Host` header of the request it
+answered, not from `--host`.
+
+#### "Loading forever, then `JSBigFileString::fromPath - Could not open file`"
+
+That message is the JS engine reporting that the file it was handed does not
+exist on disk — it is never a syntax error or a bad import, and the bundler is
+almost never at fault. Something asked the app to load its JavaScript **from a
+file**, and the download that was supposed to write that file never finished.
+The spinner beforehand is the retry; the throw is what is left when it gives up.
+
+Work through it in this order:
+
+1. **Is the dev server reachable from inside the emulator?**
+   `adb shell curl -s http://10.0.2.2:8081/status` should print
+   `packager-status:running`. Nothing else matters until it does. (Older system
+   images ship no `curl`; `adb shell toybox wget -qO - http://10.0.2.2:8081/status`
+   is the same check.)
+2. **Is the bundle actually building?** Ask for it directly from the machine
+   running Metro:
+   `curl -s -o NUL -w "%{http_code}" "http://127.0.0.1:8081/node_modules/expo/AppEntry.bundle?platform=android&dev=true"`
+   Also `200`. A cold cache takes a while — the first build is ~1300 modules —
+   so give it a minute before deciding it has hung.
+3. **Is Expo Go holding a half-written bundle?** Its cache survives reloads and
+   a wiped emulator snapshot can leave the manifest cached with the bundle gone,
+   which reproduces this every launch. `adb shell pm clear host.exp.exponent`
+   and open it again.
+4. **Is the emulator out of disk?** `adb shell df /data`. The dev bundle is
+   ~7 MB and has to be written before it can be read.
+5. **Which build variant is installed?** If this is a development build rather
+   than Expo Go, check that it is `debug` and not `debugOptimized` — see the
+   comment in `android/app/src/debugOptimized/res/xml/network_security_config.xml`
+   for why that one used to fail exactly like this.
+
+`adb logcat -s ReactNativeJS ReactNative expo` while the app starts shows the
+failed request that precedes the throw, which is the part the error text drops.
+
 **Before running**, edit `mobile/app/src/config.js` and point
 `API_BASE_URL` at wherever `server.py` is reachable:
 - Android emulator → `http://10.0.2.2:5051` (already the default)

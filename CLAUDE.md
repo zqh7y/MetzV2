@@ -95,6 +95,12 @@ progress bar that never fills.
   call the function. Flask routes can be exercised with `app.test_client()`.
 - The emulator has **no GPS fix** and `adb emu geo fix` does not work on it, so
   "you are here" cannot be verified there. Say so rather than claiming it works.
+- If the app sits on the splash and then dies with
+  `JSBigFileString::fromPath - Could not open file`, the bundle never reached
+  the device — the JS is fine. `mobile/README.md` → "On the Android emulator"
+  has the order to check things in. Start Metro with `npm run emulator`, not
+  `npm run go`: `--host lan` sends the emulator out through the host firewall
+  for its bundle.
 
 ## Build and release
 

@@ -5,6 +5,7 @@
   "scripts": {
     "start": "expo start",
     "go": "expo start --go --host lan",
+    "emulator": "adb reverse tcp:8081 tcp:8081 && expo start --go --localhost",
     "android": "expo run:android",
     "ios": "expo run:ios"
   },
