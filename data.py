@@ -1894,6 +1894,7 @@ def register_user(email):
             # on the device: reinstalling or signing in on a second phone is
             # not a reason to be asked to choose interests again.
             "onboarded": False,
+            "role": "member",
             "interests": [],
             "profile_frame": "none",
             "profile_background": "default",
@@ -2162,6 +2163,11 @@ PROFILE_EMOJIS = ["😀", "😎", "🤓", "🥳", "🧑‍💻", "🎨", "🎧",
 # than the API, and shipping hex values from here would freeze the look until
 # the next deploy. The whitelist still matters — these ids end up in other
 # people's app, so an arbitrary string must never reach a style.
+# What someone said they came here for, asked before they even have an account.
+# It steers what the app puts in front of them; it is not a permission, and it
+# can be changed in Settings, so nothing may depend on it being true.
+USER_ROLES = ["member", "organiser"]
+
 PROFILE_FRAMES = ["none", "ring", "gold", "sunset", "ocean", "glow", "dashed"]
 PROFILE_BACKGROUNDS = ["default", "ocean", "sunset", "forest", "berry", "dusk", "mono"]
 
@@ -2173,7 +2179,7 @@ MAX_INTERESTS = 5
 
 def update_profile(uid, display_name=None, bio=None, avatar_emoji=None,
                    profile_frame=None, profile_background=None, interests=None,
-                   onboarded=None):
+                   onboarded=None, role=None):
     """Update the parts of a profile a user is allowed to change.
 
     Everything is length-capped and HTML-escaped, since these strings end up
@@ -2204,6 +2210,8 @@ def update_profile(uid, display_name=None, bio=None, avatar_emoji=None,
         # when recommendations are built, rather than asking everyone again
         # later. Restricted to real tags so it can drive filtering unchanged.
         user["interests"] = [t for t in interests if t in AVAILABLE_TAGS][:MAX_INTERESTS]
+    if role is not None:
+        user["role"] = role if role in USER_ROLES else "member"
     if onboarded is not None:
         user["onboarded"] = bool(onboarded)
 
