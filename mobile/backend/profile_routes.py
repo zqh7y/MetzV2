@@ -7,7 +7,7 @@ from data import (
     get_user, is_admin, is_trusted, set_trusted, get_account_status,
     get_all_meetings, search_users, generate_user_color, update_profile,
     get_reliability, delete_own_account, open_report_count, unread_inbox_count,
-    get_reports, profile_highlights,
+    get_reports, profile_highlights, get_active_users,
     PROFILE_EMOJIS, MAX_DISPLAY_NAME, MAX_BIO,
     PROFILE_FRAMES, PROFILE_BACKGROUNDS, MAX_INTERESTS,
 )
@@ -246,6 +246,11 @@ def trust_user(uid):
 @profile_bp.route("/api/search_users")
 def search_users_route():
     q = request.args.get("q", "").strip()
+    # An empty box used to answer with an empty list, so the People tab opened
+    # on "type to find users" — which only helps someone who already knows a
+    # name. data.get_active_users() was written for exactly this and had never
+    # been wired to anything: the people worth meeting are the ones actually
+    # turning up, and now that is what you land on.
     if not q:
-        return jsonify([])
+        return jsonify(get_active_users(exclude_uid=current_uid()))
     return jsonify(search_users(q))
