@@ -14,7 +14,7 @@ from data import (
 
 from routes.activity import pending_action_count
 
-from helpers import current_uid, require_admin
+from helpers import current_uid, require_admin, serialize_meeting
 
 profile_bp = Blueprint("profile", __name__)
 
@@ -165,6 +165,28 @@ def delete_account():
     return jsonify({"status": "deleted", "signed_out": True})
 
 
+def _upcoming_hosted_by(target_uid, viewer_uid, limit=3):
+    """The next few meetings `target_uid` is running that `viewer_uid` may see."""
+    from datetime import datetime
+
+    now = datetime.now()
+    rows = []
+    for m in get_all_meetings(status="approved", viewer_uid=viewer_uid):
+        if getattr(m, "creator_uid", None) != target_uid:
+            continue
+        # Sorting on the stored string would put "9 Sep" after "10 Sep", so the
+        # timestamp is parsed rather than compared as text.
+        try:
+            at = datetime.strptime(getattr(m, "time", ""), "%Y-%m-%d %H:%M")
+        except (TypeError, ValueError):
+            continue
+        if at >= now:
+            rows.append((at, m))
+
+    rows.sort(key=lambda pair: pair[0])
+    return [serialize_meeting(m, viewer_uid) for _, m in rows[:limit]]
+
+
 @profile_bp.route("/api/users/<uid>")
 def user_profile(uid):
     user = get_user(uid)
@@ -173,6 +195,12 @@ def user_profile(uid):
     return jsonify({
         "uid": uid,
         "username": user["username"],
+        # A profile with nothing on it but a name is not worth opening. The
+        # display name, the bio and the interests were all being collected —
+        # at sign-up and in the editor — and then shown to nobody.
+        "display_name": user.get("display_name") or "",
+        "bio": user.get("bio") or "",
+        "interests": user.get("interests") or [],
         "profile_picture": user.get("profile_picture"),
         "profile_color": generate_user_color(uid),
         "profile_frame": user.get("profile_frame") or "none",
@@ -188,6 +216,12 @@ def user_profile(uid):
         "highlights": profile_highlights(uid),
         "joined_at": user.get("joined_at"),
         "last_online": user.get("last_online"),
+        # Their upcoming meetings, so the profile is somewhere you can act from
+        # rather than a dead end. Visibility goes through get_all_meetings()
+        # with the viewer's uid, which already drops anything pending,
+        # cancelled, or private and not theirs — a profile page must not become
+        # a way around those rules.
+        "hosting": _upcoming_hosted_by(uid, current_uid()),
         "account_status": get_account_status(uid),
         # What an organiser wants to know before counting on someone.
         #
