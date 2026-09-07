@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { DevSettings, I18nManager } from "react-native";
+import { I18nManager } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import {
@@ -65,6 +65,17 @@ export function LocaleProvider({ children }) {
    * supportsRtl="true", so a phone whose system language is Hebrew or Arabic
    * starts RTL on its own and picking "System default" needs no relaunch. Only
    * an in-app override that disagrees with the phone does.
+   *
+   * There is deliberately no development shortcut here. This used to call
+   * DevSettings.reload() under __DEV__, on the theory that re-running the
+   * bundle was cheaper than asking the developer to relaunch. It is not the
+   * same thing: reload() restarts the *JavaScript*, while forceRTL only takes
+   * effect when the *native* process starts. The guard above is therefore not
+   * guaranteed to be satisfied by the reload it triggered — and this runs on
+   * first load, not just on a switch, so an RTL language on an LTR process
+   * could reload the bundle again the moment it came back, over and over,
+   * leaving the app on its splash screen having never rendered a frame.
+   * Development now takes the same relaunch path as production.
    */
   const applyDirection = useCallback((next) => {
     const wantRTL = isRTLLanguage(next);
@@ -72,12 +83,6 @@ export function LocaleProvider({ children }) {
     if (I18nManager.isRTL === wantRTL) return false;
 
     I18nManager.forceRTL(wantRTL);
-    if (__DEV__ && DevSettings?.reload) {
-      // In development the bundle can just be re-run, so don't make the
-      // developer relaunch by hand on every switch.
-      DevSettings.reload();
-      return false;
-    }
     return true;
   }, []);
 
@@ -93,12 +98,11 @@ export function LocaleProvider({ children }) {
      * Persist first, re-render second.
      *
      * The obvious order — setChoice then a fire-and-forget write — loses the
-     * choice whenever the new language flips the layout direction: applying
-     * that reloads the JS context, and the reload can win the race against an
-     * unawaited AsyncStorage write. The app then comes back in the *old*
-     * language, having apparently ignored the tap. Awaiting the write means
-     * the only thing left to lose is a re-render that is about to happen
-     * anyway.
+     * choice whenever the new language flips the layout direction: that path
+     * ends in a relaunch, which can win the race against an unawaited
+     * AsyncStorage write. The app then comes back in the *old* language,
+     * having apparently ignored the tap. Awaiting the write means the only
+     * thing left to lose is a re-render that is about to happen anyway.
      */
     async function setLanguage(next) {
       const value = next === SYSTEM || isSupported(next) ? next : DEFAULT_LANGUAGE;
