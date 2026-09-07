@@ -1857,6 +1857,10 @@ def get_joined_users_preview(joined_uids, limit=4):
         preview.append({
             "uid": uid,
             "profile_picture": user.get("profile_picture") if user else None,
+            # Same reason as public_user(): the stack on a meeting card is the
+            # most-seen place a person's avatar appears in the whole app.
+            "avatar_emoji": (user.get("avatar_emoji") or "") if user else "",
+            "profile_frame": (user.get("profile_frame") or "none") if user else "none",
             "color": generate_user_color(uid),
             "initial": username[:1].upper(),
         })
@@ -1991,6 +1995,11 @@ def public_user(u):
         "username": u.get("display_name") or u.get("username", ""),
         "bio": u.get("bio", ""),
         "avatar_emoji": u.get("avatar_emoji", ""),
+        # The look someone chose has to travel with them everywhere they are
+        # drawn, not only on their own profile — otherwise picking a frame
+        # changes one screen and nothing else, which reads as not having saved.
+        "profile_frame": u.get("profile_frame") or "none",
+        "profile_background": u.get("profile_background") or "default",
         "profile_picture": u.get("profile_picture"),
         "color": generate_user_color(u["uid"]),
         "is_trusted": bool(u.get("is_trusted")),
