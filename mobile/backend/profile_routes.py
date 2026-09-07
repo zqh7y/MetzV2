@@ -9,7 +9,7 @@ from data import (
     get_reliability, delete_own_account, open_report_count, unread_inbox_count,
     get_reports, profile_highlights, get_active_users,
     PROFILE_EMOJIS, MAX_DISPLAY_NAME, MAX_BIO,
-    PROFILE_FRAMES, PROFILE_BACKGROUNDS, MAX_INTERESTS,
+    PROFILE_FRAMES, PROFILE_BACKGROUNDS, MAX_INTERESTS, USER_ROLES,
 )
 
 from routes.activity import pending_action_count
@@ -54,6 +54,10 @@ def profile():
         "background_choices": PROFILE_BACKGROUNDS,
         "interests": user.get("interests") or [],
         "max_interests": MAX_INTERESTS,
+        # Older accounts predate the field and are treated as members, which is
+        # what the app looked like before the question existed.
+        "role": user.get("role") or "member",
+        "role_choices": USER_ROLES,
         # False for an account that has never finished the welcome flow. Older
         # accounts predate the field and must not be sent through it again, so
         # a missing value counts as done.
@@ -130,6 +134,7 @@ def edit_profile():
         profile_background=body.get("profile_background"),
         interests=body.get("interests"),
         onboarded=body.get("onboarded"),
+        role=body.get("role"),
     ):
         return jsonify({"error": "not found"}), 404
 
@@ -142,6 +147,7 @@ def edit_profile():
         "profile_background": user.get("profile_background") or "default",
         "interests": user.get("interests") or [],
         "onboarded": bool(user.get("onboarded", True)),
+        "role": user.get("role") or "member",
     })
 
 

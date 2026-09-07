@@ -309,6 +309,55 @@ def delete_meeting_route(meeting_id):
     return jsonify({"error": "forbidden"}), 403
 
 
+@meeting_bp.route("/api/hosting")
+def hosting():
+    """The meetings the caller is running — what the organiser's panel shows.
+
+    Deliberately not the same as /api/meetings filtered client-side: this
+    includes their *pending* ones. An organiser who has just posted something
+    needs to see that it is waiting on review, and the public listings hide it
+    precisely because it has not been approved yet.
+
+    Past meetings are dropped: the panel is about what still needs attention,
+    and something that already happened does not.
+    """
+    from datetime import datetime
+
+    uid = current_uid()
+    if not get_user(uid):
+        return jsonify({"error": "unauthorized"}), 401
+
+    now = datetime.now()
+    rows = []
+    for record in MEETINGS_DB.values():
+        if record.get("creator_uid") != uid:
+            continue
+        if record.get("status") == "declined":
+            continue
+        try:
+            at = datetime.strptime(record.get("time", ""), "%Y-%m-%d %H:%M")
+        except (TypeError, ValueError):
+            continue
+        if at < now:
+            continue
+        rows.append((at, record))
+
+    rows.sort(key=lambda pair: pair[0])
+    # Serialising goes through the model the rest of the API uses, so a card on
+    # this panel is fed exactly what a card anywhere else is. Built once as a
+    # lookup rather than per row: get_all_meetings() walks the whole table.
+    out = []
+    by_id = {m.id: m for m in get_all_meetings(status=None, viewer_uid=uid)}
+    for _, record in rows:
+        m = by_id.get(record.get("id"))
+        if m is None:
+            continue
+        data = serialize_meeting(m, uid)
+        data["status"] = record.get("status")
+        out.append(data)
+    return jsonify(out)
+
+
 @meeting_bp.route("/api/joined")
 def joined_meetings():
     uid = current_uid()
