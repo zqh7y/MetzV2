@@ -15,14 +15,50 @@ import { WebView } from "react-native-webview";
  * flips them rather than leaving two conventions loose in the same file.
  */
 
+/**
+ * Basemap tiles, in two halves: a base and a transparent labels layer on top.
+ *
+ * This used to be CARTO (voyager in light, dark_all in dark), which now
+ * requires an API key and answers anonymous requests with the tile stamped
+ * "API KEY REQUIRED · carto.com/basemaps/apikey" diagonally across it, over
+ * and over down the whole map. Every CARTO raster endpoint does it —
+ * rastertiles/voyager, light_all and dark_all alike. Dark went on looking
+ * fine for a while only because the WebView still had clean tiles cached from
+ * before they changed the rules.
+ *
+ * Only their *raster* tiles are affected: the vector tiles behind
+ * theme.mapStyle come back clean, so the native MapLibre map in a real build
+ * is untouched and stays on CARTO. This is the fallback path — WebView and
+ * Leaflet — which is what Expo Go and anything without the native module gets.
+ *
+ * Esri's Canvas basemaps are the replacement: no key, and a genuine
+ * light/dark pair, which matters because the appearance setting promises the
+ * map follows it. They ship as base + reference rather than one image, so the
+ * labels are a second layer; the upside is that the reference layer is
+ * bilingual, so places here come out in Hebrew as well as English.
+ */
+const ESRI = "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas";
 const TILES = {
+  // Plain OpenStreetMap: the labels are drawn into the tile, so it needs no
+  // second layer and no key. Esri's Light Gray was tried here first and its
+  // matching Reference layer turned out to serve an *opaque white* tile rather
+  // than transparent labels — painted over the base it bleached the whole map
+  // to near-white and there were no place names to show for it.
   light: {
-    url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-    attribution: "© OpenStreetMap, © CARTO",
+    url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution: "© OpenStreetMap",
+    maxNativeZoom: 19,
   },
+  // Esri's dark pair does work, and its Reference layer is properly
+  // transparent — bilingual, so places come out in Hebrew as well as English.
+  // Canvas is only built to z16: left at 19 the map went blank for the last
+  // three steps of zoom, so Leaflet stops *fetching* at 16 and scales what it
+  // already has for anything closer. Blurry beats empty.
   dark: {
-    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-    attribution: "© OpenStreetMap, © CARTO",
+    url: ESRI + "/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+    labels: ESRI + "/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}",
+    attribution: "© Esri, © OpenStreetMap",
+    maxNativeZoom: 16,
   },
 };
 
@@ -169,14 +205,23 @@ function buildHtml(config) {
   var map = L.map("map", { zoomControl: false, attributionControl: true })
     .setView([init.center[1], init.center[0]], init.zoom);
 
-  // detectRetina swaps {r} for "@2x" on a high-density screen. Without it the
-  // 256px tiles were being stretched across ~2.75 device pixels each, which is
-  // why the basemap looked soft and its place names came out oversized.
-  L.tileLayer(init.tiles.url, {
+  // detectRetina asks for the next zoom level down and draws it at half size on
+  // a high-density screen. Without it the 256px tiles were being stretched
+  // across ~2.75 device pixels each, which is why the basemap looked soft and
+  // its place names came out oversized. It used to also swap {r} for "@2x";
+  // Esri serves no @2x, so that half of it is gone and the rest still works.
+  var tileOptions = {
     attribution: init.tiles.attribution,
     maxZoom: 19,
+    maxNativeZoom: init.tiles.maxNativeZoom,
     detectRetina: true,
-  }).addTo(map);
+  };
+  L.tileLayer(init.tiles.url, tileOptions).addTo(map);
+  // Place names, transparent, over the base. Added before the markers so a pin
+  // is never hidden behind a label.
+  if (init.tiles.labels) {
+    L.tileLayer(init.tiles.labels, tileOptions).addTo(map);
+  }
   L.control.zoom({ position: "bottomright" }).addTo(map);
 
   // The web clusters its meetings source with clusterRadius 55 and

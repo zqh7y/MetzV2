@@ -6,12 +6,16 @@ import {
 import { Map, Camera, GeoJSONSource, Layer, UserLocation, MAPS_AVAILABLE } from "../components/MapShim";
 import WebMap from "../components/WebMap";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useFocusEffect } from "@react-navigation/native";
 import { api } from "../api";
+import { getSeenId } from "../adminSeen";
 import { useAuth } from "../context/AuthContext";
 import MeetingCard from "../components/MeetingCard";
 import SectionRule from "../components/SectionRule";
+import HostingPanel from "../components/HostingPanel";
 import HomeDrawer, { MenuButton } from "../components/HomeDrawer";
 import AccountSheet from "../components/AccountSheet";
+import ExplorePane from "./ExploreScreen";
 import { SearchIcon, MapPinIcon, GlobeIcon, CrosshairIcon } from "../components/NavIcons";
 import useMyLocation from "../hooks/useMyLocation";
 import useAutoRefresh from "../hooks/useAutoRefresh";
@@ -29,7 +33,7 @@ const LABEL_FONT = ["Montserrat Medium", "Open Sans Bold", "Noto Sans Regular",
 // show the title and search box above it.
 const PEEK_VISIBLE = 215;
 
-export default function HomeScreen({ navigation }) {
+export default function HomeScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { height: screenH } = useWindowDimensions();
   const { uid, profile, refreshProfile } = useAuth();
@@ -40,7 +44,83 @@ export default function HomeScreen({ navigation }) {
   // Home has no bottom bar on the web either — the hamburger drawer replaced it
   const [menuOpen, setMenuOpen] = useState(false);
   const [accountSheet, setAccountSheet] = useState(false);
-  const pendingCount = profile?.pending_review_count || 0;
+  // The admin markers show unseen work, not outstanding work. The server sends
+  // the newest id in each queue and adminSeen remembers the highest one already
+  // shown, so opening a queue quiets its marker until something newer arrives —
+  // instead of it staying red until every last item is actioned.
+  const [seenPendingId, setSeenPendingId] = useState(0);
+  const [seenReportId, setSeenReportId] = useState(0);
+
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      const uid = profile?.uid;
+      if (!uid) return undefined;
+      Promise.all([getSeenId(uid, "pending"), getSeenId(uid, "reports")])
+        .then(([p, r]) => {
+          if (!alive) return;
+          setSeenPendingId(p);
+          setSeenReportId(r);
+        })
+        .catch(() => {});
+      return () => { alive = false; };
+    }, [profile?.uid])
+  );
+
+  // An older API does not send the newest ids at all. Falling back to the plain
+  // count keeps the marker visible in that case: hiding real moderation work
+  // because the server is a version behind is the one failure worth avoiding.
+  const unseen = (latestId, seenId, count) => {
+    if (!count) return false;
+    if (latestId === undefined || latestId === null) return true;
+    return latestId > seenId;
+  };
+  const hasNewPending = unseen(
+    profile?.latest_pending_id, seenPendingId, profile?.pending_review_count || 0
+  );
+  const hasNewReports = unseen(
+    profile?.latest_report_id, seenReportId, profile?.open_report_count || 0
+  );
+
+  // Kept as the count so the drawer still says how many are waiting; it is the
+  // decision to show anything at all that "seen" governs.
+  const pendingCount = hasNewPending ? profile?.pending_review_count || 0 : 0;
+  const reportCount = hasNewReports ? profile?.open_report_count || 0 : 0;
+
+  /**
+   * Which list the sheet is showing: the nearby one, or Explore's filters.
+   *
+   * Explore was a separate destination until the menu was cut to five, and it
+   * and Home were always two views of the same meetings — the map sorts them
+   * by how far away they are, Explore by anything else. They share the sheet
+   * now, and the search box above it, so the choice is a tap rather than a
+   * trip through the drawer.
+   *
+   * `route.params.tab` lets somewhere else ask for the Explore side directly;
+   * Activity's "All clear" button is the one caller.
+   */
+  const [sheetTab, setSheetTab] = useState(route?.params?.tab === "explore" ? "explore" : "nearby");
+  const onExplore = sheetTab === "explore";
+  useEffect(() => {
+    if (route?.params?.tab) setSheetTab(route.params.tab === "explore" ? "explore" : "nearby");
+  }, [route?.params?.tab]);
+
+  // The ids Explore last matched. Its rows carry no coordinates (explore_data()
+  // in routes/explore.py does not return lat/lng), so they cannot be plotted
+  // directly — the ids are intersected with `meetings`, which does have them,
+  // and that narrowed set is what the map draws. A meeting Explore returns but
+  // getMeetings() did not simply gets no pin, which is the honest outcome:
+  // there is nowhere to put it.
+  const [exploreIds, setExploreIds] = useState(null);
+  // null means "stop narrowing" — Explore sends it when it switches to the
+  // People tab, where there are no meetings for the pins to follow.
+  const handleExploreResults = useCallback((rows) => {
+    setExploreIds(rows ? new Set(rows.map((r) => r.id)) : null);
+  }, []);
+
+  // Which half of Explore is showing, so the shared search box can say what it
+  // searches. Explore owns the toggle; this only mirrors it for the placeholder.
+  const [exploreMode, setExploreMode] = useState("meetings");
 
   // Pins and clusters follow the accent, the way the web's refreshMapAccent()
   // recolours them when the accent preference changes.
@@ -132,9 +212,17 @@ export default function HomeScreen({ navigation }) {
    * keyed to those fields: the arrays below are only rebuilt when something a
    * pin can actually show has changed.
    */
+  // What the pins should reflect is whatever list is actually on screen — a
+  // filter that narrows the list to three meetings while the map still shows
+  // forty makes the two disagree about what you are looking at.
+  const plotSource = useMemo(() => {
+    if (!onExplore || !exploreIds) return filtered;
+    return meetings.filter((m) => exploreIds.has(m.id));
+  }, [onExplore, exploreIds, filtered, meetings]);
+
   const plottable = useMemo(
-    () => filtered.filter((m) => m.lat && m.lng),
-    [filtered]
+    () => plotSource.filter((m) => m.lat && m.lng),
+    [plotSource]
   );
   const markerKey = useMemo(
     () => plottable
@@ -198,6 +286,24 @@ export default function HomeScreen({ navigation }) {
     }).start();
   }, [tops, translateY, reduceMotion]);
 
+  /**
+   * Re-apply the saved panel position when it changes.
+   *
+   * It used to seed useState and nothing more, so it only took effect on a
+   * cold start: change it in Settings, come back to Home, and the sheet was
+   * still wherever it already was. Home is never unmounted between the two,
+   * which is exactly why the setting looked like it did nothing.
+   *
+   * Skipped while the sheet is being dragged — snapping it out from under a
+   * finger would be worse than ignoring the preference for a moment.
+   */
+  const lastPref = useRef(initialSheet);
+  useEffect(() => {
+    if (sheetPref === lastPref.current) return;
+    lastPref.current = sheetPref;
+    if (STATE_ORDER.includes(sheetPref)) snapTo(sheetPref);
+  }, [sheetPref, snapTo]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Keep the sheet honest if the window changes (rotation, split view)
   useEffect(() => {
     snapTo(sheetState);
@@ -239,7 +345,10 @@ export default function HomeScreen({ navigation }) {
   // but the list viewport is sized to the strip that is actually on screen —
   // otherwise the end of the list would sit below the bottom of the display
   // and could never be scrolled to.
-  const HEADER_BLOCK = 122;   // grabber + title row + search box
+  // grabber + title row + search box + the Nearby/Explore tabs. Explore adds
+  // its own filter bar below the tabs, so its list gets less again.
+  const HEADER_BLOCK = 168;
+  const EXPLORE_CONTROLS = 46;
   // Zoom and locate are controls *for the map*. Once the list is at full
   // height there is no map left to control, so they were floating over the
   // meeting list. Derived from the sheet's live position rather than from
@@ -251,7 +360,10 @@ export default function HomeScreen({ navigation }) {
     extrapolate: "clamp",
   });
 
-  const listHeight = Math.max(140, screenH - tops[sheetState] - HEADER_BLOCK);
+  const listHeight = Math.max(
+    140,
+    screenH - tops[sheetState] - HEADER_BLOCK - (onExplore ? EXPLORE_CONTROLS : 0)
+  );
 
   // ─── Map interaction ───────────────────────────────────────────────────
   async function handlePinPress(event) {
@@ -616,7 +728,10 @@ export default function HomeScreen({ navigation }) {
           </TouchableOpacity>
         </Animated.View>
 
-      <MenuButton onPress={() => setMenuOpen(true)} showDot={!!profile?.is_admin && pendingCount > 0} />
+      <MenuButton
+        onPress={() => setMenuOpen(true)}
+        showDot={!!profile?.is_admin && (pendingCount > 0 || reportCount > 0)}
+      />
 
       <Animated.View style={[styles.sheet, { height: screenH - tops.full, transform: [{ translateY }] }]}>
         <View style={styles.grabberArea} {...panResponder.panHandlers}>
@@ -634,12 +749,18 @@ export default function HomeScreen({ navigation }) {
             activeOpacity={0.6}
             onPress={() => snapTo(sheetState === "full" ? "peek" : "full")}
           >
-            <Text style={styles.panelTitle}>{t("home.nearbyMeetings")}</Text>
-            {/* The count is the answer to "is it worth opening this" — worth
-                having in the header rather than only implied by the scrollbar. */}
-            <Text style={styles.panelCount}>
-              {filtered.length}{search.trim() ? t("home.ofTotal", { total: meetings.length }) : ""}
+            <Text style={styles.panelTitle}>
+              {onExplore ? t("nav.explore") : t("home.nearbyMeetings")}
             </Text>
+            {/* The count is the answer to "is it worth opening this" — worth
+                having in the header rather than only implied by the scrollbar.
+                Explore prints its own count next to its filter button, where it
+                can also say "…of 40"; this line would only repeat it. */}
+            {onExplore ? null : (
+              <Text style={styles.panelCount}>
+                {filtered.length}{search.trim() ? t("home.ofTotal", { total: meetings.length }) : ""}
+              </Text>
+            )}
           </TouchableOpacity>
           <TouchableOpacity style={styles.newBtn} onPress={() => navigation.navigate("Create")}>
             <Text style={styles.newBtnText}>{t("home.new")}</Text>
@@ -651,7 +772,15 @@ export default function HomeScreen({ navigation }) {
           <SearchIcon size={16} color={theme.text3} />
           <TextInput
             style={styles.search}
-            placeholder={t("home.searchPlaceholder")}
+            /* One box for both tabs. Nearby filters the meetings already in
+               hand as you type; Explore sends the same words to the server,
+               debounced. Two boxes stacked in one sheet would have made you
+               wonder which of them the list was obeying. */
+            placeholder={
+              !onExplore ? t("home.searchPlaceholder")
+                : exploreMode === "people" ? t("profile.findPeoplePlaceholder")
+                  : t("explore.searchPlaceholder")
+            }
             placeholderTextColor={theme.text3}
             value={search}
             onChangeText={setSearch}
@@ -665,6 +794,32 @@ export default function HomeScreen({ navigation }) {
           ) : null}
         </View>
 
+        <View style={styles.tabs}>
+          <TouchableOpacity
+            style={[styles.tab, !onExplore && styles.tabOn]}
+            onPress={() => setSheetTab("nearby")}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.tabText, !onExplore && styles.tabTextOn]}>{t("home.tabNearby")}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, onExplore && styles.tabOn]}
+            onPress={() => setSheetTab("explore")}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.tabText, onExplore && styles.tabTextOn]}>{t("nav.explore")}</Text>
+          </TouchableOpacity>
+        </View>
+
+        {onExplore ? (
+          <ExplorePane
+            navigation={navigation}
+            search={search}
+            listHeight={listHeight}
+            onResults={handleExploreResults}
+            onMode={setExploreMode}
+          />
+        ) : (
         <FlatList
           data={rows}
           style={{ height: listHeight }}
@@ -674,6 +829,18 @@ export default function HomeScreen({ navigation }) {
             <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />
           }
           renderItem={renderRow}
+          // Organisers get their own meetings above the nearby list — the
+          // answer they gave in the intro decides whether this is here at all.
+          // It renders nothing when they host nothing, so a new organiser is
+          // not shown an empty box on their first launch.
+          ListHeaderComponent={
+            profile?.role === "organiser"
+              ? <HostingPanel
+                  onOpen={(m) => navigation.navigate("MeetingDetail", { meeting: m })}
+                  onCreate={() => navigation.navigate("Create")}
+                />
+              : null
+          }
           // Rows are cheap and the list is short, but these keep the sheet
           // responsive while it is being dragged: offscreen rows detach, and
           // the first paint stops at what actually fits.
@@ -683,8 +850,9 @@ export default function HomeScreen({ navigation }) {
           updateCellsBatchingPeriod={50}
           windowSize={7}
           ListEmptyComponent={<Text style={styles.empty}>{t("home.noMatches")}</Text>}
-          contentContainerStyle={{ paddingBottom: 24 + insets.bottom }}
+          contentContainerStyle={{ paddingBottom: 24 + insets.bottom, rowGap: comfortable ? 8 : 0 }}
         />
+        )}
 
         {/* Collapsed, the whole body is one big "open me".
 
@@ -717,7 +885,7 @@ export default function HomeScreen({ navigation }) {
         pendingCount={pendingCount}
         activityCount={profile?.action_count || 0}
         inboxCount={profile?.unread_inbox_count || 0}
-        reportCount={profile?.open_report_count || 0}
+        reportCount={reportCount}
         onLogout={() => setAccountSheet(true)}
       />
 
@@ -784,10 +952,13 @@ const makeStyles = (t, comfortable = false) => StyleSheet.create({
     shadowOffset: { width: 0, height: -6 },
     elevation: 14,
   },
-  grabberArea: { paddingVertical: 10, alignItems: "center" },
+  // Density was a 6px change to one horizontal gutter, which nobody could see
+  // — the setting says "how much fits on screen at once", and that is vertical
+  // rhythm, not side padding. These are what a person actually notices.
+  grabberArea: { paddingVertical: comfortable ? 14 : 10, alignItems: "center" },
   grabber: { width: 42, height: 5, borderRadius: 3, backgroundColor: t.surface3 },
   sheetBody: { flex: 1 },
-  sheetHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
+  sheetHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: comfortable ? 16 : 10 },
   titleWrap: { flexDirection: "row", alignItems: "center", gap: 8 },
   panelTitle: { fontSize: 17, fontFamily: FONTS.heading, color: t.text },
   panelCount: {
@@ -827,6 +998,23 @@ const makeStyles = (t, comfortable = false) => StyleSheet.create({
     includeFontPadding: false,
   },
   searchClear: { color: t.text3, fontSize: 13, paddingHorizontal: 2 },
+
+  // Nearby / Explore. A segmented control rather than two more rows in the
+  // drawer: they are two orderings of one list, and the whole point of folding
+  // Explore in here was to make that switch cost a tap.
+  tabs: {
+    flexDirection: "row",
+    gap: 5,
+    padding: 4,
+    marginBottom: 10,
+    borderRadius: RADIUS.pill,
+    backgroundColor: t.surface2,
+  },
+  tab: { flex: 1, alignItems: "center", paddingVertical: 8, borderRadius: RADIUS.pill },
+  tabOn: { backgroundColor: t.surface, ...SHADOW.s1 },
+  tabText: { fontSize: 13.5, fontFamily: FONTS.bodySemi, color: t.text2 },
+  tabTextOn: { color: t.accentStrong, fontFamily: FONTS.headingSemi },
+
   // Centred, not baseline-aligned: the title is a row (icon + text) rather than
   // a bare Text, and a View has no baseline to align the hint against.
   empty: { textAlign: "center", color: t.text3, marginTop: 40 },

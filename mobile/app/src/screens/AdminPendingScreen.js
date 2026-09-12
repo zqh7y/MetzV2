@@ -1,12 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator } from "react-native";
 import { api } from "../api";
+import { markSeen } from "../adminSeen";
+import { useAuth } from "../context/AuthContext";
 import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
 import { RADIUS, SHADOW } from "../styles/theme";
 
 export default function AdminPendingScreen() {
   const { theme } = useTheme();
+  const { uid } = useAuth();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [meetings, setMeetings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -15,10 +18,13 @@ export default function AdminPendingScreen() {
     try {
       const data = await api.getPending();
       setMeetings(data);
+      // Reading the queue is what marks it read, so the drawer's marker goes
+      // quiet until something newer than this arrives.
+      await markSeen(uid, "pending", Math.max(0, ...data.map((m) => m.id || 0)));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [uid]);
 
   useEffect(() => {
     load();

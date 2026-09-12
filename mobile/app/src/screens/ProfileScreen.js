@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, Linking } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Pressable } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../api";
@@ -8,8 +8,12 @@ import TrustBadge from "../components/TrustBadge";
 import ReliabilityCard from "../components/ReliabilityCard";
 import MeetingCard from "../components/MeetingCard";
 import Appear from "../components/Appear";
-import CountUp from "../components/CountUp";
 import AccountSheet from "../components/AccountSheet";
+import EditProfileForm from "./EditProfileScreen";
+import { Alert } from "../components/AppAlert";
+import AnimatedBackdrop from "../components/AnimatedBackdrop";
+import ProfileAvatar from "../components/ProfileAvatar";
+import { backgroundFor } from "../styles/profileLooks";
 import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
 import { RADIUS, SHADOW } from "../styles/theme";
@@ -22,9 +26,9 @@ function parseTime(value) {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-export default function ProfileScreen({ navigation }) {
+export default function ProfileScreen({ navigation, route }) {
   const { theme } = useTheme();
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
   const { profile, refreshProfile, signOut } = useAuth();
@@ -32,14 +36,69 @@ export default function ProfileScreen({ navigation }) {
   const [error, setError] = useState(false);
   const [accountSheet, setAccountSheet] = useState(false);
 
+  /**
+   * Editing is a mode of this screen, not a section of it.
+   *
+   * Edit Profile was its own screen, one drawer row below this one, so seeing
+   * what you look like and changing it were two destinations. Folding it in
+   * removed the second row; rendering it *within* the page was the wrong half
+   * of that, because everything the profile shows stayed underneath — you
+   * scrolled through your own stats, tiers and meeting list to get from the
+   * bio field to Save, past a second copy of your avatar on the way. So the
+   * form replaces the page while it is open, and the page comes back when you
+   * save or cancel.
+   *
+   * `route.params.edit` is how Settings' "Edit profile" row still lands on the
+   * form in one tap now that it is a mode here rather than a screen.
+   */
+  const [editing, setEditing] = useState(!!route?.params?.edit);
+  const [editDirty, setEditDirty] = useState(false);
+
+  useEffect(() => {
+    if (!route?.params?.edit) return;
+    setEditing(true);
+    // Cleared once acted on. navigate() merges params into a route that is
+    // already in the stack, so leaving it set meant the second trip from
+    // Settings changed nothing — edit was already true, this effect never ran
+    // again, and the tap landed on the profile instead of the form.
+    navigation.setParams({ edit: undefined });
+  }, [route?.params?.edit, navigation]);
+
+  // The header belongs to whichever of the two is on screen.
+  useEffect(() => {
+    navigation.setOptions({ title: editing ? t("nav.editProfile") : t("nav.myProfile") });
+  }, [navigation, editing, t]);
+
+  /**
+   * Back, while editing, means "back to the profile" — not "off this screen".
+   *
+   * Owned here rather than in the form because only this screen knows there is
+   * something to fall back to. The form reports whether anything would be lost
+   * (onDirtyChange) and this decides what to do about it.
+   */
+  useEffect(() => {
+    if (!editing) return undefined;
+    const sub = navigation.addListener("beforeRemove", (event) => {
+      event.preventDefault();
+      if (!editDirty) {
+        setEditing(false);
+        return;
+      }
+      Alert.alert(
+        "Discard changes?",
+        "You've edited your profile but haven't saved.",
+        [
+          { text: "Keep editing", style: "cancel" },
+          { text: "Discard", style: "destructive", onPress: () => setEditing(false) },
+        ]
+      );
+    });
+    return sub;
+  }, [navigation, editing, editDirty]);
+
   // My Meetings — what the standalone Joined tab used to show
   const [joined, setJoined] = useState([]);
   const [joinedTab, setJoinedTab] = useState("upcoming");
-
-  // Find People — what the Discover "People" tab used to show
-  const [query, setQuery] = useState("");
-  const [users, setUsers] = useState([]);
-  const [searching, setSearching] = useState(false);
 
   const load = useCallback(() => {
     setError(false);
@@ -61,18 +120,6 @@ export default function ProfileScreen({ navigation }) {
     }, [load])
   );
 
-  useEffect(() => {
-    if (!query.trim()) {
-      setUsers([]);
-      return;
-    }
-    setSearching(true);
-    const t = setTimeout(() => {
-      api.searchUsers(query).then(setUsers).catch(() => setUsers([])).finally(() => setSearching(false));
-    }, 300);
-    return () => clearTimeout(t);
-  }, [query]);
-
   const { upcoming, past } = useMemo(() => {
     const withTime = joined.map((m) => ({ meeting: m, at: parseTime(m.time) }));
     withTime.sort((a, b) => (a.at?.getTime() ?? Infinity) - (b.at?.getTime() ?? Infinity));
@@ -87,6 +134,16 @@ export default function ProfileScreen({ navigation }) {
     setJoined((prev) => prev.filter((m) => m.id !== meeting.id));
     await api.joinMeeting(meeting.id);   // same endpoint toggles off
     refreshProfile();
+  }
+
+  if (editing) {
+    return (
+      <EditProfileForm
+        navigation={navigation}
+        onDone={() => setEditing(false)}
+        onDirtyChange={setEditDirty}
+      />
+    );
   }
 
   if (loading) {
@@ -108,17 +165,45 @@ export default function ProfileScreen({ navigation }) {
     );
   }
 
-  const status = profile.account_status;
-  const currentIndex = status.all_tiers.findIndex((t) => t.id === status.current.id);
+  // An older API does not send highlights; the zeros render as a quiet row
+  // rather than crashing on a missing object.
+  const highlights = profile.highlights || { hosted: 0, people_met: 0 };
+
+  // Roles, not ranks. Held or not held, never a progress bar: both are granted
+  // by a person, so showing them as something to work towards would promise a
+  // route that does not exist.
+  const roles = [];
+  if (profile.is_admin) roles.push(`\u{1F6E0} ${t("profile.roleModerator")}`);
+
+  // "Sep 2026" — short enough for a tile, and localised, since the app ships
+  // seven languages including two right-to-left ones.
+  const memberSince = (() => {
+    const raw = highlights.member_since || profile.joined_at;
+    if (!raw) return "\u2014";
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return "\u2014";
+    try {
+      return new Intl.DateTimeFormat(language, { month: "short", year: "numeric" }).format(d);
+    } catch {
+      return `${d.getMonth() + 1}/${d.getFullYear()}`;
+    }
+  })();
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
-      <View style={[styles.hero, { paddingTop: insets.top + 28 }]}>
-        <View style={styles.avatar}>
-          <Text style={profile.avatar_emoji ? styles.avatarEmoji : styles.avatarText}>
-            {profile.avatar_emoji || initialsFor(profile)}
-          </Text>
-        </View>
+      {/* The hero is the one large surface on the profile, so it is what the
+          background choice actually colours. A flat accent bar was the same
+          for everybody and made every profile look like a form. */}
+      <AnimatedBackdrop
+        colors={backgroundFor(profile.profile_background, theme)}
+        style={[styles.hero, { paddingTop: insets.top + 28 }]}
+      >
+        <ProfileAvatar
+          size={108}
+          frame={profile.profile_frame}
+          emoji={profile.avatar_emoji}
+          initials={initialsFor(profile)}
+        />
         <View style={styles.nameRow}>
           <Text style={styles.name}>{profile.display_name || profile.username}</Text>
           {profile.is_trusted ? <TrustBadge /> : null}
@@ -127,7 +212,6 @@ export default function ProfileScreen({ navigation }) {
         {/* The uid is how people find each other in Find People, so it belongs
             on the profile rather than only in search results. */}
         <Text style={styles.heroUid}>@{profile.uid}</Text>
-        {profile.bio ? <Text style={styles.bio}>{profile.bio}</Text> : null}
 
         {/* Editing your profile used to be the fourth of six identical grey
             buttons at the very bottom, under Find People. It is the thing
@@ -137,7 +221,7 @@ export default function ProfileScreen({ navigation }) {
           <TouchableOpacity
             style={styles.heroBtn}
             activeOpacity={0.85}
-            onPress={() => navigation.navigate("EditProfile")}
+            onPress={() => setEditing(true)}
           >
             <Text style={styles.heroBtnText}>{t("nav.editProfile")}</Text>
           </TouchableOpacity>
@@ -149,116 +233,80 @@ export default function ProfileScreen({ navigation }) {
             <Text style={styles.heroBtnGhostText}>{t("nav.settings")}</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </AnimatedBackdrop>
 
-      {/* Blocks arrive a beat apart down the page, so the screen resolves in
-          reading order rather than all at once. */}
+      {/* One card, not three.
+          The show-up rate, the figures under it and the old status card were
+          the same subject split into unrelated boxes: "Attended" is literally
+          the numerator of the percentage above it, and it used to sit two
+          cards away from it.
+
+          The tier ladder and its missions are gone. A list of goals that
+          unlocks a title is an instruction to manufacture whatever the goal
+          counts — meetings that never happen, attendance nobody checks — and
+          the app cannot tell a real turnout from an arranged one. What is left
+          is a record rather than a game: figures describing what someone has
+          actually done, with nothing to win by inflating them.
+
+          Trusted and Moderator stay, as the roles they always were: granted by
+          a person, shown when held, never presented as something to work
+          towards. */}
       <Appear delay={40}>
-        {/* Hairlines between the figures: four numbers spaced apart with
-            nothing between them read as one run-on row. */}
-        <View style={styles.statsRow}>
-          <Stat styles={styles} number={profile.meetings_created} label={t("profile.statCreated")} />
-          <View style={styles.statDivider} />
-          <Stat styles={styles} number={profile.meetings_joined} label={t("profile.statJoined")} />
-          <View style={styles.statDivider} />
-          <Stat styles={styles} number={profile.meetings_swiped} label={t("profile.statSeen")} />
-          <View style={styles.statDivider} />
-          <Stat styles={styles} number={status.stats.participants} label={t("profile.statSignedUp")} />
-        </View>
+        <ReliabilityCard
+          reliability={profile.reliability}
+          showPending
+          style={styles.reliability}
+          facts={[
+            { value: t(profile.is_trusted || profile.is_admin ? "common.yes" : "common.no"),
+              label: t("profile.statTrusted") },
+            { value: memberSince, label: t("profile.statMemberSince") },
+          ]}
+          roles={roles}
+        />
       </Appear>
 
-      {/* The number that makes a join mean something — above Account Status,
-          in the same order profile.html puts them. */}
-      <Appear delay={100}>
-        <ReliabilityCard reliability={profile.reliability} showPending style={styles.reliability} />
-      </Appear>
-
-      <Appear delay={160}>
-      <View style={styles.statusCard}>
-        <View style={styles.statusHeader}>
-          <View style={styles.statusEmoji}>
-            <Text style={{ fontSize: 22 }}>{status.current.emoji}</Text>
-          </View>
-          <View>
-            <Text style={styles.statusLabel}>{t("profile.accountStatus")}</Text>
-            <Text style={styles.statusName}>{status.current.name}</Text>
-            <Text style={styles.statusBlurb}>{status.current.blurb}</Text>
-          </View>
-        </View>
-
-        {status.next && status.next_is_manual ? (
-          /* Trusted and Moderator are given by a person, not unlocked by a
-             number. Showing a progress bar for them would promise that doing
-             more of something eventually gets you there — so this says who to
-             ask instead, and makes the address tappable. */
-          <View style={styles.nextSection}>
-            <Text style={styles.nextLabel}>
-              Next up: {status.next.emoji} {status.next.name}
-            </Text>
-            <Text style={styles.manualHow}>{status.next_how}</Text>
-            {status.contact_email ? (
-              <TouchableOpacity
-                style={styles.contactBtn}
-                activeOpacity={0.85}
-                onPress={() => Linking.openURL(
-                  `mailto:${status.contact_email}?subject=${encodeURIComponent(
-                    `Metz — ${status.next.name} request (${profile.uid})`
-                  )}`
-                )}
-              >
-                <Text style={styles.contactBtnText}>{`✉️  ${t("profile.contactDeveloper")}`}</Text>
-              </TouchableOpacity>
-            ) : null}
-          </View>
-        ) : status.next ? (
-          <View style={styles.nextSection}>
-            <Text style={styles.nextLabel}>
-              Next up: {status.next.emoji} {status.next.name}
-            </Text>
-            {status.next_tasks.map((task, i) => (
-              <View key={i} style={styles.task}>
-                <View style={[styles.taskCheck, task.done && styles.taskCheckDone]}>
-                  {task.done ? <Text style={styles.taskCheckMark}>✓</Text> : null}
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.taskLabel, task.done && styles.taskLabelDone]}>{task.label}</Text>
-                  <Text style={styles.taskProgress}>
-                    {task.unit === "%"
-                      ? `${task.progress}% of ${task.target}%`
-                      : `${task.progress} / ${task.target}${task.unit ? " " + task.unit : ""}`}
-                  </Text>
-                  <View style={styles.taskBar}>
-                    <View style={[styles.taskBarFill, { width: `${Math.min(100, (task.progress / task.target) * 100)}%` }]} />
-                  </View>
-                </View>
+      {/* The sign-up asks what you are into and then nothing ever repeated it
+          back, so the answer may as well not have been given. */}
+      {/* The heading follows the contents. Titling a card "About" when the
+          only thing in it is a row of tags describes something that is not
+          there, and left a label sitting over a lot of nothing. */}
+      <Appear delay={90}>
+        <View style={styles.interestsCard}>
+          <Text style={styles.interestsTitle}>
+            {t(profile.bio ? "userProfile.about" : "userProfile.interests")}
+          </Text>
+          {profile.bio ? (
+            <Text style={styles.aboutText}>{profile.bio}</Text>
+          ) : (
+            // Dead space turned into the one action that would fill it.
+            <Pressable onPress={() => setEditing(true)}>
+              <Text style={styles.aboutPrompt}>{t("profile.addBio")}</Text>
+            </Pressable>
+          )}
+          {profile.interests?.length ? (
+            <>
+              <View style={styles.aboutRule} />
+              <View style={styles.interestChips}>
+                {profile.interests.map((tag) => (
+                  <Text key={tag} style={styles.interestChip}>{tag}</Text>
+                ))}
               </View>
-            ))}
-          </View>
-        ) : (
-          <Text style={styles.maxed}>🏆 You've reached the top tier!</Text>
-        )}
-
-        <View style={styles.tierPills}>
-          {status.all_tiers.map((t, i) => (
-            <Text key={t.id} style={[styles.tierPill, i <= currentIndex && styles.tierPillUnlocked]}>
-              {t.emoji} {t.name}
-            </Text>
-          ))}
+            </>
+          ) : null}
         </View>
-      </View>
       </Appear>
 
       {/* My Meetings — the old Joined tab, folded in here */}
       <View style={styles.section}>
         <View style={styles.sectionHead}>
-          <Text style={styles.sectionTitle}>🤝 My Meetings</Text>
+          <Text style={styles.sectionTitle}>{`🤝 ${t("profile.myMeetings")}`}</Text>
           <View style={styles.segmented}>
             <TouchableOpacity
               style={[styles.segBtn, joinedTab === "upcoming" && styles.segBtnActive]}
               onPress={() => setJoinedTab("upcoming")}
             >
               <Text style={[styles.segText, joinedTab === "upcoming" && styles.segTextActive]}>
-                Upcoming {upcoming.length}
+                {t("profile.upcomingCount", { n: upcoming.length })}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -266,7 +314,7 @@ export default function ProfileScreen({ navigation }) {
               onPress={() => setJoinedTab("past")}
             >
               <Text style={[styles.segText, joinedTab === "past" && styles.segTextActive]}>
-                Past {past.length}
+                {t("profile.pastCount", { n: past.length })}
               </Text>
             </TouchableOpacity>
           </View>
@@ -288,45 +336,6 @@ export default function ProfileScreen({ navigation }) {
               ? t("profile.nothingComingUp")
               : t("profile.noPastMeetings")}
           </Text>
-        )}
-      </View>
-
-      {/* Find People — the old Discover "People" tab */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>🔍 Find People</Text>
-        <TextInput
-          style={styles.search}
-          placeholder={t("profile.findPeoplePlaceholder")}
-          placeholderTextColor={theme.text3}
-          value={query}
-          onChangeText={setQuery}
-          autoCapitalize="none"
-        />
-        {searching ? (
-          <ActivityIndicator color={theme.accent} style={{ marginTop: 12 }} />
-        ) : users.length ? (
-          users.map((u) => (
-            <TouchableOpacity
-              key={u.uid}
-              style={styles.userRow}
-              activeOpacity={0.7}
-              onPress={() => navigation.navigate("UserProfile", { uid: u.uid })}
-            >
-              <View style={[styles.userAvatar, { backgroundColor: u.color || "#667eea" }]}>
-                <Text style={styles.userAvatarText}>{u.username.slice(0, 2).toUpperCase()}</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <View style={styles.userNameRow}>
-                  <Text style={styles.userName}>{u.username}</Text>
-                  {(u.is_trusted || u.is_admin) ? <TrustBadge /> : null}
-                </View>
-                <Text style={styles.userUid}>{u.uid}</Text>
-              </View>
-              <Text style={styles.chevron}>›</Text>
-            </TouchableOpacity>
-          ))
-        ) : (
-          <Text style={styles.sectionEmpty}>{query.trim() ? "No users found" : "Type to find users"}</Text>
         )}
       </View>
 
@@ -366,6 +375,7 @@ export default function ProfileScreen({ navigation }) {
   );
 }
 
+
 /**
  * Two letters for the avatar, taken from the person's name rather than their
  * uid. uid.slice(0, 2) only looked right when the uid happened to be derived
@@ -378,33 +388,23 @@ function initialsFor(profile) {
   return (parts.length > 1 ? parts[0][0] + parts[1][0] : name.slice(0, 2)).toUpperCase();
 }
 
-function Stat({ number, label, styles }) {
-  return (
-    <View style={styles.stat}>
-      <CountUp value={number} style={styles.statNumber} />
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
-  );
-}
-
 const makeStyles = (t) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.bg },
   centered: { flex: 1, alignItems: "center", justifyContent: "center" },
-  hero: { backgroundColor: t.accent, paddingBottom: 26, alignItems: "center" },
-  avatar: {
-    width: 84, height: 84, borderRadius: 42,
-    backgroundColor: "rgba(255,255,255,0.22)",
-    alignItems: "center", justifyContent: "center", marginBottom: 12,
-    // A ring lifts the avatar off the flat accent block behind it.
-    borderWidth: 3, borderColor: "rgba(255,255,255,0.35)",
-  },
-  avatarText: { color: t.surface, fontFamily: FONTS.heading, fontSize: 28 },
-  avatarEmoji: { fontSize: 40 },
-  bio: { color: "rgba(255,255,255,0.88)", fontSize: 13.5, lineHeight: 19, marginTop: 10, textAlign: "center", paddingHorizontal: 32 },
+  hero: { paddingBottom: 26, alignItems: "center" },
   nameRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  name: { color: t.surface, fontSize: 22, fontFamily: FONTS.heading },
+  name: {
+    color: "#fff", fontSize: 23, fontFamily: FONTS.heading,
+    textShadowColor: "rgba(0,0,0,0.18)", textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
   email: { color: "rgba(255,255,255,0.72)", fontSize: 12.5, marginTop: 3 },
-  heroUid: { color: "rgba(255,255,255,0.55)", fontSize: 11.5, fontFamily: FONTS.accentMedium, marginTop: 2 },
+  heroUid: {
+    fontSize: 11.5, color: "rgba(255,255,255,0.92)", fontFamily: FONTS.accentMedium,
+    backgroundColor: "rgba(255,255,255,0.18)", overflow: "hidden",
+    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999,
+    marginTop: 8,
+  },
   heroActions: { flexDirection: "row", gap: 10, marginTop: 18 },
   heroBtn: {
     paddingHorizontal: 20, paddingVertical: 10, borderRadius: RADIUS.pill,
@@ -416,47 +416,31 @@ const makeStyles = (t) => StyleSheet.create({
     borderWidth: 1, borderColor: "rgba(255,255,255,0.45)",
   },
   heroBtnGhostText: { color: t.surface, fontFamily: FONTS.headingSemi, fontSize: 13.5 },
-  statsRow: {
-    flexDirection: "row", backgroundColor: t.surface,
-    marginHorizontal: 16, borderRadius: 16, paddingVertical: 16,
-    justifyContent: "space-around", alignItems: "center",
-    // Pulled up over the hero's bottom edge so the two read as one unit.
-    marginTop: -18, marginBottom: 0,
-    borderWidth: 1, borderColor: t.border, ...SHADOW.s1,
-  },
   stat: { alignItems: "center", flex: 1 },
-  statDivider: { width: 1, height: 26, backgroundColor: t.border },
   statNumber: { fontSize: 22, fontFamily: FONTS.accent, color: t.text },
   statLabel: { fontSize: 10, fontFamily: FONTS.bodySemi, color: t.text3, textTransform: "uppercase", marginTop: 2 },
-  reliability: { marginHorizontal: 16, marginTop: 16 },
-  statusCard: { backgroundColor: t.surface, margin: 16, borderRadius: 18, padding: 18 },
-  statusHeader: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 14 },
-  statusEmoji: { width: 46, height: 46, borderRadius: 14, backgroundColor: t.accent, alignItems: "center", justifyContent: "center" },
-  statusLabel: { fontSize: 10, fontFamily: FONTS.bodySemi, color: t.text3, textTransform: "uppercase" },
-  statusName: { fontSize: 17, fontFamily: FONTS.heading, color: t.text },
-  statusBlurb: { fontSize: 11, color: t.text3 },
-  nextSection: { borderTopWidth: 1, borderTopColor: t.border, paddingTop: 12 },
-  nextLabel: { fontSize: 12, fontWeight: "700", color: t.text2, marginBottom: 8 },
-  task: { flexDirection: "row", gap: 10, paddingVertical: 6, alignItems: "flex-start" },
-  taskCheck: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: t.border, alignItems: "center", justifyContent: "center", marginTop: 2 },
-  taskCheckDone: { backgroundColor: t.status.good, borderColor: t.status.good },
-  taskCheckMark: { color: t.surface, fontSize: 10, fontWeight: "800" },
-  taskLabel: { fontSize: 13, fontWeight: "600", color: t.text2 },
-  taskLabelDone: { color: t.status.good },
-  taskProgress: { fontSize: 11, color: t.text3, marginTop: 1 },
-  manualHow: { fontSize: 13, color: t.text2, lineHeight: 19, marginTop: 2, marginBottom: 12 },
-  contactBtn: {
-    alignSelf: "flex-start", paddingHorizontal: 16, paddingVertical: 10,
-    borderRadius: RADIUS.pill, backgroundColor: t.accentSoft,
-    borderWidth: 1, borderColor: t.accent,
+  interestsCard: {
+    backgroundColor: t.surface, borderRadius: RADIUS.lg, borderWidth: 1,
+    borderColor: t.border, marginHorizontal: 16, marginTop: 16,
+    paddingHorizontal: 16, paddingVertical: 14,
   },
-  contactBtnText: { fontSize: 13, fontFamily: FONTS.headingSemi, color: t.accentStrong },
-  taskBar: { height: 5, borderRadius: 3, backgroundColor: t.border, marginTop: 4, overflow: "hidden" },
-  taskBarFill: { height: "100%", backgroundColor: t.accent },
-  maxed: { textAlign: "center", color: t.text3, fontSize: 13 },
-  tierPills: { flexDirection: "row", flexWrap: "wrap", gap: 6, borderTopWidth: 1, borderTopColor: t.border, paddingTop: 12, marginTop: 4 },
-  tierPill: { fontSize: 10, fontWeight: "700", color: t.text3, backgroundColor: t.surface2, borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4 },
-  tierPillUnlocked: { color: t.accent, backgroundColor: "rgba(102,126,234,0.12)" },
+  interestsTitle: {
+    fontSize: 11, fontFamily: FONTS.bodySemi, color: t.text3,
+    textTransform: "uppercase", marginBottom: 10,
+  },
+  aboutPrompt: { fontSize: 14, color: t.accentStrong, fontFamily: FONTS.bodySemi },
+  // A bio is a sentence, so it is set as body text on a card rather than as
+  // centred white type over the hero artwork. Left-aligned for the same
+  // reason: centring reads as a caption, and a caption is not what this is.
+  aboutText: { fontSize: 14.5, lineHeight: 21, color: t.text2, fontFamily: FONTS.body },
+  aboutRule: { height: 1, backgroundColor: t.border, marginVertical: 12 },
+  interestChips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  interestChip: {
+    paddingHorizontal: 11, paddingVertical: 6, borderRadius: RADIUS.pill,
+    backgroundColor: t.surface2, color: t.text2,
+    fontSize: 12.5, fontFamily: FONTS.bodySemi, overflow: "hidden",
+  },
+  reliability: { marginHorizontal: 16, marginTop: 16 },
   section: { backgroundColor: t.surface, marginHorizontal: 16, marginTop: 16, borderRadius: 18, padding: 16 },
   sectionHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 },
   sectionTitle: { fontSize: 15, fontFamily: FONTS.heading, color: t.text, marginBottom: 10 },
@@ -467,20 +451,6 @@ const makeStyles = (t) => StyleSheet.create({
   segText: { fontSize: 12, fontFamily: FONTS.bodySemi, color: t.text3 },
   segTextActive: { color: t.text },
   pastCard: { opacity: 0.62 },
-  search: {
-    backgroundColor: t.surface2, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11,
-    fontSize: 15, marginBottom: 12,
-  },
-  userRow: {
-    flexDirection: "row", alignItems: "center", backgroundColor: t.surface2, borderRadius: 14,
-    padding: 12, marginBottom: 10, gap: 12,
-  },
-  userAvatar: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center" },
-  userAvatarText: { color: t.surface, fontWeight: "800", fontSize: 13 },
-  userNameRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  userName: { fontWeight: "700", color: t.text, fontSize: 14 },
-  userUid: { fontSize: 11, color: t.text3, marginTop: 2 },
-  chevron: { fontSize: 20, color: t.text3 },
   actions: { padding: 16, gap: 10 },
   actionBtn: { backgroundColor: t.surface, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 18 },
   actionBtnText: { fontFamily: FONTS.accentMedium, color: t.text, fontSize: 14 },

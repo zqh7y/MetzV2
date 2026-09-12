@@ -19,6 +19,11 @@ import { Alert } from "../components/AppAlert";
 /**
  * Activity — everything that currently wants something from you.
  *
+ * No longer a route: this renders as the first tab of InboxScreen, which is
+ * why it draws no title of its own and takes `navigation` as a prop rather
+ * than from the stack. The file keeps its name because it is still one whole
+ * view, just hosted somewhere else.
+ *
  * A port of templates/activity.html, served by the same activity_data() the
  * web page uses. Nothing here is stored: there is no per-join timestamp in the
  * data, so a "someone joined 2h ago" feed would be invented. Every section is
@@ -175,7 +180,10 @@ export default function ActivityScreen({ navigation }) {
           <View style={styles.emptyBox}>
             <Text style={styles.emptyTitle}>{t("activity.allClear")}</Text>
             <Text style={styles.emptyBody}>{t("activity.allClearBody")}</Text>
-            <TouchableOpacity style={styles.retry} onPress={() => navigation.navigate("Explore")}>
+            {/* Explore is a tab on Home's sheet now rather than a screen of
+                its own, so this asks Home to open on it. The label still says
+                "Explore" because that is still what the tab is called. */}
+            <TouchableOpacity style={styles.retry} onPress={() => navigation.navigate("Home", { tab: "explore" })}>
               <Text style={styles.retryText}>{t("activity.openExplore")}</Text>
             </TouchableOpacity>
           </View>

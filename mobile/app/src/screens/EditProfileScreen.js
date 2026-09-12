@@ -8,22 +8,57 @@ import * as Clipboard from "expo-clipboard";
 import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
+import { useI18n } from "../context/LocaleContext";
 import { RADIUS, SHADOW } from "../styles/theme";
 import { FONTS } from "../styles/fonts";
 import Appear from "../components/Appear";
 import { Alert } from "../components/AppAlert";
+import { LinearGradient } from "expo-linear-gradient";
+import ProfileAvatar from "../components/ProfileAvatar";
+import { BACKGROUNDS, FRAMES, backgroundFor } from "../styles/profileLooks";
 
 // Falls back only if the profile request fails; normally the server sends the
 // same list the web's edit page offers, so the two can't drift apart.
 const FALLBACK_EMOJIS = ["😀", "😎", "🤓", "🥳", "🌟", "🔥", "🌊", "🍕", "☕", "📚", "🎬", "🐱", "🐶", "🌸", "🚀"];
 
 /** What the server will actually store, so the form can compare like for like. */
-function normalise({ displayName, bio, emoji }) {
-  return { display_name: displayName.trim(), bio: bio.trim(), avatar_emoji: emoji };
+function normalise({ displayName, bio, emoji, frame, background, interests }) {
+  return {
+    display_name: displayName.trim(), bio: bio.trim(), avatar_emoji: emoji,
+    profile_frame: frame, profile_background: background,
+    // Compared as a string: two arrays with the same tags are never `!==`
+    // equal, so the form would have thought it was dirty from the moment
+    // it loaded and offered to discard changes nobody made.
+    interests: [...interests].sort().join(","),
+  };
 }
 
-export default function EditProfileScreen({ navigation }) {
+/**
+ * The profile form.
+ *
+ * No longer a route: it was its own drawer entry sitting directly beneath "My
+ * profile", which is two menu rows for one subject. ProfileScreen owns it now
+ * and shows it *instead of* the profile, not inside it. An earlier attempt
+ * rendered it as a section in the middle of the page, which put a second
+ * avatar under the first and left the stats, tiers and meeting list sitting
+ * below the fields — a page you had to scroll past your own profile to finish
+ * filling in. Editing is a mode, so it gets the screen.
+ *
+ * That means the layout is unchanged from when this was a route: its own
+ * scroller, its own keyboard handling, its own pinned footer.
+ *
+ * `onDone` is the only difference, and its presence is what "hosted" means
+ * here: with it, saving and cancelling hand control back to Profile instead of
+ * popping a screen, and the footer grows a Cancel button, since the header's
+ * back chevron now belongs to Profile rather than to the form. Being hosted
+ * also means Profile, not this, owns what the back gesture does — hence
+ * `onDirtyChange` rather than a `beforeRemove` listener of its own; two
+ * listeners on one event would prompt twice.
+ */
+export default function EditProfileScreen({ navigation, onDone, onDirtyChange }) {
+  const hosted = typeof onDone === "function";
   const { theme } = useTheme();
+  const { t } = useI18n();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { profile, refreshProfile } = useAuth();
   const insets = useSafeAreaInsets();
@@ -31,6 +66,9 @@ export default function EditProfileScreen({ navigation }) {
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
   const [emoji, setEmoji] = useState("");
+  const [frame, setFrame] = useState("none");
+  const [background, setBackground] = useState("default");
+  const [interests, setInterests] = useState([]);
   const [loading, setLoading] = useState(!profile);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState(null);   // { kind: "ok" | "bad", text }
@@ -65,10 +103,16 @@ export default function EditProfileScreen({ navigation }) {
       displayName: profile.display_name || "",
       bio: profile.bio || "",
       emoji: profile.avatar_emoji || "",
+      frame: profile.profile_frame || "none",
+      background: profile.profile_background || "default",
+      interests: profile.interests || [],
     };
     setDisplayName(next.displayName);
     setBio(next.bio);
     setEmoji(next.emoji);
+    setFrame(next.frame);
+    setBackground(next.background);
+    setInterests(next.interests);
     setSaved(normalise(next));
     setLoading(false);
   }, [profile]);
@@ -77,11 +121,14 @@ export default function EditProfileScreen({ navigation }) {
     if (!profile) refreshProfile().finally(() => setLoading(false));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const current = normalise({ displayName, bio, emoji });
+  const current = normalise({ displayName, bio, emoji, frame, background, interests });
   const dirty = !!saved && (
     current.display_name !== saved.display_name
     || current.bio !== saved.bio
     || current.avatar_emoji !== saved.avatar_emoji
+    || current.profile_frame !== saved.profile_frame
+    || current.profile_background !== saved.profile_background
+    || current.interests !== saved.interests
   );
 
   const handleSave = useCallback(async () => {
@@ -91,27 +138,49 @@ export default function EditProfileScreen({ navigation }) {
     try {
       // Trimmed on the way out, matching what update_profile() stores — so the
       // form does not sit there looking dirty because of a trailing space.
-      await api.updateProfile(current);
+      await api.updateProfile({ ...current, interests });
       await refreshProfile();
       setSaved(current);
       setNotice({ kind: "ok", text: "Saved." });
       leaving.current = true;
-      // Let the confirmation land before the screen disappears.
-      setTimeout(() => navigation.goBack(), 700);
+      // Let the confirmation land before the form goes away. Hosted there is
+      // no screen to pop — Profile drops back to showing the profile.
+      setTimeout(() => (hosted ? onDone() : navigation.goBack()), 700);
     } catch (e) {
       setNotice({ kind: "bad", text: e.message || "Couldn't save. Try again." });
     } finally {
       setSaving(false);
     }
-  }, [saving, dirty, current, refreshProfile, navigation]);
+  }, [saving, dirty, current, refreshProfile, navigation, hosted, onDone]);
+
+  /** Cancel: hand back to the host, asking first if there is anything to lose. */
+  const handleClose = useCallback(() => {
+    if (!dirty) { onDone?.(); return; }
+    Alert.alert(
+      "Discard changes?",
+      "You've edited your profile but haven't saved.",
+      [
+        { text: "Keep editing", style: "cancel" },
+        { text: "Discard", style: "destructive", onPress: () => onDone?.() },
+      ]
+    );
+  }, [dirty, onDone]);
+
+  // Hosted, the back gesture is Profile's to answer — it has to decide between
+  // closing the form and leaving the screen, which only it can know. Telling it
+  // whether there is anything to lose is this form's whole part in that.
+  useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
 
   /**
    * Leaving with unsaved edits asks first.
    *
-   * This screen is reached from a drawer that is one tap from anywhere, so
-   * backing out by accident is easy and used to discard the lot silently.
+   * Backing out by accident is easy and used to discard the lot silently. Only
+   * when this is its own screen: hosted, the listener above hands the question
+   * to Profile instead, because two listeners on one `beforeRemove` would put
+   * the same prompt up twice.
    */
   useEffect(() => {
+    if (hosted) return undefined;
     const sub = navigation.addListener("beforeRemove", (event) => {
       if (!dirty || leaving.current || saving) return;
       event.preventDefault();
@@ -132,13 +201,16 @@ export default function EditProfileScreen({ navigation }) {
       );
     });
     return sub;
-  }, [navigation, dirty, saving]);
+  }, [navigation, dirty, saving, hosted]);
 
   const handleRevert = useCallback(() => {
     if (!saved) return;
     setDisplayName(saved.display_name);
     setBio(saved.bio);
     setEmoji(saved.avatar_emoji);
+    setFrame(saved.profile_frame);
+    setBackground(saved.profile_background);
+    setInterests(saved.interests ? saved.interests.split(",").filter(Boolean) : []);
     setNotice(null);
   }, [saved]);
 
@@ -183,16 +255,10 @@ export default function EditProfileScreen({ navigation }) {
   const nameTone = displayName.length >= maxName ? "bad" : displayName.length > maxName * 0.85 ? "warn" : null;
   const bioTone = bio.length >= maxBio ? "bad" : bio.length > maxBio * 0.85 ? "warn" : null;
 
-  return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
-        keyboardShouldPersistTaps="handled"
-      >
+  const fields = (
+    <>
+        {/* The only preview on screen, hosted or not — the profile hero is not
+            behind this any more, it is replaced by it. */}
         <View style={styles.preview}>
           <View style={[styles.avatar, { backgroundColor: profile?.profile_color || theme.accent }]}>
             <Text style={emoji ? styles.avatarEmoji : styles.avatarText}>{emoji || initials}</Text>
@@ -278,6 +344,63 @@ export default function EditProfileScreen({ navigation }) {
           </View>
         </View>
 
+        {/* The same two choices the welcome flow offers, so someone who
+            skipped it there is not stuck with the default forever. */}
+        <View style={styles.field}>
+          <Text style={styles.label}>{t("userProfile.interests")}</Text>
+          <View style={styles.lookRow}>
+            {INTEREST_TAGS.map((tag) => {
+              const on = interests.includes(tag);
+              return (
+                <Pressable
+                  key={tag}
+                  onPress={() => setInterests((prev) => (
+                    prev.includes(tag)
+                      ? prev.filter((x) => x !== tag)
+                      // Same cap the welcome flow uses, so the two cannot
+                      // disagree about how many is too many.
+                      : prev.length >= (profile?.max_interests || 5) ? prev : [...prev, tag]
+                  ))}
+                  style={[styles.tagChip, on && styles.tagChipOn]}
+                >
+                  <Text style={[styles.tagChipText, on && styles.tagChipTextOn]}>{tag}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={styles.field}>
+          <Text style={styles.label}>{t("welcome.sectionBackground")}</Text>
+          <View style={styles.lookRow}>
+            {Object.keys(BACKGROUNDS).map((id) => (
+              <Pressable key={id} onPress={() => setBackground(id)} style={styles.lookItem}>
+                <LinearGradient
+                  colors={backgroundFor(id, theme)}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[styles.lookSwatch, background === id && styles.lookSelected]}
+                />
+                <Text style={styles.lookLabel}>{t(BACKGROUNDS[id].labelKey)}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.field}>
+          <Text style={styles.label}>{t("welcome.sectionFrame")}</Text>
+          <View style={styles.lookRow}>
+            {Object.keys(FRAMES).map((id) => (
+              <Pressable key={id} onPress={() => setFrame(id)} style={styles.lookItem}>
+                <View style={[styles.lookFrame, frame === id && styles.lookSelected]}>
+                  <ProfileAvatar size={44} frame={id} emoji={emoji} initials={initials} />
+                </View>
+                <Text style={styles.lookLabel}>{t(FRAMES[id].labelKey)}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
         {/* What the server will not let anyone change — shown rather than
             omitted, so it is clear these are fixed rather than missing. The
             web prints the same pair with a "Locked" badge. */}
@@ -309,41 +432,86 @@ export default function EditProfileScreen({ navigation }) {
           </Pressable>
           <Text style={styles.hint}>Share your ID so people can find you in Find People.</Text>
         </View>
+    </>
+  );
 
-      </ScrollView>
-
-      {/* Pinned rather than sitting at the end of the scroll. The form is
-          taller than the screen, so changing the display name at the top used
-          to mean scrolling past the bio, the emoji grid and the ID card to
-          reach Save — and nothing on the way down said whether it had saved. */}
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
-        <View style={styles.actions}>
-          {dirty ? (
-            <Pressable style={styles.revertBtn} onPress={handleRevert} disabled={saving}>
-              <Text style={styles.revertText}>Revert</Text>
-            </Pressable>
-          ) : null}
-
-          <Pressable
-            style={[styles.saveBtn, (saving || !dirty) && styles.saveBtnInert]}
-            onPress={handleSave}
-            disabled={saving || !dirty}
-          >
-            {saving ? (
-              <ActivityIndicator color={theme.accentOn} />
-            ) : (
-              <Text style={[styles.saveText, !dirty && styles.saveTextInert]}>
-                {dirty ? "Save changes" : "No changes"}
-              </Text>
-            )}
+  // Pinned rather than sitting at the end of the scroll: the form is taller
+  // than the screen, so changing the display name at the top used to mean
+  // scrolling past the bio, the emoji grid and the ID card to reach Save — and
+  // nothing on the way down said whether it had saved.
+  //
+  // Hosted, the left slot is Cancel: the header chevron leaves Profile
+  // altogether, so without this there is no way back to the profile itself.
+  // Standalone that chevron is the way out, and the slot goes to Revert.
+  const footer = (
+    <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
+      <View style={styles.actions}>
+        {hosted ? (
+          <Pressable style={styles.revertBtn} onPress={handleClose} disabled={saving}>
+            <Text style={styles.revertText}>{dirty ? "Cancel" : "Close"}</Text>
           </Pressable>
-        </View>
+        ) : dirty ? (
+          <Pressable style={styles.revertBtn} onPress={handleRevert} disabled={saving}>
+            <Text style={styles.revertText}>Revert</Text>
+          </Pressable>
+        ) : null}
+
+        <Pressable
+          style={[styles.saveBtn, (saving || !dirty) && styles.saveBtnInert]}
+          onPress={handleSave}
+          disabled={saving || !dirty}
+        >
+          {saving ? (
+            <ActivityIndicator color={theme.accentOn} />
+          ) : (
+            <Text style={[styles.saveText, !dirty && styles.saveTextInert]}>
+              {dirty ? "Save changes" : "No changes"}
+            </Text>
+          )}
+        </Pressable>
       </View>
+    </View>
+  );
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.flex}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
+        keyboardShouldPersistTaps="handled"
+      >
+        {fields}
+      </ScrollView>
+      {footer}
     </KeyboardAvoidingView>
   );
 }
 
+const INTEREST_TAGS = [
+  "Sports", "Food & Drink", "Study", "Music", "Art",
+  "Tech", "Outdoors", "Gaming", "Social", "Fitness",
+];
+
 const makeStyles = (t) => StyleSheet.create({
+  tagChip: {
+    paddingHorizontal: 13, paddingVertical: 9, borderRadius: 999,
+    backgroundColor: t.bg, borderWidth: 1, borderColor: t.border,
+  },
+  tagChipOn: { backgroundColor: t.accentSoft, borderColor: t.accent },
+  tagChipText: { fontSize: 13, fontFamily: FONTS.bodySemi, color: t.text2 },
+  tagChipTextOn: { color: t.accentStrong },
+  lookRow: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 4 },
+  lookItem: { alignItems: "center", width: 68, gap: 6 },
+  lookSwatch: { width: 54, height: 54, borderRadius: 16, borderWidth: 2, borderColor: "transparent" },
+  lookFrame: {
+    width: 54, height: 54, borderRadius: 16, alignItems: "center", justifyContent: "center",
+    backgroundColor: t.bg, borderWidth: 2, borderColor: "transparent",
+  },
+  lookSelected: { borderColor: t.accent },
+  lookLabel: { fontSize: 10, fontFamily: FONTS.body, color: t.text3, textAlign: "center" },
   flex: { flex: 1, backgroundColor: t.bg },
   container: { flex: 1, backgroundColor: t.bg },
   centered: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: t.bg },

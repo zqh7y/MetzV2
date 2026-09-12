@@ -406,7 +406,9 @@ ${url}`,
               onPress={() => navigation.navigate("UserProfile", { uid: person.uid })}
             >
               <View style={[styles.personAvatar, { backgroundColor: person.color }]}>
-                <Text style={styles.personInitial}>{person.initial}</Text>
+                {person.avatar_emoji
+                  ? <Text style={{ fontSize: 19 }}>{person.avatar_emoji}</Text>
+                  : <Text style={styles.personInitial}>{person.initial}</Text>}
               </View>
               <View style={{ flex: 1 }}>
                 <View style={styles.personNameRow}>

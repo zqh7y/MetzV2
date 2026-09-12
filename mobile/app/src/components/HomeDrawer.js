@@ -10,8 +10,8 @@ import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
 import { RADIUS, SHADOW } from "../styles/theme";
 import {
-  HomeIcon, PlusIcon, UserIcon, PencilIcon, GearIcon,
-  ToolsIcon, ClockIcon, LogOutIcon, CloseIcon, CompassIcon, BellIcon, FlagIcon,
+  HomeIcon, PlusIcon, UserIcon, GearIcon,
+  ToolsIcon, ClockIcon, LogOutIcon, CloseIcon, BellIcon, FlagIcon,
 } from "./NavIcons";
 import { useI18n } from "../context/LocaleContext";
 
@@ -22,16 +22,19 @@ const DRAWER_MAX_WIDTH = 320;
 
 // Declared once rather than inline, so the stagger index and the route are
 // read off the same list instead of being kept in step by hand.
-// Same items in the same order as the web drawer (templates/home_menu.html),
-// so someone moving between the two finds the menu unchanged.
+//
+// Five destinations, down from eight. The three that went were not extra
+// features but extra doors onto things the remaining screens already own:
+// Explore is the same meetings Home maps, Activity is the same "from Metz"
+// stream as the Inbox, and Edit Profile edits precisely what Profile displays.
+// Each is now a section of the screen it belongs to, so the menu lists places
+// rather than views. Deliberately no longer mirrors the web drawer
+// (templates/home_menu.html), which still has all eight.
 const NAV_ITEMS = [
   { route: "Home", labelKey: "drawer.home", Icon: HomeIcon },
-  { route: "Explore", labelKey: "drawer.explore", Icon: CompassIcon },
-  { route: "Activity", labelKey: "drawer.activity", Icon: BellIcon, badgeKey: "activity" },
   { route: "Inbox", labelKey: "drawer.inbox", Icon: BellIcon, badgeKey: "inbox" },
   { route: "Create", labelKey: "drawer.create", Icon: PlusIcon },
   { route: "Profile", labelKey: "drawer.myProfile", Icon: UserIcon },
-  { route: "EditProfile", labelKey: "drawer.editProfile", Icon: PencilIcon },
   { route: "Settings", labelKey: "drawer.settings", Icon: GearIcon },
 ];
 
@@ -198,7 +201,11 @@ export default function HomeDrawer({
               label={t(item.labelKey)}
               Icon={item.Icon}
               active={activeRoute === item.route}
-              badge={item.badgeKey === "activity" ? activityCount : item.badgeKey === "inbox" ? inboxCount : 0}
+              /* Activity moved inside the Inbox screen, so its count moved
+                 into the Inbox badge too — split across two rows it told you
+                 how much was waiting; on one row that has to be the total, or
+                 the badge undercounts what is actually behind the tap. */
+              badge={item.badgeKey === "inbox" ? inboxCount + activityCount : 0}
               onPress={() => go(item.route)}
               index={i}
               progress={rows}
@@ -211,7 +218,7 @@ export default function HomeDrawer({
           {isAdmin ? (
             <>
               <View style={styles.divider}>
-                <Text style={styles.dividerText}>ADMIN</Text>
+                <Text style={styles.dividerText}>{t("drawer.admin")}</Text>
                 <View style={styles.dividerLine} />
               </View>
               {ADMIN_ITEMS.map((item, i) => (
@@ -235,7 +242,11 @@ export default function HomeDrawer({
 
         <Pressable style={styles.logout} onPress={() => { onClose(); onLogout(); }}>
           <LogOutIcon size={19} color="#e74c3c" />
-          <Text style={styles.logoutText}>Log out</Text>
+          {/* Was hardcoded English, so this one row stayed "Log out" while the
+              five above it were in Hebrew, Arabic or Russian. The key already
+              existed and was translated everywhere — only this call site never
+              used it. */}
+          <Text style={styles.logoutText}>{t("account.logOut")}</Text>
         </Pressable>
       </Animated.View>
     </>

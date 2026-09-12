@@ -6,6 +6,8 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { api } from "../api";
+import { markSeen } from "../adminSeen";
+import { useAuth } from "../context/AuthContext";
 import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
 import { RADIUS, SHADOW } from "../styles/theme";
@@ -35,6 +37,7 @@ export default function AdminReportsScreen({ navigation }) {
   const { theme } = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
+  const { uid } = useAuth();
 
   const [tab, setTab] = useState("open");
   const [reports, setReports] = useState([]);
@@ -48,12 +51,18 @@ export default function AdminReportsScreen({ navigation }) {
     setFailed(false);
     api.getReports(tab)
       .then((data) => {
-        setReports(data.reports || []);
+        const rows = data.reports || [];
+        setReports(rows);
         setOpenCount(data.open_count || 0);
+        // Only open reports clear the marker, and only the ones actually on
+        // screen: the badge counts the open queue, so reading the Dismissed
+        // tab must not silence a report still waiting on a moderator.
+        const seen = rows.filter((r) => (tab === "open" ? true : r.status === "open"));
+        markSeen(uid, "reports", Math.max(0, ...seen.map((r) => r.id || 0)));
       })
       .catch(() => setFailed(true))
       .finally(() => { setLoading(false); setRefreshing(false); });
-  }, [tab]);
+  }, [tab, uid]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 

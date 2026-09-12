@@ -1,9 +1,32 @@
 import React, { useMemo } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { useTheme } from "../context/ThemeContext";
+import { useI18n } from "../context/LocaleContext";
 import { FONTS } from "../styles/fonts";
 import { RADIUS, SHADOW } from "../styles/theme";
 import CountUp from "./CountUp";
+
+/**
+ * Which band the score falls in, repeating the thresholds in
+ * data.get_reliability().
+ *
+ * The server sends the band as a finished English sentence in
+ * `reliability.label` ("Hit and miss", "Always shows up"). That cannot be
+ * translated on this side — it arrives as prose, not as a code — so the whole
+ * card sat in English on a Hebrew or Russian screen. Deriving the band from
+ * the score instead means the app names it in its own language.
+ *
+ * Duplicating the numbers is the cost, and they have to stay in step with
+ * data.py. It is the smaller of the two evils: the alternative is the server
+ * sending a key, which changes the API for every existing client.
+ */
+function bandKey(score) {
+  if (score == null) return "reliability.bandNone";
+  if (score >= 90) return "reliability.bandAlways";
+  if (score >= 70) return "reliability.bandUsually";
+  if (score >= 40) return "reliability.bandMixed";
+  return "reliability.bandRarely";
+}
 
 /**
  * The attendance record — .reliability-card from profile.html / user_profile.html.
@@ -17,14 +40,24 @@ import CountUp from "./CountUp";
  * meetings still waiting on an answer, because that chip is a nudge to go and
  * settle them; another person's profile shows only the settled counts, since
  * their unanswered meetings are not the viewer's business.
+ *
+ * `facts` and `roles` are optional and render inside this card rather than
+ * beside it. The show-up rate and the figures under it are the same story —
+ * how many you turned up to, out of how many, with whom — and as two separate
+ * cards they read as unrelated trivia. `facts` is where "Attended" lives, and
+ * it is the very number the percentage above is calculated from.
  */
-export default function ReliabilityCard({ reliability, showPending = false, style }) {
+export default function ReliabilityCard({
+  reliability, showPending = false, style, facts, roles,
+}) {
   const { theme } = useTheme();
+  const { t } = useI18n();
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
   if (!reliability) return null;
 
-  const { score, went = 0, missed = 0, pending = 0, label } = reliability;
+  // `label` is deliberately not read off the response any more — see bandKey.
+  const { score, went = 0, missed = 0, pending = 0 } = reliability;
   const scoreColor =
     score == null ? theme.text3
       : score >= 70 ? theme.status.good
@@ -45,18 +78,42 @@ export default function ReliabilityCard({ reliability, showPending = false, styl
           </View>
         )}
         <View style={styles.text}>
-          <Text style={styles.title}>Show-up rate</Text>
-          <Text style={styles.label}>{label}</Text>
+          <Text style={styles.title}>{t("reliability.title")}</Text>
+          <Text style={styles.label}>{t(bandKey(score))}</Text>
         </View>
       </View>
 
       <View style={styles.breakdown}>
-        <Text style={[styles.chip, styles.chipWent]}>✓ {went} went</Text>
-        <Text style={[styles.chip, styles.chipMissed]}>✕ {missed} missed</Text>
+        <Text style={[styles.chip, styles.chipWent]}>✓ {t("reliability.went", { count: went })}</Text>
+        <Text style={[styles.chip, styles.chipMissed]}>✕ {t("reliability.missed", { count: missed })}</Text>
         {showPending && pending ? (
-          <Text style={[styles.chip, styles.chipPending]}>⏳ {pending} to confirm</Text>
+          <Text style={[styles.chip, styles.chipPending]}>⏳ {t("reliability.toConfirm", { count: pending })}</Text>
         ) : null}
       </View>
+
+      {facts && facts.length ? (
+        <>
+          <View style={styles.rule} />
+          <View style={styles.facts}>
+            {facts.map((f) => (
+              <View key={f.label} style={styles.fact}>
+                <Text style={styles.factValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+                  {f.value}
+                </Text>
+                <Text style={styles.factLabel} numberOfLines={2}>{f.label}</Text>
+              </View>
+            ))}
+          </View>
+        </>
+      ) : null}
+
+      {roles && roles.length ? (
+        <View style={styles.roles}>
+          {roles.map((r) => (
+            <Text key={r} style={styles.role}>{r}</Text>
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -90,6 +147,20 @@ const makeStyles = (t) => StyleSheet.create({
     backgroundColor: t.surface2,
     color: t.text2,
     overflow: "hidden",
+  },
+  rule: { height: 1, backgroundColor: t.border, marginTop: 16 },
+  facts: { flexDirection: "row", marginTop: 14 },
+  fact: { flex: 1, alignItems: "center", paddingHorizontal: 4 },
+  factValue: { fontFamily: FONTS.accent, fontSize: 19, color: t.text },
+  factLabel: {
+    fontSize: 10, fontFamily: FONTS.bodySemi, color: t.text3,
+    textTransform: "uppercase", marginTop: 3, textAlign: "center",
+  },
+  roles: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 14 },
+  role: {
+    paddingHorizontal: 11, paddingVertical: 5, borderRadius: RADIUS.pill,
+    fontSize: 12, fontFamily: FONTS.bodySemi,
+    backgroundColor: t.accentSoft || t.surface2, color: t.accent, overflow: "hidden",
   },
   chipWent: { color: t.status.good, backgroundColor: t.status.goodSoft },
   chipMissed: { color: t.status.bad, backgroundColor: t.status.badSoft },

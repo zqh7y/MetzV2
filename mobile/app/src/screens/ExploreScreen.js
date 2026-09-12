@@ -1,13 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity,
+  View, Text, StyleSheet, FlatList, TouchableOpacity,
   ActivityIndicator, RefreshControl,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { api } from "../api";
+import ProfileAvatar from "../components/ProfileAvatar";
 import MeetingCard from "../components/MeetingCard";
-import { SearchIcon } from "../components/NavIcons";
+import TrustBadge from "../components/TrustBadge";
 import useAutoRefresh from "../hooks/useAutoRefresh";
 import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
@@ -16,12 +16,25 @@ import { useI18n } from "../context/LocaleContext";
 import { localizedTag } from "../i18n/vocab";
 
 /**
- * The list view of every open meeting — a port of templates/explore.html.
+ * Every open meeting, filtered — a port of templates/explore.html.
  *
- * Home is a map, which answers "what is near me" and nothing else: you cannot
- * ask it for study sessions this week, or anything online. Filtering runs on
- * the server through the same explore_data() the web page calls, so a set of
- * filters means the same thing on both.
+ * Home's map answers "what is near me" and nothing else: you cannot ask it for
+ * study sessions this week, or anything online. Filtering runs on the server
+ * through the same explore_data() the web page calls, so a set of filters
+ * means the same thing on both.
+ *
+ * No longer a route of its own. It is the second tab of Home's bottom sheet,
+ * which is where it always belonged — it and Home list the same meetings,
+ * differing only in whether distance or a filter decides the order, and two
+ * menu entries for that made you pick before you knew which you wanted.
+ * Hosted rather than standalone, so:
+ *
+ *   - the search box is Home's, passed in, because the sheet already has one;
+ *   - the list is given an explicit `listHeight`, since inside a sheet that is
+ *     dragged around, flex:1 would run the results off the bottom of the
+ *     screen where they cannot be scrolled to;
+ *   - `onResults` hands the matching rows back up so the pins on the map can
+ *     narrow to them.
  */
 const KINDS = [
   { id: "all", labelKey: "explore.typeAll" },
@@ -55,13 +68,26 @@ function toCard(row) {
   };
 }
 
-export default function ExploreScreen({ navigation }) {
+export default function ExplorePane({ navigation, search = "", listHeight, onResults, onMode }) {
   const { theme } = useTheme();
   const { t } = useI18n();
   const styles = useMemo(() => makeStyles(theme), [theme]);
-  const insets = useSafeAreaInsets();
 
-  const [search, setSearch] = useState("");
+  /**
+   * Meetings or people, off the same search box.
+   *
+   * Finding someone used to be a section at the bottom of your own profile,
+   * under your stats and your meeting list — the one block on that screen
+   * about anybody other than you, in the last place you would look for it.
+   * Searching belongs with the rest of the searching.
+   */
+  const [mode, setMode] = useState("meetings");
+  const onPeople = mode === "people";
+  useEffect(() => { onMode?.(mode); }, [mode, onMode]);
+
+  const [people, setPeople] = useState([]);
+  const [findingPeople, setFindingPeople] = useState(false);
+
   const [kind, setKind] = useState("all");
   const [when, setWhen] = useState("any");
   const [sort, setSort] = useState("soonest");
@@ -78,26 +104,67 @@ export default function ExploreScreen({ navigation }) {
     setFailed(false);
     try {
       const data = await api.getExplore({ q: search, kind, when, sort, tag, hide_joined: hideJoined });
-      setRows(data.meetings || []);
+      const meetings = data.meetings || [];
+      setRows(meetings);
       setAllTags(data.all_tags || []);
+      // Home plots what this matched. A failed request deliberately does not
+      // report — leaving the pins as they were is better than clearing the map
+      // because one request timed out.
+      onResults?.(meetings);
     } catch (e) {
       setFailed(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [search, kind, when, sort, tag, hideJoined]);
+  }, [search, kind, when, sort, tag, hideJoined, onResults]);
 
   // Filters re-query the server; the text box is debounced so typing does not
   // fire a request per keystroke.
   useEffect(() => {
+    if (onPeople) return undefined;
     const timer = setTimeout(load, search ? 300 : 0);
     return () => clearTimeout(timer);
-  }, [load, search]);
+  }, [load, search, onPeople]);
 
   // Keeps the list current while it is open. skipFirstFocus because the effect
   // above already fetches on mount.
   useAutoRefresh(load, { intervalMs: 25000, skipFirstFocus: true });
+
+  /**
+   * People search, debounced the same way.
+   *
+   * An empty box is a real query: the server answers it with the most active
+   * members, so the tab opens on people rather than on an instruction to type.
+   * Only the typed case waits 300ms — debouncing a request nobody triggered
+   * just delays the first paint.
+   */
+  useEffect(() => {
+    if (!onPeople) return undefined;
+    setFindingPeople(true);
+    // An empty box is a real request now — the server answers it with the most
+    // active members — so it is no longer short-circuited here. Only the typed
+    // case is debounced; the default list is fetched at once, because waiting
+    // 300ms to show something nobody typed just looks slow.
+    const run = () => {
+      api.searchUsers(search.trim())
+        .then((list) => setPeople(Array.isArray(list) ? list : []))
+        .catch(() => setPeople([]))
+        .finally(() => setFindingPeople(false));
+    };
+    if (!search.trim()) {
+      run();
+      return undefined;
+    }
+    const timer = setTimeout(run, 300);
+    return () => clearTimeout(timer);
+  }, [search, onPeople]);
+
+  // The pins follow the meeting results; on the People tab there are none to
+  // follow, so the map goes back to showing everything rather than emptying.
+  useEffect(() => {
+    if (onPeople) onResults?.(null);
+  }, [onPeople, onResults]);
 
   const openMeeting = useCallback((meeting) => {
     navigation.navigate("MeetingDetail", { meeting });
@@ -138,18 +205,22 @@ export default function ExploreScreen({ navigation }) {
     if (kind !== "all") out.push({ key: "kind", label: t(KINDS.find((k) => k.id === kind)?.labelKey), clear: () => setKind("all") });
     if (when !== "any") out.push({ key: "when", label: t(WHENS.find((w) => w.id === when)?.labelKey), clear: () => setWhen("any") });
     if (sort !== "soonest") out.push({ key: "sort", label: t(SORTS.find((s) => s.id === sort)?.labelKey), clear: () => setSort("soonest") });
-    if (tag) out.push({ key: "tag", label: tag, clear: () => setTag("") });
+    // localizedTag, same as the tag row below — without it the chip that says
+    // which tag is active was the only one still in English.
+    if (tag) out.push({ key: "tag", label: localizedTag(t, tag), clear: () => setTag("") });
     if (hideJoined) out.push({ key: "joined", label: t("explore.notJoined"), clear: () => setHideJoined(false) });
     return out;
-  }, [kind, when, sort, tag, hideJoined]);
+  }, [kind, when, sort, tag, hideJoined, t]);
 
+  // Clears the filters and nothing else. The search box belongs to the sheet
+  // above and has its own ✕, so wiping it from here would undo a word someone
+  // typed from a button that only ever claimed to clear the chips.
   const clearAll = useCallback(() => {
     setKind("all");
     setWhen("any");
     setSort("soonest");
     setTag("");
     setHideJoined(false);
-    setSearch("");
   }, []);
 
   /**
@@ -179,25 +250,30 @@ export default function ExploreScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <View style={styles.head}>
-        <View style={styles.searchWrap}>
-          <SearchIcon size={16} color={theme.text3} />
-          <TextInput
-            style={styles.search}
-            placeholder={t("explore.searchPlaceholder")}
-            placeholderTextColor={theme.text3}
-            value={search}
-            onChangeText={setSearch}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          {search ? (
-            <TouchableOpacity onPress={() => setSearch("")} hitSlop={10}>
-              <Text style={styles.searchClear}>✕</Text>
-            </TouchableOpacity>
-          ) : null}
+        <View style={styles.modeRow}>
+          <TouchableOpacity
+            style={[styles.modeBtn, !onPeople && styles.modeBtnOn]}
+            onPress={() => setMode("meetings")}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.modeText, !onPeople && styles.modeTextOn]}>
+              {t("explore.tabMeetings")}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.modeBtn, onPeople && styles.modeBtnOn]}
+            onPress={() => setMode("people")}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.modeText, onPeople && styles.modeTextOn]}>
+              {t("explore.tabPeople")}
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        {/* One line, open or closed, so the list starts near the top. */}
+        {/* Filters, the dice and the result count are all about meetings —
+            none of them mean anything against a list of people. */}
+        {onPeople ? null : (
         <View style={styles.controls}>
           <TouchableOpacity
             style={[styles.controlBtn, (showFilters || activeFilters.length > 0) && styles.controlBtnOn]}
@@ -220,18 +296,19 @@ export default function ExploreScreen({ navigation }) {
             disabled={!rows.length}
             activeOpacity={0.8}
           >
-            <Text style={styles.controlText}>🎲  Surprise me</Text>
+            <Text style={styles.controlText}>{`🎲  ${t("explore.surpriseMe")}`}</Text>
           </TouchableOpacity>
 
           <Text style={styles.count}>
             {loading ? "…" : t("explore.resultCount", { count: rows.length })}
           </Text>
         </View>
+        )}
 
         {/* Closed, but filtered: show what is narrowing the list. Each chip
             removes only itself, so a filter can be seen and undone without
             reopening the panel to hunt for which row it came from. */}
-        {!showFilters && activeFilters.length ? (
+        {!onPeople && !showFilters && activeFilters.length ? (
           <FlatList
             horizontal
             data={activeFilters}
@@ -245,13 +322,13 @@ export default function ExploreScreen({ navigation }) {
             )}
             ListFooterComponent={
               <TouchableOpacity onPress={clearAll} style={styles.clearAll} activeOpacity={0.7}>
-                <Text style={styles.clearAllText}>Clear all</Text>
+                <Text style={styles.clearAllText}>{t("explore.clearAll")}</Text>
               </TouchableOpacity>
             }
           />
         ) : null}
 
-        {showFilters ? (
+        {!onPeople && showFilters ? (
           <View style={styles.panel}>
             <FlatList
               horizontal
@@ -308,7 +385,7 @@ export default function ExploreScreen({ navigation }) {
             <View style={styles.panelFoot}>
               <TouchableOpacity onPress={() => setHideJoined((v) => !v)} hitSlop={8}>
                 <Text style={[styles.toggle, hideJoined && styles.toggleOn]}>
-                  {hideJoined ? "☑" : "☐"}  Hide ones I've joined
+                  {`${hideJoined ? "☑" : "☐"}  ${t("explore.hideJoined")}`}
                 </Text>
               </TouchableOpacity>
               {activeFilters.length ? (
@@ -321,16 +398,77 @@ export default function ExploreScreen({ navigation }) {
         ) : null}
       </View>
 
-      {loading ? (
-        <View style={styles.centered}>
+      {onPeople ? (
+        <FlatList
+          data={people}
+          style={listHeight ? { height: listHeight } : null}
+          keyExtractor={(u) => String(u.uid)}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
+          // Says why these particular people are here. Without it the default
+          // list reads as an arbitrary handful of accounts rather than the
+          // ones actually turning up.
+          ListHeaderComponent={
+            !search.trim() && people.length
+              ? <Text style={styles.peopleHeader}>{t("explore.mostActive")}</Text>
+              : null
+          }
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.userRow}
+              activeOpacity={0.7}
+              onPress={() => navigation.navigate("UserProfile", { uid: item.uid })}
+            >
+              {/* The same avatar component the profiles use, so a frame or an
+                  emoji someone picked shows up here too. A hand-rolled circle
+                  of initials was why choosing a look appeared to do nothing
+                  outside your own profile. */}
+              <ProfileAvatar
+                size={44}
+                frame={item.profile_frame}
+                emoji={item.avatar_emoji}
+                initials={(item.username || "?").slice(0, 2).toUpperCase()}
+                color={item.color || "#667eea"}
+                style={{ marginEnd: 12 }}
+              />
+              <View style={{ flex: 1 }}>
+                <View style={styles.userNameRow}>
+                  <Text style={styles.userName}>{item.username}</Text>
+                  {(item.is_trusted || item.is_admin) ? <TrustBadge /> : null}
+                </View>
+                <Text style={styles.userUid}>{item.uid}</Text>
+              </View>
+              <Text style={styles.userChevron}>›</Text>
+            </TouchableOpacity>
+          )}
+          ListEmptyComponent={
+            findingPeople ? (
+              <ActivityIndicator color={theme.accent} style={{ marginTop: 24 }} />
+            ) : (
+              <View style={styles.empty}>
+                <Text style={styles.emptyTitle}>
+                  {search.trim() ? t("explore.noPeople") : t("explore.tabPeople")}
+                </Text>
+                <Text style={styles.emptyBody}>{t("explore.findPeopleHint")}</Text>
+              </View>
+            )
+          }
+        />
+      ) : loading ? (
+        // Same fixed height as the list it stands in for, so the sheet does
+        // not change size the moment the results land.
+        <View style={[styles.centered, listHeight ? { height: listHeight } : null]}>
           <ActivityIndicator size="large" color={theme.accent} />
         </View>
       ) : (
         <FlatList
           data={rows}
+          // Fixed rather than flexed: see the note on listHeight above.
+          style={listHeight ? { height: listHeight } : null}
           keyExtractor={(r) => String(r.id)}
           renderItem={renderRow}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 + insets.bottom }}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
           showsVerticalScrollIndicator={false}
           removeClippedSubviews
           initialNumToRender={6}
@@ -347,15 +485,17 @@ export default function ExploreScreen({ navigation }) {
               <Text style={styles.emptyBody}>
                 {failed
                   ? t("explore.pullToRetry")
-                  : activeFilters.length
-                    ? t("explore.tooManyFilters")
-                    : t("explore.nothingOpen")}
+                  : search.trim()
+                    ? t("explore.noSearchMatch")
+                    : activeFilters.length
+                      ? t("explore.tooManyFilters")
+                      : t("explore.nothingOpen")}
               </Text>
               {/* Telling someone to clear a filter and making them go and find
                   it are different things. */}
               {!failed && activeFilters.length ? (
                 <TouchableOpacity style={styles.emptyBtn} onPress={clearAll} activeOpacity={0.85}>
-                  <Text style={styles.emptyBtnText}>Clear all filters</Text>
+                  <Text style={styles.emptyBtnText}>{t("explore.clearAllFilters")}</Text>
                 </TouchableOpacity>
               ) : null}
               {!failed && !activeFilters.length ? (
@@ -364,7 +504,7 @@ export default function ExploreScreen({ navigation }) {
                   onPress={() => navigation.navigate("Create")}
                   activeOpacity={0.85}
                 >
-                  <Text style={styles.emptyBtnText}>Create a meeting</Text>
+                  <Text style={styles.emptyBtnText}>{t("explore.createOne")}</Text>
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -376,22 +516,46 @@ export default function ExploreScreen({ navigation }) {
 }
 
 const makeStyles = (t) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: t.bg },
-  centered: { flex: 1, alignItems: "center", justifyContent: "center" },
+  // No background: it sits on the sheet, which already paints one.
+  container: { flex: 1 },
+  centered: { alignItems: "center", justifyContent: "center" },
 
-  head: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 6 },
-  searchWrap: {
+  // No top padding — the sheet's search box is directly above.
+  head: { paddingHorizontal: 16, paddingBottom: 6 },
+
+  // Meetings / People. Deliberately lighter than the Nearby/Explore tabs above
+  // it, so the sheet reads as one control with a sub-choice rather than two
+  // toggles of equal weight stacked on each other.
+  modeRow: { flexDirection: "row", gap: 6, marginBottom: 8 },
+  modeBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: RADIUS.pill,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  modeBtnOn: { borderColor: t.accent, backgroundColor: t.accentSoft },
+  modeText: { fontSize: 13, fontFamily: FONTS.bodySemi, color: t.text3 },
+  modeTextOn: { color: t.accentStrong },
+
+  // One person in the results — ported from the profile screen's old section.
+  userRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 9,
-    backgroundColor: t.surface,
-    borderWidth: 1,
-    borderColor: t.border,
-    borderRadius: RADIUS.base,
-    paddingHorizontal: 14,
+    gap: 12,
+    paddingVertical: 11,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: t.border,
   },
-  search: { flex: 1, color: t.text, paddingVertical: 11, fontSize: 15, includeFontPadding: false },
-  searchClear: { color: t.text3, fontSize: 13, paddingHorizontal: 2 },
+  userAvatar: {
+    width: 40, height: 40, borderRadius: 20,
+    alignItems: "center", justifyContent: "center",
+  },
+  userAvatarText: { color: "#fff", fontFamily: FONTS.headingSemi, fontSize: 14 },
+  userNameRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  userName: { fontSize: 14.5, fontFamily: FONTS.bodySemi, color: t.text },
+  userUid: { fontSize: 12, color: t.text3, marginTop: 1 },
+  userChevron: { fontSize: 20, color: t.text3 },
 
   chipRow: { gap: 7, paddingVertical: 7 },
   chip: {
@@ -439,6 +603,10 @@ const makeStyles = (t) => StyleSheet.create({
   clearAll: { paddingHorizontal: 11, paddingVertical: 6, justifyContent: "center" },
   clearAllText: { fontSize: 12, fontFamily: FONTS.bodySemi, color: t.text3, textDecorationLine: "underline" },
 
+  peopleHeader: {
+    fontSize: 11, fontFamily: FONTS.bodySemi, color: t.text3,
+    textTransform: "uppercase", marginBottom: 10, marginTop: 2,
+  },
   empty: { alignItems: "center", paddingTop: 50, paddingHorizontal: 30 },
   emptyTitle: { fontSize: 16, fontFamily: FONTS.heading, color: t.text },
   emptyBody: { fontSize: 13.5, color: t.text3, marginTop: 6, textAlign: "center", lineHeight: 19 },

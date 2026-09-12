@@ -41,6 +41,11 @@ export default function AvatarStack({ people = [], total = 0, size = 24 }) {
         >
           {p.profile_picture ? (
             <Image source={{ uri: p.profile_picture }} style={[dim, styles.photo]} />
+          ) : p.avatar_emoji ? (
+            // Whatever someone picked as their avatar should be what everyone
+            // sees, including here — an initial where an emoji was chosen looks
+            // like the choice never saved.
+            <Text style={{ fontSize: size * 0.55 }}>{p.avatar_emoji}</Text>
           ) : (
             <Text style={[styles.initial, { fontSize: size * 0.42 }]}>{p.initial || "?"}</Text>
           )}

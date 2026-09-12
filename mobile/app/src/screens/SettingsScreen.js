@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 
 import { api } from "../api";
@@ -25,15 +25,28 @@ const ACCENT_LABEL_KEYS = {
 };
 
 export default function SettingsScreen({ navigation }) {
-  const { theme, choice, accentName, density, motion, minimaps, sheet, setTheme, setAccent, setPref, resetPrefs } =
+  const { theme, choice, accentName, density, motion, sheet, setTheme, setAccent, setPref, resetPrefs } =
     useTheme();
-  const { profile, signOut } = useAuth();
+  const { profile, signOut, refreshProfile } = useAuth();
   const { t, choice: langChoice, deviceLanguage, setLanguage, restartNeeded } = useI18n();
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
   const role = profile?.is_admin
     ? t("settings.roleAdmin")
     : profile?.is_trusted ? t("settings.roleTrusted") : t("settings.roleMember");
+
+  /**
+   * The eight language rows are collapsed behind the current choice.
+   *
+   * Listed all at once they were the tallest thing in Settings by some way —
+   * seven names plus "System default", pushing Account and everything under it
+   * off the bottom of a screen most people opened for the theme. Only one of
+   * the eight is ever true at a time, so the closed state can simply say which.
+   */
+  const [langOpen, setLangOpen] = useState(false);
+  const [roleOpen, setRoleOpen] = useState(false);
+  const currentLang = LANGUAGES.find((l) => l.code === langChoice);
+  const deviceLang = LANGUAGES.find((l) => l.code === deviceLanguage);
 
   function confirmLogout() {
     Alert.alert(t("account.logOut"), t("settings.logoutBody"), [
@@ -143,15 +156,10 @@ export default function SettingsScreen({ navigation }) {
         />
       </Section>
 
+      {/* "Live maps on For You cards" was the first control here. The For You
+          shelf no longer exists and nothing read the preference, so it was a
+          switch that did nothing whichever way you set it. */}
       <Section styles={styles} title={`🗺️ ${t("settings.homeScreen")}`}>
-        <Block
-          styles={styles}
-          label={t("settings.liveMaps")}
-          desc={t("settings.liveMapsDesc")}
-          value={minimaps}
-          options={[["on", t("settings.on")], ["off", t("settings.off")]]}
-          onChange={(v) => setPref("minimaps", v)}
-        />
         <Block
           styles={styles}
           label={t("settings.panelPosition")}
@@ -162,32 +170,90 @@ export default function SettingsScreen({ navigation }) {
         />
       </Section>
 
+      {/* The intro asked this before there was an account to keep it on. A
+          wrong tap at sign-up should not be permanent, and someone who joined
+          to attend and started organising should be able to say so. */}
+      <Section
+        styles={styles}
+        title={`🎯 ${t("settings.hereTo")}`}
+        hint={t("settings.hereToHint")}
+      >
+        <LanguageRow
+          styles={styles}
+          label={t(profile?.role === "organiser" ? "intro.roleOrganiserTitle" : "intro.roleMemberTitle")}
+          chevron={roleOpen ? "▴" : "▾"}
+          onPress={() => setRoleOpen((v) => !v)}
+        />
+        {roleOpen ? (
+          <>
+            {["member", "organiser"].map((r) => (
+              <LanguageRow
+                key={r}
+                styles={styles}
+                indent
+                label={t(r === "organiser" ? "intro.roleOrganiserTitle" : "intro.roleMemberTitle")}
+                sublabel={t(r === "organiser" ? "intro.roleOrganiserBody" : "intro.roleMemberBody")}
+                active={(profile?.role || "member") === r}
+                onPress={async () => {
+                  setRoleOpen(false);
+                  if ((profile?.role || "member") === r) return;
+                  try {
+                    await api.updateProfile({ role: r });
+                    // Home reads the role off the profile, so it has to be
+                    // refetched for the change to be visible at all.
+                    await refreshProfile();
+                  } catch {
+                    // Left as it was; the row still shows what the server has.
+                  }
+                }}
+              />
+            ))}
+          </>
+        ) : null}
+      </Section>
+
       <Section
         styles={styles}
         title={`🌐 ${t("settings.language")}`}
         hint={t("settings.languageHint")}
       >
-        {/* "System default" first and selected out of the box: following the
-            phone is what most people want, and it is the only option that keeps
-            working when they change the phone's language later. */}
+        {/* Closed: the one that is actually set, and a chevron. */}
         <LanguageRow
           styles={styles}
-          label={t("settings.systemDefault")}
-          sublabel={LANGUAGES.find((l) => l.code === deviceLanguage)?.label}
-          active={langChoice === SYSTEM}
-          onPress={() => setLanguage(SYSTEM)}
+          label={langChoice === SYSTEM ? t("settings.systemDefault") : currentLang?.label}
+          sublabel={langChoice === SYSTEM ? deviceLang?.label : null}
+          chevron={langOpen ? "▴" : "▾"}
+          onPress={() => setLangOpen((v) => !v)}
         />
-        {LANGUAGES.map((lang) => (
-          <LanguageRow
-            key={lang.code}
-            styles={styles}
-            /* Each language is named in itself — "Hebrew" is no help to someone
-               who only reads Hebrew, which is exactly who needs this row. */
-            label={lang.label}
-            active={langChoice === lang.code}
-            onPress={() => setLanguage(lang.code)}
-          />
-        ))}
+
+        {langOpen ? (
+          <>
+            {/* "System default" first and selected out of the box: following the
+                phone is what most people want, and it is the only option that
+                keeps working when they change the phone's language later. */}
+            <LanguageRow
+              styles={styles}
+              indent
+              label={t("settings.systemDefault")}
+              sublabel={deviceLang?.label}
+              active={langChoice === SYSTEM}
+              onPress={() => { setLanguage(SYSTEM); setLangOpen(false); }}
+            />
+            {LANGUAGES.map((lang) => (
+              <LanguageRow
+                key={lang.code}
+                styles={styles}
+                indent
+                /* Each language is named in itself — "Hebrew" is no help to
+                   someone who only reads Hebrew, which is exactly who needs
+                   this row. */
+                label={lang.label}
+                active={langChoice === lang.code}
+                onPress={() => { setLanguage(lang.code); setLangOpen(false); }}
+              />
+            ))}
+          </>
+        ) : null}
         {restartNeeded ? (
           /* Right-to-left is decided natively at process start, so a switch
              between an RTL and an LTR language cannot re-mirror a running app.
@@ -201,7 +267,9 @@ export default function SettingsScreen({ navigation }) {
         <Row styles={styles} label={t("settings.userId")} value={profile?.uid || "—"} />
         <Row styles={styles} label={t("settings.role")} value={role} />
 
-        <Pressable style={styles.action} onPress={() => navigation.navigate("EditProfile")}>
+        {/* The form lives inside Profile now, so this asks Profile to open on
+            it rather than pushing a screen that no longer exists. */}
+        <Pressable style={styles.action} onPress={() => navigation.navigate("Profile", { edit: true })}>
           <Text style={styles.actionText}>{`✏️  ${t("nav.editProfile")}`}</Text>
           <Text style={styles.chevron}>›</Text>
         </Pressable>
@@ -266,19 +334,25 @@ function ThemeSwatch({ id, theme, styles }) {
   );
 }
 
-/** One language in the picker: name, optional sub-line, tick when chosen. */
-function LanguageRow({ styles, label, sublabel, active, onPress }) {
+/**
+ * One language in the picker: name, optional sub-line, tick when chosen.
+ *
+ * Doubles as the closed summary row, which shows a chevron instead of a tick
+ * and is a button rather than a radio — it opens the list, it does not pick.
+ */
+function LanguageRow({ styles, label, sublabel, active, onPress, chevron, indent }) {
   return (
     <Pressable
-      style={[styles.langRow, active && styles.langRowActive]}
+      style={[styles.langRow, indent && styles.langRowIndent, active && styles.langRowActive]}
       onPress={onPress}
-      accessibilityRole="radio"
-      accessibilityState={{ selected: active }}
+      accessibilityRole={chevron ? "button" : "radio"}
+      accessibilityState={chevron ? { expanded: chevron === "▴" } : { selected: active }}
     >
       <View style={{ flex: 1 }}>
         <Text style={[styles.langLabel, active && styles.langLabelActive]}>{label}</Text>
         {sublabel ? <Text style={styles.langSub}>{sublabel}</Text> : null}
       </View>
+      {chevron ? <Text style={styles.langChevron}>{chevron}</Text> : null}
       {active ? <Text style={styles.check}>✓</Text> : null}
     </Pressable>
   );
@@ -392,6 +466,10 @@ const makeStyles = (t) => StyleSheet.create({
     marginBottom: 4,
   },
   langRowActive: { borderColor: t.accent, backgroundColor: t.accentSoft },
+  // Stepped in from the summary row above them, so the open list reads as
+  // belonging to it rather than as eight more settings.
+  langRowIndent: { marginStart: 14 },
+  langChevron: { fontSize: 13, color: t.text3, paddingHorizontal: 2 },
   langLabel: { fontSize: 15, fontFamily: FONTS.bodyMedium, color: t.text },
   langLabelActive: { color: t.accentStrong, fontFamily: FONTS.bodySemi },
   langSub: { fontSize: 12, color: t.text3, marginTop: 2 },

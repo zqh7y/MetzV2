@@ -112,6 +112,7 @@ export const api = {
   deleteMeeting: (id) => request(`/api/meetings/${id}`, { method: "DELETE" }),
 
   getJoined: () => request("/api/joined"),
+  getHosting: () => request("/api/hosting"),
 
   // Explore takes the same query string the web page uses, so a set of filters
   // means the same thing on both.

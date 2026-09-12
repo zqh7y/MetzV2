@@ -13,7 +13,10 @@ export const PREF_DEFAULTS = {
   accent: "teal",        // teal | indigo | coral | amber
   density: "compact",    // compact | comfortable
   motion: "full",        // full | reduced
-  minimaps: "on",        // on | off   (live maps on For You cards)
+  // `minimaps` (live maps on For You cards) used to sit here. The For You
+  // shelf is gone, so nothing read it — it was a switch in Settings that
+  // changed nothing at all. A value left in storage from before is simply
+  // ignored now.
   sheet: "peek",         // peek | half | full  (Home sheet on open)
 };
 
@@ -69,7 +72,6 @@ export function ThemeProvider({ children }) {
       // The rest of the web's preference set.
       density: prefs.density,
       motion: prefs.motion,
-      minimaps: prefs.minimaps,
       sheet: prefs.sheet,
 
       // Convenience for the two the layout asks about constantly.

@@ -1,10 +1,13 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Pressable, KeyboardAvoidingView, Platform,
+  View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Pressable,
+  KeyboardAvoidingView, Platform, ActivityIndicator,
 } from "react-native";
+import * as Location from "expo-location";
 import { LinearGradient } from "expo-linear-gradient";
 import { Map, Camera, Marker, MAPS_AVAILABLE } from "../components/MapShim";
 import WebMap from "../components/WebMap";
+import MapPickerSheet from "../components/MapPickerSheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../api";
 import AnimatedPressable from "../components/AnimatedPressable";
@@ -17,9 +20,74 @@ import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
 import { RADIUS, SHADOW } from "../styles/theme";
 import { useI18n } from "../context/LocaleContext";
+import { localizedTag } from "../i18n/vocab";
 import { Alert } from "../components/AppAlert";
 
 const CENTER = [35.2137, 31.7683]; // [lng, lat] — MapLibre order
+
+// How long to wait for a GPS fix before giving up on it.
+const LOCATE_TIMEOUT_MS = 12000;
+
+/**
+ * Resolve to null instead of waiting forever.
+ *
+ * getCurrentPositionAsync has no timeout of its own: with no fix available it
+ * simply never settles. On the emulator — which never gets one — the button sat
+ * on "Finding you…" indefinitely, and indoors on a real phone it would do the
+ * same. The underlying request is left running; it is only stopped being waited
+ * on.
+ */
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise.catch(() => null),
+    new Promise((resolve) => setTimeout(() => resolve(null), ms)),
+  ]);
+}
+
+/** The stored shape: "YYYY-MM-DD HH:MM", same as DateTimeField writes. */
+function toServerTime(date) {
+  const p = (n) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())} `
+    + `${p(date.getHours())}:${p(date.getMinutes())}`;
+}
+
+/**
+ * The three dates people actually pick, as one tap each.
+ *
+ * Setting a time was the slowest thing on this form: two dialogs, a date then
+ * a clock, for what is almost always this evening or the weekend. The picker
+ * is still there for anything else.
+ *
+ * `Tonight` is dropped once it is too late for it to mean tonight, rather than
+ * offered and then rejected for being in the past — the field's minimumDate is
+ * now, so a preset must never produce a moment that has already gone.
+ */
+function quickTimes(now) {
+  const at = (date, hour) => {
+    const out = new Date(date);
+    out.setHours(hour, 0, 0, 0);
+    return out;
+  };
+
+  const out = [];
+
+  const tonight = at(now, 19);
+  if (tonight > now) out.push({ key: "quickTonight", when: tonight });
+
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  out.push({ key: "quickTomorrow", when: at(tomorrow, 19) });
+
+  // The coming Saturday at noon; if Saturday is today and noon has gone, the
+  // weekend being offered is next week's.
+  const weekend = new Date(now);
+  weekend.setDate(weekend.getDate() + ((6 - weekend.getDay() + 7) % 7));
+  let saturday = at(weekend, 12);
+  if (saturday <= now) saturday = at(new Date(saturday.getTime() + 7 * 86400000), 12);
+  out.push({ key: "quickWeekend", when: saturday });
+
+  return out;
+}
 const EMOJIS = ["📍", "🎉", "☕", "🍕", "🎮", "🎵", "📚", "⚽", "🧘", "🎨", "💻", "🌐", "🎬", "🚴", "🏕️", "🍻"];
 const MAX_TITLE = 100;
 const MAX_DESC = 500;
@@ -38,7 +106,10 @@ const HEADER_GRADIENT = ["#43e97b", "#38f9d7"];
  * the sections are findable without taking away the ability to see everything
  * at once.
  */
+// Reads the translation itself rather than taking the finished "STEP 1" as a
+// prop, so the five call sites keep passing a plain number.
 function Section({ index, title, subtitle, Icon, children, styles, theme, delay }) {
+  const { t } = useI18n();
   return (
     <Appear delay={delay}>
       <View style={styles.card}>
@@ -47,7 +118,7 @@ function Section({ index, title, subtitle, Icon, children, styles, theme, delay 
             <Icon size={17} color={theme.accentStrong} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.sectionStep}>STEP {index}</Text>
+            <Text style={styles.sectionStep}>{t("create.step", { n: index })}</Text>
             <Text style={styles.sectionTitle}>{title}</Text>
           </View>
         </View>
@@ -72,6 +143,7 @@ export default function CreateScreen({ navigation }) {
   const [time, setTime] = useState("");
   const [locationName, setLocationName] = useState("");
   const [pin, setPin] = useState(null);
+  const [mapOpen, setMapOpen] = useState(false);
   const [link, setLink] = useState("");
   const [emoji, setEmoji] = useState("📍");
   const [tags, setTags] = useState([]);
@@ -99,15 +171,85 @@ export default function CreateScreen({ navigation }) {
   // button explains itself instead of failing on submit.
   const missing = useMemo(() => {
     const out = [];
-    if (!title.trim()) out.push("title");
-    if (!description.trim()) out.push("description");
-    if (!time) out.push("date & time");
-    if (isOnline && !link.trim()) out.push("link");
-    if (!isOnline && !locationName.trim() && !pin) out.push("location");
+    if (!title.trim()) out.push(t("create.needTitle"));
+    if (!description.trim()) out.push(t("create.needDescription"));
+    if (!time) out.push(t("create.needDateTime"));
+    if (isOnline && !link.trim()) out.push(t("create.needLink"));
+    // A pin is not a location as far as the server is concerned:
+    // validate_meeting_data() rejects an in-person meeting with an empty
+    // location_name whether or not lat/lng came with it. This used to accept a
+    // pin on its own, so dropping one and leaving the address blank lit up
+    // "Ready to create" and then failed on submit with a server error.
+    if (!isOnline && !locationName.trim()) out.push(t("create.needLocation"));
     return out;
-  }, [title, description, time, isOnline, link, locationName, pin]);
+  }, [title, description, time, isOnline, link, locationName, t]);
 
-  const ready = missing.length === 0;
+  /**
+   * The one rule the server enforces that is not simply "don't leave it empty".
+   *
+   * Checked here so a missing scheme is caught while the field is in front of
+   * you, rather than after a round trip that comes back as one line of English
+   * from validate_meeting_data().
+   */
+  const linkInvalid = isOnline
+    && link.trim() !== ""
+    && !/^https?:\/\//i.test(link.trim());
+
+  // Computed once per mount rather than per render: "tonight" must not vanish
+  // from under a thumb because a re-render happened to land at 19:00:01.
+  const quick = useMemo(() => quickTimes(new Date()), []);
+
+  const cameraRef = useRef(null);
+  const webMapRef = useRef(null);
+  const [locating, setLocating] = useState(false);
+
+  /**
+   * Drop the pin where the organiser is standing.
+   *
+   * The map opens on the whole country at zoom 6.5, so pinning your own street
+   * meant pinching your way down to it. Most meetings are made somewhere near
+   * where they will happen, which makes this one tap instead.
+   *
+   * It only fills the pin. The address box stays for the organiser to write,
+   * because the server wants a name a person can read and coordinates are not
+   * that — see the note on `missing` above.
+   */
+  const handleUseMyLocation = useCallback(async () => {
+    if (locating) return;
+    setLocating(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(t("create.locationDeniedTitle"), t("create.locationDeniedBody"));
+        return;
+      }
+      // Last known first: it is instant when there is one, and a cold fix
+      // indoors can take long enough to look broken.
+      //
+      // The deadline covers both calls rather than just the live one. Capping
+      // only getCurrentPositionAsync was not enough — on a device with no fix
+      // at all, getLastKnownPositionAsync does not come back either, so the
+      // button still sat on "Finding you…" forever.
+      const fix = await withTimeout((async () =>
+        (await Location.getLastKnownPositionAsync())
+        || (await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }))
+      )(), LOCATE_TIMEOUT_MS);
+      if (!fix) {
+        Alert.alert(t("create.locationFailed"), "");
+        return;
+      }
+      const next = { latitude: fix.coords.latitude, longitude: fix.coords.longitude };
+      setPin(next);
+      const camera = MAPS_AVAILABLE ? cameraRef.current : webMapRef.current;
+      camera?.flyTo({ center: [next.longitude, next.latitude], zoom: 15, duration: 700 });
+    } catch (e) {
+      Alert.alert(t("create.locationFailed"), e.message || "");
+    } finally {
+      setLocating(false);
+    }
+  }, [locating, t]);
+
+  const ready = missing.length === 0 && !linkInvalid;
 
   async function handleSubmit() {
     if (!ready || submitting) return;
@@ -129,10 +271,8 @@ export default function CreateScreen({ navigation }) {
       };
       const res = await api.createMeeting(payload);
       Alert.alert(
-        res.status === "pending" ? "Submitted for review" : "Meeting created!",
-        res.status === "pending"
-          ? "Your meeting will appear once an admin approves it."
-          : "Your meeting is live."
+        t(res.status === "pending" ? "create.submittedTitle" : "create.createdTitle"),
+        t(res.status === "pending" ? "create.submittedBody" : "create.createdBody")
       );
       navigation.navigate("Home");
     } catch (e) {
@@ -162,8 +302,8 @@ export default function CreateScreen({ navigation }) {
               <CalendarPlusIcon size={22} color="#fff" />
             </LinearGradient>
             <View style={{ flex: 1 }}>
-              <Text style={styles.headerTitle}>Create a New Meeting</Text>
-              <Text style={styles.headerSub}>Share something fun with your community</Text>
+              <Text style={styles.headerTitle}>{t("create.headerTitle")}</Text>
+              <Text style={styles.headerSub}>{t("create.headerSub")}</Text>
             </View>
           </View>
         </Appear>
@@ -177,13 +317,15 @@ export default function CreateScreen({ navigation }) {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.previewTitle} numberOfLines={1}>
-                {title.trim() || "Your meeting title"}
+                {title.trim() || t("create.previewTitle")}
               </Text>
               <Text style={styles.previewMeta} numberOfLines={1}>
-                {isOnline ? "🌐 Online" : `📍 ${locationName.trim() || (pin ? "Pinned on map" : "No location yet")}`}
+                {isOnline
+                  ? `🌐 ${t("common.online")}`
+                  : `📍 ${locationName.trim() || t(pin ? "create.pinnedOnMap" : "create.noLocationYet")}`}
               </Text>
               <Text style={styles.previewMeta} numberOfLines={1}>
-                {time || "No date yet"}
+                {time || t("create.noDateYet")}
               </Text>
             </View>
           </View>
@@ -195,9 +337,9 @@ export default function CreateScreen({ navigation }) {
           </Appear>
         ) : null}
 
-        <Section index={1} title="Basics" Icon={TagIcon} styles={styles} theme={theme} delay={110}>
+        <Section index={1} title={t("create.sectionBasics")} Icon={TagIcon} styles={styles} theme={theme} delay={110}>
           <View style={styles.labelRow}>
-            <Text style={styles.label}>Meeting title</Text>
+            <Text style={styles.label}>{t("create.meetingTitle")}</Text>
             <Text style={styles.counter}>{title.length}/{MAX_TITLE}</Text>
           </View>
           <TextInput
@@ -205,12 +347,12 @@ export default function CreateScreen({ navigation }) {
             value={title}
             onChangeText={setTitle}
             maxLength={MAX_TITLE}
-            placeholder="e.g. Morning Yoga Session"
+            placeholder={t("create.titlePlaceholder")}
             placeholderTextColor={theme.text3}
           />
 
           <View style={styles.labelRow}>
-            <Text style={styles.label}>Description</Text>
+            <Text style={styles.label}>{t("create.description")}</Text>
             <Text style={styles.counter}>{description.length}/{MAX_DESC}</Text>
           </View>
           <TextInput
@@ -220,14 +362,14 @@ export default function CreateScreen({ navigation }) {
             multiline
             textAlignVertical="top"
             maxLength={MAX_DESC}
-            placeholder="What is this meeting about?"
+            placeholder={t("create.descriptionPlaceholder")}
             placeholderTextColor={theme.text3}
           />
         </Section>
 
         <Section
           index={2}
-          title="Where"
+          title={t("create.sectionWhere")}
           Icon={isOnline ? GlobeIcon : MapPinIcon}
           styles={styles}
           theme={theme}
@@ -240,22 +382,22 @@ export default function CreateScreen({ navigation }) {
               onPress={() => setType("inperson")}
             >
               <MapPinIcon size={17} color={!isOnline ? theme.accentOn : theme.text2} />
-              <Text style={[styles.typeText, !isOnline && styles.typeTextActive]}>In-Person</Text>
+              <Text style={[styles.typeText, !isOnline && styles.typeTextActive]}>{t("common.inPerson")}</Text>
             </Pressable>
             <Pressable
               style={[styles.typeBtn, isOnline && styles.typeBtnActive]}
               onPress={() => setType("online")}
             >
               <GlobeIcon size={17} color={isOnline ? theme.accentOn : theme.text2} />
-              <Text style={[styles.typeText, isOnline && styles.typeTextActive]}>Online</Text>
+              <Text style={[styles.typeText, isOnline && styles.typeTextActive]}>{t("common.online")}</Text>
             </Pressable>
           </View>
 
           {isOnline ? (
             <>
-              <Text style={styles.label}>Meeting link</Text>
+              <Text style={styles.label}>{t("create.meetingLink")}</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, linkInvalid && styles.inputBad]}
                 value={link}
                 onChangeText={setLink}
                 placeholder="https://zoom.us/j/..."
@@ -264,18 +406,44 @@ export default function CreateScreen({ navigation }) {
                 autoCorrect={false}
                 keyboardType="url"
               />
+              {linkInvalid ? (
+                <Text style={styles.hintBad}>{t("create.linkNeedsScheme")}</Text>
+              ) : null}
             </>
           ) : (
             <>
-              <Text style={styles.label}>Location</Text>
+              <Text style={styles.label}>{t("create.location")}</Text>
               <TextInput
                 style={styles.input}
                 value={locationName}
                 onChangeText={setLocationName}
-                placeholder="Type an address or pick on the map below"
+                placeholder={t("create.locationPlaceholder")}
                 placeholderTextColor={theme.text3}
               />
-              <View style={styles.mapWrap}>
+
+              <TouchableOpacity
+                style={[styles.locateBtn, locating && styles.locateBtnBusy]}
+                onPress={handleUseMyLocation}
+                disabled={locating}
+                activeOpacity={0.85}
+              >
+                {locating
+                  ? <ActivityIndicator size="small" color={theme.accentStrong} />
+                  : <MapPinIcon size={15} color={theme.accentStrong} />}
+                <Text style={styles.locateBtnText}>
+                  {locating ? t("create.locating") : t("create.useMyLocation")}
+                </Text>
+              </TouchableOpacity>
+
+              {/* A preview, not a workspace. Panning happens in the full-screen
+                  picker, where nothing competes for the drag — see
+                  MapPickerSheet. Touches here only open it, so the page keeps
+                  scrolling normally over this area. */}
+              <Pressable
+                style={styles.mapWrap}
+                pointerEvents="box-only"
+                onPress={() => setMapOpen(true)}
+              >
                 {MAPS_AVAILABLE ? (
                   <Map
                     style={styles.map}
@@ -288,11 +456,12 @@ export default function CreateScreen({ navigation }) {
                       setPin({ latitude: lat, longitude: lng });
                     }}
                   >
-                    <Camera initialViewState={{ center: CENTER, zoom: 6.5 }} />
+                    <Camera ref={cameraRef} initialViewState={{ center: CENTER, zoom: 6.5 }} />
                     {pin ? <Marker lngLat={[pin.longitude, pin.latitude]} /> : null}
                   </Map>
                 ) : (
                   <WebMap
+                    ref={webMapRef}
                     style={styles.map}
                     theme={theme}
                     center={CENTER}
@@ -301,11 +470,29 @@ export default function CreateScreen({ navigation }) {
                     onMapPress={setPin}
                   />
                 )}
-              </View>
+              </Pressable>
+              <Pressable style={styles.mapOpen} onPress={() => setMapOpen(true)}>
+                <Text style={styles.mapOpenText}>{`🗺  ${t("create.pickOnMap")}`}</Text>
+              </Pressable>
+
+              <MapPickerSheet
+                visible={mapOpen}
+                initialPin={pin}
+                center={CENTER}
+                zoom={6.5}
+                onCancel={() => setMapOpen(false)}
+                onConfirm={(picked) => {
+                  setMapOpen(false);
+                  setPin(picked);
+                }}
+              />
+
               <Text style={[styles.hint, pin && styles.hintDone]}>
                 {pin
-                  ? `📍 Pin dropped at ${pin.latitude.toFixed(4)}, ${pin.longitude.toFixed(4)}`
-                  : "📍 Tap the map to drop a pin"}
+                  ? `📍 ${t("create.pinDropped", { coords: `${pin.latitude.toFixed(4)}, ${pin.longitude.toFixed(4)}` })}`
+                  // Tapping the preview opens the picker rather than dropping
+                  // a pin where you touched, so it must not promise otherwise.
+                  : `📍 ${t("create.pickOnMap")}`}
               </Text>
             </>
           )}
@@ -313,20 +500,42 @@ export default function CreateScreen({ navigation }) {
 
         <Section
           index={3}
-          title="When"
-          subtitle="Pick when people should show up."
+          title={t("create.sectionWhen")}
+          subtitle={t("create.whenSub")}
           Icon={CalendarIcon}
           styles={styles}
           theme={theme}
           delay={210}
         >
+          {/* Above the picker, not instead of it: these three cover the common
+              cases, and anything else is still one tap further down. */}
+          <Text style={styles.label}>{t("create.quickPick")}</Text>
+          <View style={styles.quickRow}>
+            {quick.map(({ key, when }) => {
+              const value = toServerTime(when);
+              const active = time === value;
+              return (
+                <TouchableOpacity
+                  key={key}
+                  style={[styles.quickBtn, active && styles.quickBtnActive]}
+                  onPress={() => setTime(active ? "" : value)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.quickText, active && styles.quickTextActive]}>
+                    {t(`create.${key}`)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
           <DateTimeField value={time} onChange={setTime} minimumDate={new Date()} />
         </Section>
 
         <Section
           index={4}
-          title="Commitment"
-          subtitle="Set a minimum and nobody has to wonder whether it's actually on. If it doesn't fill by the deadline, you decide what to do — it never shows up as a failed event."
+          title={t("create.sectionCommitment")}
+          subtitle={t("create.commitmentSub")}
           Icon={UsersIcon}
           styles={styles}
           theme={theme}
@@ -364,19 +573,19 @@ export default function CreateScreen({ navigation }) {
               style={[styles.typeBtn, !needsMinimum && styles.typeBtnActive]}
               onPress={() => setNeedsMinimum(false)}
             >
-              <Text style={[styles.typeText, !needsMinimum && styles.typeTextActive]}>Open to all</Text>
+              <Text style={[styles.typeText, !needsMinimum && styles.typeTextActive]}>{t("create.openToAll")}</Text>
             </Pressable>
             <Pressable
               style={[styles.typeBtn, needsMinimum && styles.typeBtnActive]}
               onPress={() => setNeedsMinimum(true)}
             >
-              <Text style={[styles.typeText, needsMinimum && styles.typeTextActive]}>Needs a minimum</Text>
+              <Text style={[styles.typeText, needsMinimum && styles.typeTextActive]}>{t("create.needsMinimum")}</Text>
             </Pressable>
           </View>
 
           {needsMinimum ? (
             <Appear offset={8} duration={240}>
-              <Text style={styles.label}>Minimum people</Text>
+              <Text style={styles.label}>{t("create.minimumPeople")}</Text>
               <View style={styles.stepper}>
                 <TouchableOpacity
                   style={styles.stepperBtn}
@@ -393,26 +602,26 @@ export default function CreateScreen({ navigation }) {
                 </TouchableOpacity>
               </View>
 
-              <Text style={styles.label}>They have to join by</Text>
+              <Text style={styles.label}>{t("create.joinBy")}</Text>
               <DateTimeField
                 value={joinDeadline}
                 onChange={setJoinDeadline}
-                placeholder="Pick a deadline"
+                placeholder={t("create.pickDeadline")}
                 minimumDate={new Date()}
               />
-              <Text style={styles.hint}>Must be before the meeting starts.</Text>
+              <Text style={styles.hint}>{t("create.deadlineHint")}</Text>
 
-              <Text style={styles.label}>Maximum (optional)</Text>
+              <Text style={styles.label}>{t("create.maximumOptional")}</Text>
               <TextInput
                 style={styles.input}
                 value={maxAttendees}
                 onChangeText={setMaxAttendees}
                 keyboardType="number-pad"
-                placeholder="No limit"
+                placeholder={t("create.noLimit")}
                 placeholderTextColor={theme.text3}
               />
               <Text style={styles.hint}>
-                Once full, extra people join a waitlist and move up automatically if someone drops out.
+                {t("create.waitlistHint")}
               </Text>
             </Appear>
           ) : null}
@@ -420,30 +629,33 @@ export default function CreateScreen({ navigation }) {
 
         <Section
           index={5}
-          title="Details"
-          subtitle="Interests help the right people find it."
+          title={t("create.sectionDetails")}
+          subtitle={t("create.detailsSub")}
           Icon={TagIcon}
           styles={styles}
           theme={theme}
           delay={310}
         >
           <View style={styles.labelRow}>
-            <Text style={styles.label}>Interests</Text>
-            {tags.length ? <Text style={styles.counter}>{tags.length} picked</Text> : null}
+            <Text style={styles.label}>{t("create.interests")}</Text>
+            {tags.length ? <Text style={styles.counter}>{t("create.tagsPicked", { count: tags.length })}</Text> : null}
           </View>
           <View style={styles.tagWrap}>
-            {allTags.map((t) => (
+            {/* The loop variable used to be `t`, which shadowed the translate
+                function for the whole block — so the tag label could not be
+                localised without renaming it first. */}
+            {allTags.map((tag) => (
               <TouchableOpacity
-                key={t}
-                style={[styles.tagBtn, tags.includes(t) && styles.tagBtnActive]}
-                onPress={() => toggleTag(t)}
+                key={tag}
+                style={[styles.tagBtn, tags.includes(tag) && styles.tagBtnActive]}
+                onPress={() => toggleTag(tag)}
               >
-                <Text style={[styles.tagBtnText, tags.includes(t) && styles.tagBtnTextActive]}>{t}</Text>
+                <Text style={[styles.tagBtnText, tags.includes(tag) && styles.tagBtnTextActive]}>{localizedTag(t, tag)}</Text>
               </TouchableOpacity>
             ))}
           </View>
 
-          <Text style={styles.label}>Map icon</Text>
+          <Text style={styles.label}>{t("create.mapIcon")}</Text>
           <View style={styles.tagWrap}>
             {EMOJIS.map((e) => (
               <TouchableOpacity
@@ -462,7 +674,13 @@ export default function CreateScreen({ navigation }) {
           and what is blocking it are both always in view. */}
       <View style={[styles.actionBar, { paddingBottom: insets.bottom + 12 }]}>
         <Text style={[styles.actionHint, ready && styles.actionHintReady]} numberOfLines={1}>
-          {ready ? "Ready to create" : `Still needed: ${missing.join(", ")}`}
+          {ready
+            ? t("create.readyToCreate")
+            /* A bad link is not a blank field, so it needs saying in its own
+               words — "still needed: link" is wrong when a link is right there. */
+            : linkInvalid && !missing.length
+              ? t("create.linkNeedsScheme")
+              : t("create.stillNeeded", { fields: missing.join(", ") })}
         </Text>
         <AnimatedPressable
           style={[styles.submitBtn, (!ready || submitting) && styles.submitBtnInert]}
@@ -470,7 +688,7 @@ export default function CreateScreen({ navigation }) {
           disabled={!ready || submitting}
         >
           <Text style={[styles.submitText, (!ready || submitting) && styles.submitTextInert]}>
-            {submitting ? "Creating…" : "Create Meeting"}
+            {submitting ? t("create.creating") : t("create.submit")}
           </Text>
         </AnimatedPressable>
       </View>
@@ -617,6 +835,40 @@ const makeStyles = (t) => StyleSheet.create({
 
   hint: { fontSize: 12, color: t.text3, marginTop: 8 },
   hintDone: { color: t.accentStrong, fontFamily: FONTS.bodySemi },
+  hintBad: { fontSize: 12, color: t.status.bad, marginTop: 8, fontFamily: FONTS.bodySemi },
+  inputBad: { borderColor: t.status.bad },
+
+  // "Use my location" — outlined rather than filled, so it reads as a shortcut
+  // for the field above it and not as the section's main action.
+  locateBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 10,
+    paddingVertical: 11,
+    borderRadius: RADIUS.base,
+    borderWidth: 1,
+    borderColor: t.accent,
+    backgroundColor: t.accentSoft,
+  },
+  locateBtnBusy: { opacity: 0.7 },
+  locateBtnText: { fontSize: 13.5, fontFamily: FONTS.bodySemi, color: t.accentStrong },
+
+  quickRow: { flexDirection: "row", gap: 8, marginBottom: 12 },
+  quickBtn: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    borderRadius: RADIUS.pill,
+    borderWidth: 1,
+    borderColor: t.border,
+    backgroundColor: t.surface2,
+  },
+  quickBtnActive: { backgroundColor: t.accent, borderColor: t.accent },
+  quickText: { fontSize: 12.5, fontFamily: FONTS.bodySemi, color: t.text2 },
+  quickTextActive: { color: t.accentOn },
 
   stepper: { flexDirection: "row", alignItems: "center", gap: 14 },
   stepperBtn: {
@@ -633,6 +885,12 @@ const makeStyles = (t) => StyleSheet.create({
   stepperValue: { fontSize: 18, fontFamily: FONTS.accent, color: t.text, minWidth: 34, textAlign: "center" },
 
   // #create-map: 240px with a 1.5px border on the web
+  mapOpen: {
+    marginTop: 10, paddingVertical: 12, borderRadius: RADIUS.md,
+    alignItems: "center", backgroundColor: t.accentSoft,
+    borderWidth: 1, borderColor: t.accent,
+  },
+  mapOpenText: { fontSize: 14, fontFamily: FONTS.accent, color: t.accentStrong },
   mapWrap: {
     height: 240,
     borderRadius: RADIUS.base,

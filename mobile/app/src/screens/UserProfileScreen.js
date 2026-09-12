@@ -1,14 +1,16 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
 import TrustBadge from "../components/TrustBadge";
 import ReliabilityCard from "../components/ReliabilityCard";
+import MeetingCard from "../components/MeetingCard";
 import ReportSheet from "../components/ReportSheet";
 import Appear from "../components/Appear";
-import CountUp from "../components/CountUp";
 import { FONTS } from "../styles/fonts";
+import AnimatedBackdrop from "../components/AnimatedBackdrop";
+import ProfileAvatar from "../components/ProfileAvatar";
+import { backgroundFor } from "../styles/profileLooks";
 import { useTheme } from "../context/ThemeContext";
 import { RADIUS, SHADOW } from "../styles/theme";
 import { useI18n } from "../context/LocaleContext";
@@ -28,12 +30,11 @@ function formatProfileTime(value) {
   });
 }
 
-export default function UserProfileScreen({ route }) {
+export default function UserProfileScreen({ route, navigation }) {
   const { theme } = useTheme();
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { uid } = route.params;
-  const insets = useSafeAreaInsets();
   const { profile } = useAuth();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -116,16 +117,35 @@ export default function UserProfileScreen({ route }) {
     );
   }
 
-  const status = user.account_status;
+  const memberSince = (() => {
+    if (!user.joined_at) return "\u2014";
+    const d = new Date(user.joined_at);
+    if (Number.isNaN(d.getTime())) return "\u2014";
+    try {
+      return new Intl.DateTimeFormat(language, { month: "short", year: "numeric" }).format(d);
+    } catch {
+      return `${d.getMonth() + 1}/${d.getFullYear()}`;
+    }
+  })();
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingTop: insets.top + 24, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
-      <View style={styles.hero}>
-        <View style={[styles.avatar, { backgroundColor: user.profile_color || "#667eea" }]}>
-          <Text style={styles.avatarText}>{user.username.slice(0, 2).toUpperCase()}</Text>
-        </View>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+      {/* Someone else's chosen look travels with them: a frame you only ever
+          saw on your own profile would not be worth choosing. */}
+      <AnimatedBackdrop
+        colors={backgroundFor(user.profile_background, theme)}
+        style={styles.hero}
+      >
+        <ProfileAvatar
+          size={84}
+          frame={user.profile_frame}
+          emoji={user.avatar_emoji}
+          initials={user.username.slice(0, 2).toUpperCase()}
+          color={user.profile_color || "#667eea"}
+          style={{ marginBottom: 14 }}
+        />
         <View style={styles.nameRow}>
-          <Text style={styles.name}>{user.username}</Text>
+          <Text style={styles.name}>{user.display_name || user.username}</Text>
           {user.is_trusted ? <TrustBadge /> : null}
         </View>
         <Text style={styles.uid}>@{user.uid}</Text>
@@ -135,49 +155,63 @@ export default function UserProfileScreen({ route }) {
             <Text style={styles.trustBtnText}>{user.is_trusted ? "★ Remove Trusted Status" : "☆ Mark as Trusted"}</Text>
           </TouchableOpacity>
         ) : null}
-      </View>
+      </AnimatedBackdrop>
 
       {/* No "to confirm" chip here: user_profile.html prints only the settled
           counts, because someone else's unanswered meetings are not the
           viewer's business. */}
       <Appear delay={40}>
-        <ReliabilityCard reliability={user.reliability} style={styles.reliability} />
+        <ReliabilityCard
+          reliability={user.reliability}
+          style={styles.reliability}
+          facts={[
+            { value: t(user.is_trusted || user.is_admin ? "common.yes" : "common.no"),
+              label: t("profile.statTrusted") },
+            { value: memberSince, label: t("profile.statMemberSince") },
+          ]}
+          roles={user.is_admin ? [`\u{1F6E0} ${t("profile.roleModerator")}`] : []}
+        />
       </Appear>
 
-      {status ? (
+      {user.bio || user.interests?.length ? (
         <Appear delay={100}>
-        <View style={styles.statusCard}>
-          <View style={styles.statusEmoji}>
-            <Text style={{ fontSize: 22 }}>{status.current.emoji}</Text>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>
+              {t(user.bio ? "userProfile.about" : "userProfile.interests")}
+            </Text>
+            {user.bio ? <Text style={styles.aboutText}>{user.bio}</Text> : null}
+            {user.bio && user.interests?.length ? <View style={styles.aboutRule} /> : null}
+            {user.interests?.length ? (
+              <View style={styles.chips}>
+                {user.interests.map((tag) => (
+                  <Text key={tag} style={styles.chip}>{tag}</Text>
+                ))}
+              </View>
+            ) : null}
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.statusLabel}>{t("profile.accountStatus")}</Text>
-            <Text style={styles.statusName}>{status.current.name}</Text>
-            <Text style={styles.statusBlurb}>{status.current.blurb}</Text>
-          </View>
-        </View>
         </Appear>
       ) : null}
 
-      <Appear delay={160}>
-        <View style={styles.statsRow}>
-          <Stat styles={styles} number={user.meetings_created} label={t("profile.statCreated")} />
-          <View style={styles.statDivider} />
-          <Stat styles={styles} number={user.meetings_joined} label={t("profile.statJoined")} />
-          <View style={styles.statDivider} />
-          <Stat styles={styles} number={user.meetings_swiped} label={t("profile.statSwiped")} />
-        </View>
-      </Appear>
+      {user.hosting?.length ? (
+        <Appear delay={160}>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>
+              {t("userProfile.hosting", { name: user.display_name || user.username })}
+            </Text>
+            {user.hosting.map((m) => (
+              <View key={m.id} style={styles.hostedItem}>
+                <MeetingCard
+                  meeting={m}
+                  onPress={() => navigation.navigate("MeetingDetail", { meeting: m })}
+                />
+              </View>
+            ))}
+          </View>
+        </Appear>
+      ) : null}
 
       <Appear delay={220}>
       <View style={styles.activity}>
-        <View style={styles.activityRow}>
-          <Text style={styles.activityIcon}>📅</Text>
-          <View>
-            <Text style={styles.activityLabel}>{t("userProfile.memberSince")}</Text>
-            <Text style={styles.activityValue}>{formatProfileTime(user.joined_at)}</Text>
-          </View>
-        </View>
         <View style={styles.activityRow}>
           <Text style={styles.activityIcon}>🟢</Text>
           <View>
@@ -214,45 +248,57 @@ export default function UserProfileScreen({ route }) {
   );
 }
 
-function Stat({ number, label, styles }) {
-  return (
-    <View style={styles.stat}>
-      <CountUp value={number ?? 0} style={styles.statNumber} />
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
-  );
-}
 
 const makeStyles = (t) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.bg },
   centered: { flex: 1, alignItems: "center", justifyContent: "center" },
-  hero: { alignItems: "center", padding: 24 },
-  avatar: { width: 84, height: 84, borderRadius: 42, alignItems: "center", justifyContent: "center", marginBottom: 14 },
-  avatarText: { color: t.surface, fontFamily: FONTS.heading, fontSize: 24 },
+  hero: { alignItems: "center", paddingTop: 28, paddingBottom: 26, paddingHorizontal: 24 },
   nameRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  name: { fontSize: 20, fontFamily: FONTS.heading, color: t.text },
-  uid: { fontSize: 12, color: t.text3, marginTop: 4, marginBottom: 16 },
+  // White, not t.text. The hero is a colour the person chose from seven
+  // gradients, and dark navy was legible on none of them — it read as a
+  // mistake on the darker ones and as muddy on the rest. The shadow is what
+  // keeps it readable on the pale end of the range without darkening the
+  // artwork for everyone.
+  name: {
+    fontSize: 23, fontFamily: FONTS.heading, color: "#fff",
+    textShadowColor: "rgba(0,0,0,0.18)", textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  // The hero is a coloured gradient now, not the page background, so the
+  // muted grey this used sat almost invisibly on top of it.
+  // A handle is a label, not a sentence — as loose text under the name it
+  // read as a second, dimmer name. In a pill it is clearly an identifier.
+  uid: {
+    fontSize: 11.5, color: "rgba(255,255,255,0.92)", fontFamily: FONTS.accentMedium,
+    backgroundColor: "rgba(255,255,255,0.18)", overflow: "hidden",
+    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999,
+    marginTop: 8,
+  },
   trustBtn: { backgroundColor: t.accent, borderRadius: 24, paddingVertical: 12, paddingHorizontal: 24 },
   trustBtnText: { color: t.surface, fontFamily: FONTS.accentMedium },
+  card: {
+    backgroundColor: t.surface, borderRadius: RADIUS.lg, borderWidth: 1,
+    borderColor: t.border, marginHorizontal: 16, marginTop: 16,
+    paddingHorizontal: 16, paddingVertical: 14,
+  },
+  cardTitle: {
+    fontSize: 11, fontFamily: FONTS.bodySemi, color: t.text3,
+    textTransform: "uppercase", marginBottom: 10,
+  },
+  // A bio is a sentence, so it is set as body text on a card rather than as
+  // centred white type over the hero artwork. Left-aligned for the same
+  // reason: centring reads as a caption, and a caption is not what this is.
+  aboutText: { fontSize: 14.5, lineHeight: 21, color: t.text2, fontFamily: FONTS.body },
+  aboutRule: { height: 1, backgroundColor: t.border, marginVertical: 12 },
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chip: {
+    paddingHorizontal: 11, paddingVertical: 6, borderRadius: RADIUS.pill,
+    backgroundColor: t.surface2, color: t.text2,
+    fontSize: 12.5, fontFamily: FONTS.bodySemi, overflow: "hidden",
+  },
+  // The card already provides the outer gap; only the space between them.
+  hostedItem: { marginBottom: 10 },
   reliability: { marginHorizontal: 16, marginBottom: 14 },
-  statusCard: {
-    flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: t.surface,
-    marginHorizontal: 16, borderRadius: 16, padding: 16, marginBottom: 14,
-    shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2,
-  },
-  statusEmoji: { width: 46, height: 46, borderRadius: 14, backgroundColor: t.accent, alignItems: "center", justifyContent: "center" },
-  statusLabel: { fontSize: 10, fontFamily: FONTS.bodySemi, color: t.text3, textTransform: "uppercase" },
-  statusName: { fontSize: 17, fontFamily: FONTS.heading, color: t.text },
-  statusBlurb: { fontSize: 11, color: t.text3 },
-  statsRow: {
-    flexDirection: "row", backgroundColor: t.surface, marginHorizontal: 16, borderRadius: 16,
-    padding: 16, justifyContent: "space-around", alignItems: "center", marginBottom: 14,
-    shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2,
-  },
-  stat: { alignItems: "center", flex: 1 },
-  statDivider: { width: 1, height: 30, backgroundColor: t.border },
-  statNumber: { fontSize: 20, fontFamily: FONTS.accent, color: t.text },
-  statLabel: { fontSize: 10, fontFamily: FONTS.bodySemi, color: t.text3, textTransform: "uppercase", marginTop: 2 },
   activity: {
     backgroundColor: t.surface, marginHorizontal: 16, borderRadius: 16, padding: 16,
     shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2,
