@@ -7,7 +7,7 @@ from flask import request, jsonify
 
 from data import (
     is_admin, is_trusted, get_joined_users_preview, shorten_address, get_user,
-    meeting_visibility, MEETINGS_DB, PRIVATE,
+    meeting_visibility, MEETINGS_DB, PRIVATE, client_meeting_dict,
 )
 from utils.tokens import verify_token
 
@@ -51,7 +51,15 @@ def require_admin():
 
 
 def serialize_meeting(m, uid):
-    d = m.to_dict()
+    # client_meeting_dict() rather than to_dict(): to_dict() is the stored
+    # record, join link and all, and sending it meant an online meeting's link
+    # went to anyone who could see the meeting. The app drew a padlock over a
+    # URL it had already been given — a lock on the outside of an open door.
+    #
+    # Going through the web's own function rather than redacting again here
+    # keeps one rule for who may read a link, and brings the phase and the
+    # join-window countdown with it.
+    d = client_meeting_dict(m, uid)
     d["joined_preview"] = get_joined_users_preview(m.joined_uids)
     d["short_location"] = shorten_address(getattr(m, "location", None))
     d["creator_is_trusted"] = is_trusted(m.creator_uid) if m.creator_uid else False
