@@ -7,7 +7,7 @@ from data import (
     get_user, is_admin, is_trusted, set_trusted, get_account_status,
     get_all_meetings, search_users, generate_user_color, update_profile,
     get_reliability, delete_own_account, open_report_count, unread_inbox_count,
-    get_reports, profile_highlights, get_active_users,
+    get_reports, profile_highlights, get_active_users, set_user_country,
     PROFILE_EMOJIS, MAX_DISPLAY_NAME, MAX_BIO,
     PROFILE_FRAMES, PROFILE_BACKGROUNDS, MAX_INTERESTS, USER_ROLES,
 )
@@ -58,6 +58,9 @@ def profile():
         # what the app looked like before the question existed.
         "role": user.get("role") or "member",
         "role_choices": USER_ROLES,
+        # Shown so the app can say why a listing looks short, and so a wrong
+        # country is visible rather than silently filtering everything out.
+        "country": user.get("country"),
         # False for an account that has never finished the welcome flow. Older
         # accounts predate the field and must not be sent through it again, so
         # a missing value counts as done.
@@ -122,6 +125,13 @@ def edit_profile():
         return jsonify({"error": "unauthorized"}), 401
 
     body = request.get_json(force=True) or {}
+
+    # The app reports where it is when it has a fix, so listings can be limited
+    # to this country. Handled separately from the editable fields because it
+    # is not something a person types — it is derived from coordinates, and a
+    # failed lookup simply leaves the last known country in place.
+    if body.get("lat") is not None and body.get("lng") is not None:
+        set_user_country(uid, body.get("lat"), body.get("lng"))
 
     # Only fields actually present are touched, so a client sending just a bio
     # doesn't silently blank the display name.
