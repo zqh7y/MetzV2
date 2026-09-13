@@ -2165,6 +2165,26 @@ def register_user(email):
     return uid
 
 
+def token_version(uid):
+    """Which generation of tokens this account currently accepts."""
+    return int((USERS_DB.get(uid) or {}).get("token_version", 0))
+
+
+def revoke_tokens(uid):
+    """Invalidate every token ever issued for this account.
+
+    What logging out has to do to be worth anything. Dropping the token on the
+    device only helps the person holding it; if it was copied — a shared phone,
+    a stolen one, a backup — it stays good until it expires, which is a month.
+    """
+    user = USERS_DB.get(uid)
+    if not user:
+        return 0
+    user["token_version"] = int(user.get("token_version", 0)) + 1
+    save_data()
+    return user["token_version"]
+
+
 def get_user(uid):
     """Return a user dict or None."""
     return USERS_DB.get(uid)

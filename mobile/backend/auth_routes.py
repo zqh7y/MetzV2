@@ -9,7 +9,7 @@ import time
 import requests
 from flask import Blueprint, request, jsonify
 
-from data import register_user, uid_for_email
+from data import register_user, uid_for_email, token_version, revoke_tokens
 from utils.auth_errors import friendly_auth_error
 from utils.email_utils import (
     generate_verification_code, send_verification_email, EmailNotSent,
@@ -17,7 +17,7 @@ from utils.email_utils import (
 from utils.security import rate_limit_exceeded, client_ip
 from utils.tokens import issue_token
 
-from helpers import FIREBASE_API_KEY, PENDING_SIGNUPS
+from helpers import FIREBASE_API_KEY, PENDING_SIGNUPS, current_uid
 
 DEV_MODE = os.environ.get("FLASK_ENV", "production").lower() == "development"
 CODE_TTL_SECONDS = 15 * 60
@@ -100,7 +100,7 @@ def signup():
             return jsonify({
                 "uid": uid,
                 "email": email,
-                "token": issue_token(uid),
+                "token": issue_token(uid, token_version(uid)),
                 "email_failed": True,
             })
 
@@ -111,6 +111,25 @@ def signup():
         }), 503
 
     return jsonify({"status": "pending_verification", "email": email})
+
+
+@auth_bp.route("/api/logout", methods=["POST"])
+def logout():
+    """End every session for the calling account, not just this device.
+
+    Dropping the token on the phone is all the app could do on its own, and it
+    only helps the person holding it. A token that was copied off a shared or
+    stolen device stayed good for the rest of its month. Bumping the account's
+    token version leaves every token ever issued for it refused at the door.
+
+    Answers 200 even when the caller has no valid token: there is nothing to
+    reveal either way, and an app that cannot log out because its token already
+    expired would be stuck signed in on screen.
+    """
+    uid = current_uid()
+    if uid:
+        revoke_tokens(uid)
+    return jsonify({"status": "logged_out"})
 
 
 @auth_bp.route("/api/verify", methods=["POST"])
@@ -142,7 +161,7 @@ def verify():
 
     uid = register_user(email)
     PENDING_SIGNUPS.pop(email, None)
-    return jsonify({"uid": uid, "email": email, "token": issue_token(uid)})
+    return jsonify({"uid": uid, "email": email, "token": issue_token(uid, token_version(uid))})
 
 
 @auth_bp.route("/api/verify/resend", methods=["POST"])
@@ -268,7 +287,7 @@ def google_sign_in():
     # Registering here is the one place outside /api/verify that may create an
     # account, and it is allowed for the same reason: the address is proven.
     uid = register_user(email)
-    return jsonify({"uid": uid, "email": email, "token": issue_token(uid)})
+    return jsonify({"uid": uid, "email": email, "token": issue_token(uid, token_version(uid))})
 
 
 @auth_bp.route("/api/login", methods=["POST"])
@@ -321,7 +340,7 @@ def login():
                 return jsonify({
                     "uid": uid,
                     "email": email,
-                    "token": issue_token(uid),
+                    "token": issue_token(uid, token_version(uid)),
                     "email_failed": True,
                 })
 
@@ -342,4 +361,4 @@ def login():
             "email": email,
         }), 403
 
-    return jsonify({"uid": uid, "email": email, "token": issue_token(uid)})
+    return jsonify({"uid": uid, "email": email, "token": issue_token(uid, token_version(uid))})

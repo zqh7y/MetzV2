@@ -105,6 +105,9 @@ export const api = {
     request("/api/password/reset", { method: "POST", body: { email }, auth: false }),
 
   getTags: () => request("/api/tags", { auth: false }),
+  // Ends every session for this account, not just this device — see
+  // utils/tokens.py. Best effort: the local session is dropped either way.
+  logout: () => request("/api/logout", { method: "POST" }),
   getMeetings: () => request("/api/meetings"),
   // One meeting as it stands now, rather than as the card had it when the
   // listing was fetched — an online call's link opens on a clock.

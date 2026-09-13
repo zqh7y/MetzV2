@@ -95,6 +95,15 @@ export function AuthProvider({ children }) {
    */
   function signOut({ next, keepSession = false } = {}) {
     const leaving = uid;
+
+    // Tell the server to stop honouring this account's tokens. Not awaited and
+    // failure is ignored on purpose: signing out must happen on the phone even
+    // with no connection, and nothing below depends on the answer. Skipped when
+    // switching, which keeps the other account's session alive by design.
+    if (leaving && !keepSession) {
+      api.logout().catch(() => {});
+    }
+
     setAuthLanding(next === "Signup" ? "Signup" : "Login");
     setSession(null, null);
     setUid(null);

@@ -7,7 +7,7 @@ from flask import request, jsonify
 
 from data import (
     is_admin, is_trusted, get_joined_users_preview, shorten_address, get_user,
-    meeting_visibility, MEETINGS_DB, PRIVATE, client_meeting_dict,
+    meeting_visibility, MEETINGS_DB, PRIVATE, client_meeting_dict, token_version,
 )
 from utils.tokens import verify_token
 
@@ -34,8 +34,11 @@ def current_uid():
     """
     auth_header = request.headers.get("Authorization", "")
     if auth_header.startswith("Bearer "):
-        uid = verify_token(auth_header[7:].strip())
-        if uid:
+        uid, version = verify_token(auth_header[7:].strip())
+        # A token signed before the account last logged out is refused here.
+        # Signature and expiry alone cannot express that, since a signed token
+        # cannot be taken back — only outlived.
+        if uid and version == token_version(uid):
             return uid
         return ""   # a supplied-but-invalid token is never a fallback
 
