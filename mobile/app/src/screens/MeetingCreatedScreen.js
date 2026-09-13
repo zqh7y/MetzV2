@@ -154,16 +154,25 @@ export default function MeetingCreatedScreen({ route, navigation }) {
           ))}
         </View>
         <View style={styles.actions}>
-          {/* Always available and always finishes. Someone who knows all this
-              should reach Home now, not be walked through the rest first. */}
-          <Pressable onPress={finish} style={styles.skip}>
-            <Text style={styles.skipText}>{t(last ? "created.done" : "created.skip")}</Text>
-          </Pressable>
-          {!last ? (
-            <Pressable style={styles.next} onPress={() => setStep(step + 1)}>
-              <Text style={styles.nextText}>{t("created.next")}</Text>
+          {/* On the last step Done becomes the button rather than staying the
+              quiet link Skip was: leaving the only remaining action styled as
+              an aside makes the flow look like it has no ending. */}
+          {last ? (
+            <Pressable style={styles.next} onPress={finish}>
+              <Text style={styles.nextText}>{t("created.done")}</Text>
             </Pressable>
-          ) : null}
+          ) : (
+            <>
+              {/* Always available and always finishes — someone who knows all
+                  this should reach Home now, not be walked through the rest. */}
+              <Pressable onPress={finish} style={styles.skip}>
+                <Text style={styles.skipText}>{t("created.skip")}</Text>
+              </Pressable>
+              <Pressable style={styles.next} onPress={() => setStep(step + 1)}>
+                <Text style={styles.nextText}>{t("created.next")}</Text>
+              </Pressable>
+            </>
+          )}
         </View>
       </View>
     </View>
