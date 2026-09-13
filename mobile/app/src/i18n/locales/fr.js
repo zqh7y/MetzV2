@@ -118,6 +118,7 @@ export default {
   "home.noTravel": "Aucun déplacement",
 
   // ─── Brand screen ────────────────────────────────────────────────────────
+  "splash.waking": "Réveil du serveur — la première fois, cela prend un moment.",
   "splash.blurb": "Publiez une rencontre là où vous êtes, trouvez-en une sur la carte et venez. Metz reste honnête — une rencontre n'a lieu que si assez de monde s'engage vraiment.",
 
   // ─── Drawer ──────────────────────────────────────────────────────────────

@@ -115,6 +115,7 @@ export default {
   "home.noTravel": "No travel needed",
 
   // ─── Drawer ──────────────────────────────────────────────────────────────
+  "splash.waking": "Waking the server up — this can take a moment the first time.",
   "splash.blurb": "Post a meeting where you are, find one on the map, and turn up. Metz keeps it honest — meetings only happen when enough people actually commit.",
   "drawer.tagline": "Meet people nearby",
   "drawer.home": "Home",

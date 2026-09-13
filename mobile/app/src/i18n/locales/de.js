@@ -118,6 +118,7 @@ export default {
   "home.noTravel": "Kein Weg nötig",
 
   // ─── Brand screen ────────────────────────────────────────────────────────
+  "splash.waking": "Der Server wacht auf — beim ersten Mal dauert das einen Moment.",
   "splash.blurb": "Stell ein Treffen dort ein, wo du bist, finde eins auf der Karte und komm vorbei. Metz bleibt ehrlich — ein Treffen findet nur statt, wenn sich wirklich genug Leute festlegen.",
 
   // ─── Drawer ──────────────────────────────────────────────────────────────

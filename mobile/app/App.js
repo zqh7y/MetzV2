@@ -123,6 +123,38 @@ function MainNavigator() {
   );
 }
 
+/**
+ * The wait before the first screen.
+ *
+ * A bare spinner is fine for the half-second it usually takes. It is not fine
+ * for a cold start: the API sleeps after fifteen idle minutes and the next
+ * request pays around twenty seconds for the boot, and twenty seconds of an
+ * unexplained spinner is indistinguishable from an app that has hung.
+ *
+ * So the explanation appears only once the wait has become strange — saying it
+ * immediately would make every ordinary launch look slow.
+ */
+function Booting({ theme }) {
+  const { t } = useI18n();
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setSlow(true), 4000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: theme.bg, paddingHorizontal: 40 }}>
+      <ActivityIndicator size="large" color={theme.accent} />
+      {slow ? (
+        <Text style={{ marginTop: 18, color: theme.text3, fontSize: 13.5, textAlign: "center", lineHeight: 20 }}>
+          {t("splash.waking")}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+
 function Root() {
   const { uid, profile, booting, switching } = useAuth();
   // Undefined until answered: rendering the auth stack before we know would
@@ -151,11 +183,7 @@ function Root() {
   // showIntro is only waited on while signed out, because that is the only
   // case it changes anything — a signed-in user goes to the map either way.
   if (booting || !loaded || !localeLoaded || (!uid && showIntro === undefined)) {
-    return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: theme.bg }}>
-        <ActivityIndicator size="large" color={theme.accent} />
-      </View>
-    );
+    return <Booting theme={theme} />;
   }
 
   // Covers the remount above with the brand screen rather than a blank frame.

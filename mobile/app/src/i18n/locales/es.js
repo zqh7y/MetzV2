@@ -118,6 +118,7 @@ export default {
   "home.noTravel": "Sin desplazarte",
 
   // ─── Brand screen ────────────────────────────────────────────────────────
+  "splash.waking": "Despertando el servidor: la primera vez tarda un momento.",
   "splash.blurb": "Publica una quedada donde estés, encuentra otra en el mapa y preséntate. Metz lo mantiene honesto — una quedada solo sale adelante si se compromete gente suficiente.",
 
   // ─── Drawer ──────────────────────────────────────────────────────────────
