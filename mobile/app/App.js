@@ -25,6 +25,7 @@ import { hasSeenIntro } from "./src/intro";
 import CreateScreen from "./src/screens/CreateScreen";
 import MeetingCreatedScreen from "./src/screens/MeetingCreatedScreen";
 import MeetingInsightsScreen from "./src/screens/MeetingInsightsScreen";
+import HostDashboardScreen from "./src/screens/HostDashboardScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
 import AdminPendingScreen from "./src/screens/AdminPendingScreen";
 import MeetingDetailScreen from "./src/screens/MeetingDetailScreen";
@@ -101,6 +102,11 @@ function MainNavigator() {
         name="MeetingCreated"
         component={MeetingCreatedScreen}
         options={{ title: "", headerBackVisible: false, gestureEnabled: false }}
+      />
+      <RootStack.Screen
+        name="HostDashboard"
+        component={HostDashboardScreen}
+        options={{ title: t("nav.hostDashboard") }}
       />
       <RootStack.Screen
         name="MeetingInsights"

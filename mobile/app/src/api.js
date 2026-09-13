@@ -135,6 +135,9 @@ export const api = {
   // Host-only; the server answers 404 to anyone else, same as a meeting
   // that does not exist.
   getMeetingInsights: (id) => request(`/api/meetings/${id}/insights`),
+  // Every meeting you have run, plus the totals — the same figures as above,
+  // aggregated on the server so the two cannot drift.
+  getHostDashboard: () => request("/api/hosting/dashboard"),
   /** status: "went" | "missed". Returns the updated reliability. */
   checkIn: (id, status) =>
     request(`/api/meetings/${id}/checkin`, { method: "POST", body: { status } }),

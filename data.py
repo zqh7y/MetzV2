@@ -1034,6 +1034,55 @@ def meeting_insights(meeting_id, host_uid):
     }
 
 
+def host_dashboard(uid):
+    """Everything someone has run, with the totals across all of it.
+
+    Built on meeting_insights() rather than counting again here: a dashboard
+    whose figures are derived separately from the per-meeting screen's will
+    disagree with it eventually, and the reader has no way to tell which is
+    lying.
+
+    Past meetings are kept, unlike /api/hosting, which is about what still
+    needs attention. A record of what you have run is the point here, and
+    dropping everything that already happened would leave most organisers
+    looking at an empty page.
+    """
+    user = USERS_DB.get(uid)
+    if not user:
+        return None
+
+    meetings = []
+    for mid in user.get("created_meeting_ids") or []:
+        view = meeting_insights(mid, uid)
+        if view:
+            meetings.append(view)
+
+    # Soonest first among what is still to come, then the past most-recent
+    # first: the next thing you have to run matters more than the last one.
+    upcoming = sorted((m for m in meetings if not m["is_over"]),
+                      key=lambda m: m["time"] or "")
+    past = sorted((m for m in meetings if m["is_over"]),
+                  key=lambda m: m["time"] or "", reverse=True)
+
+    return {
+        "meetings": upcoming + past,
+        "totals": {
+            "hosted": len(meetings),
+            "upcoming": len(upcoming),
+            # Waiting on review, so the count answers "where are my meetings"
+            # without the organiser having to scan the list for the badge.
+            "pending": sum(1 for m in meetings if m["status"] == "pending"),
+            "views": sum(m["views"] for m in meetings),
+            # Sign-ups, not people: somebody who came to three of your meetings
+            # is counted three times, which is why this is not labelled as a
+            # number of humans anywhere it is shown.
+            "going": sum(m["going"] for m in meetings),
+            "from_link": sum(m["from_link"] for m in meetings),
+            "questions": sum(m["questions"] for m in meetings),
+        },
+    }
+
+
 def record_checkin(uid, meeting_id, status):
     """The attendee's own answer to "did you go?".
 

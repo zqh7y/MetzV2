@@ -12,7 +12,7 @@ import { useTheme } from "../context/ThemeContext";
 import { RADIUS, SHADOW } from "../styles/theme";
 import {
   HomeIcon, PlusIcon, GearIcon, CompassIcon,
-  ToolsIcon, ClockIcon, LogOutIcon, CloseIcon, BellIcon, FlagIcon,
+  ToolsIcon, ClockIcon, LogOutIcon, CloseIcon, BellIcon, FlagIcon, ChartIcon,
 } from "./NavIcons";
 import { useI18n } from "../context/LocaleContext";
 
@@ -40,6 +40,11 @@ const NAV_ITEMS = [
     labelKey: "drawer.explore", Icon: CompassIcon },
   { route: "Inbox", labelKey: "drawer.inbox", Icon: BellIcon, badgeKey: "inbox" },
   { route: "Create", labelKey: "drawer.create", Icon: PlusIcon },
+  // Shown to everyone rather than only to people who have hosted something:
+  // it is how organising is discovered, and a row that appears only once you
+  // are already an organiser cannot tell anybody that the figures exist. The
+  // screen says so plainly when there is nothing to show yet.
+  { route: "HostDashboard", labelKey: "drawer.hostDashboard", Icon: ChartIcon },
   { route: "Settings", labelKey: "drawer.settings", Icon: GearIcon },
 ];
 

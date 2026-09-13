@@ -173,6 +173,14 @@ export const BellIcon = (p) => (
   </Icon>
 );
 
+export const ChartIcon = (p) => (
+  <Icon {...p}>
+    <Path d="M4 20V4" />
+    <Path d="M4 20h16" />
+    <Path d="M8.5 20v-6M13 20V8.5M17.5 20v-3.5" />
+  </Icon>
+);
+
 export const SparkleIcon = (p) => (
   <Icon {...p}>
     <Path d="M12 3.5 13.8 9 19.5 10.8 13.8 12.6 12 18.1 10.2 12.6 4.5 10.8 10.2 9 12 3.5Z" />

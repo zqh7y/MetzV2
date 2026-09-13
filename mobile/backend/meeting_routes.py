@@ -11,7 +11,7 @@ from data import (
     in_viewer_country,
     generate_user_color, display_name_for, is_trusted, is_admin, get_reliability,
     get_comments, add_comment, delete_comment, can_delete_comment, get_blocked_uids,
-    record_checkin, meeting_insights,
+    record_checkin, meeting_insights, host_dashboard,
 )
 from utils.models import (
     InPersonMeeting, OnlineMeeting, AVAILABLE_TAGS,
@@ -341,6 +341,24 @@ def delete_meeting_route(meeting_id):
     if delete_meeting(meeting_id, current_uid()):
         return jsonify({"status": "deleted"})
     return jsonify({"error": "forbidden"}), 403
+
+
+@meeting_bp.route("/api/hosting/dashboard")
+def hosting_dashboard():
+    """Every meeting the caller has run, with the figures for each.
+
+    Registered before /api/hosting so the more specific rule wins; Flask would
+    match either way, but the ordering says which is the special case.
+    """
+    uid = current_uid()
+    if not get_user(uid):
+        return jsonify({"error": "unauthorized"}), 401
+    view = host_dashboard(uid)
+    if view is None:
+        return jsonify({"error": "unauthorized"}), 401
+    for row in view["meetings"]:
+        row["share_url"] = share_url_for(MEETINGS_DB.get(row["id"]))
+    return jsonify(view)
 
 
 @meeting_bp.route("/api/hosting")
