@@ -336,6 +336,30 @@ def pass_meeting(meeting_id):
     return jsonify({"status": "passed"})
 
 
+@meeting_bp.route("/api/meetings/<int:meeting_id>")
+def one_meeting(meeting_id):
+    """One meeting, as it stands right now.
+
+    The app used to render a meeting entirely from the card that was tapped,
+    which is a snapshot of whenever the listing was fetched. For an online
+    meeting that is not good enough: whether the call link is open changes with
+    the clock, so a screen left open, or reached from somewhere that only knows
+    an id, would show the wrong state.
+
+    404 rather than 403 when it may not be seen, matching every other route
+    here — a "forbidden" would confirm which ids exist.
+    """
+    uid = current_uid()
+    record = MEETINGS_DB.get(meeting_id)
+    if record is None or not can_view_meeting(uid, record):
+        return jsonify({"error": "not found"}), 404
+    m = next((x for x in get_all_meetings(status=None, viewer_uid=uid)
+              if x.id == meeting_id), None)
+    if m is None:
+        return jsonify({"error": "not found"}), 404
+    return jsonify(serialize_meeting(m, uid))
+
+
 @meeting_bp.route("/api/meetings/<int:meeting_id>", methods=["DELETE"])
 def delete_meeting_route(meeting_id):
     if delete_meeting(meeting_id, current_uid()):
