@@ -32,14 +32,18 @@ GMAIL_APP_PASSWORD = "".join(os.environ.get("GMAIL_APP_PASSWORD", "").split())
 # The HTTPS path. Needed on any host that blocks SMTP, which includes Render.
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "").strip()
 
-# Who the code appears to come from. Resend will not send from a domain you
-# have not verified with them, but it does allow their own onboarding sender,
-# which is enough to get a deployment working before a domain exists.
-MAIL_FROM = (
-    os.environ.get("MAIL_FROM", "").strip()
-    or GMAIL_ADDRESS
-    or "Metz <onboarding@resend.dev>"
-)
+# Who the code appears to come from.
+#
+# Not defaulted to GMAIL_ADDRESS, which is the mistake this line used to make.
+# A Gmail address is the right sender over SMTP — Gmail is the one sending it —
+# and is the one thing Resend can never accept, because sending as gmail.com
+# would mean claiming a domain you do not own. A host with both configured
+# therefore failed every send until MAIL_FROM was set by hand.
+#
+# Their onboarding sender needs no domain at all, so a deployment can send real
+# codes on the day it is set up. Set MAIL_FROM once a domain is verified.
+RESEND_DEFAULT_FROM = "Metz <onboarding@resend.dev>"
+MAIL_FROM = os.environ.get("MAIL_FROM", "").strip()
 
 DEV_MODE = os.environ.get("FLASK_ENV", "production").lower() == "development"
 
@@ -84,7 +88,7 @@ def _send_via_resend(to_email, code):
                 "Content-Type": "application/json",
             },
             json={
-                "from": MAIL_FROM,
+                "from": MAIL_FROM or RESEND_DEFAULT_FROM,
                 "to": [to_email],
                 "subject": SUBJECT,
                 "text": _body(code),
@@ -105,6 +109,8 @@ def _send_via_smtp(to_email, code):
     """The original path, for laptops and hosts that permit outbound SMTP."""
     msg = MIMEText(_body(code))
     msg["Subject"] = SUBJECT
+    # Gmail will only send as the account that authenticated, so the address is
+    # not configurable here the way it is for the API.
     msg["From"] = GMAIL_ADDRESS
     msg["To"] = to_email
 
