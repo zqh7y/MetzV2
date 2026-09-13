@@ -450,6 +450,7 @@ export default {
   "hostDash.allMeetings": "Все {count}",
   "hostDash.inReview": "На проверке",
   "hostDash.over": "Завершена",
+  "hostDash.names": "записались",
   "hostDash.opens": "открытий",
   "hostDash.viaLink": "по ссылке",
   "hostDash.emptyTitle": "Вы пока ничего не проводили",

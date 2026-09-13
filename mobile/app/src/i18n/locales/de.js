@@ -438,6 +438,7 @@ export default {
   "hostDash.allMeetings": "Alle {count}",
   "hostDash.inReview": "In Prüfung",
   "hostDash.over": "Vorbei",
+  "hostDash.names": "eingetragen",
   "hostDash.opens": "Aufrufe",
   "hostDash.viaLink": "über Link",
   "hostDash.emptyTitle": "Du hast noch nichts veranstaltet",

@@ -438,6 +438,7 @@ export default {
   "hostDash.allMeetings": "Las {count}",
   "hostDash.inReview": "En revisión",
   "hostDash.over": "Terminada",
+  "hostDash.names": "apuntados",
   "hostDash.opens": "aperturas",
   "hostDash.viaLink": "por enlace",
   "hostDash.emptyTitle": "Todavía no has organizado nada",

@@ -479,6 +479,7 @@ export default {
   "hostDash.allMeetings": "الكل ({count})",
   "hostDash.inReview": "قيد المراجعة",
   "hostDash.over": "انتهى",
+  "hostDash.names": "مسجّلون",
   "hostDash.opens": "فتحات",
   "hostDash.viaLink": "عبر الرابط",
   "hostDash.emptyTitle": "لم تنظّم شيئًا بعد",

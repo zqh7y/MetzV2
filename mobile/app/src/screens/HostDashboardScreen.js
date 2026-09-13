@@ -154,7 +154,7 @@ export default function HostDashboardScreen({ navigation }) {
             <Text style={styles.rowWhen}>{formatWhen(m.time)}</Text>
             <View style={styles.rowStats}>
               <Stat styles={styles} value={m.views} label={t("hostDash.opens")} />
-              <Stat styles={styles} value={m.going} label={t("insights.going")} />
+              <Stat styles={styles} value={m.going} label={t("hostDash.names")} />
               <Stat styles={styles} value={m.from_link} label={t("hostDash.viaLink")} />
             </View>
           </Pressable>

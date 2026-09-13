@@ -449,6 +449,7 @@ export default {
   "hostDash.allMeetings": "כל {count}",
   "hostDash.inReview": "בבדיקה",
   "hostDash.over": "הסתיים",
+  "hostDash.names": "נרשמו",
   "hostDash.opens": "פתיחות",
   "hostDash.viaLink": "דרך קישור",
   "hostDash.emptyTitle": "עוד לא ארגנת כלום",
