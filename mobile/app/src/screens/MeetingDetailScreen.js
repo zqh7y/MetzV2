@@ -15,7 +15,7 @@ import { MapPinIcon } from "../components/NavIcons";
 import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
 import { RADIUS, SHADOW } from "../styles/theme";
-import { formatTimeUntil, formatAgo } from "../utils/time";
+import { formatTimeUntil, formatAgo, formatCountdown } from "../utils/time";
 // The share page is served by the API, not the web app — WEB_BASE_URL
 // points at the web app's port and would 404 in development.
 import { API_BASE_URL as SHARE_BASE_URL } from "../config";
@@ -37,6 +37,19 @@ export default function MeetingDetailScreen({ route, navigation }) {
   // route.params is a snapshot taken when the card was tapped, so joining has
   // to be tracked here or the button would keep claiming the old state.
   const [joined, setJoined] = useState(!!meeting.is_joined);
+
+  // How long until the call button goes live. Held in state and counted down
+  // here rather than only read from the response, so somebody sitting on this
+  // screen as the meeting comes round sees it open instead of having to guess
+  // that a pull-to-refresh would change something.
+  const linkView = meeting.link_view || null;
+  const [opensIn, setOpensIn] = useState(linkView?.opens_in ?? 0);
+  useEffect(() => { setOpensIn(linkView?.opens_in ?? 0); }, [linkView?.opens_in]);
+  useEffect(() => {
+    if (!linkView?.visible || linkView.live || opensIn <= 0) return undefined;
+    const tick = setInterval(() => setOpensIn((n) => Math.max(0, n - 1)), 1000);
+    return () => clearInterval(tick);
+  }, [linkView?.visible, linkView?.live, opensIn > 0]);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(null);   // { kind: "ok" | "bad", text }
   const [attendees, setAttendees] = useState([]);
@@ -267,25 +280,66 @@ ${url}`,
         </View>
       ) : null}
 
-      {/* The call link belongs to people who committed — same rule as the web */}
-      {isOnline ? (
-        <View style={[styles.callbox, joined && styles.callboxLive]}>
-          <Text style={styles.callIcon}>{joined ? "🎥" : "🔒"}</Text>
-          {joined && meeting.link ? (
-            <>
-              <Text style={styles.callTitle}>{t("detail.callOpen")}</Text>
-              <TouchableOpacity style={styles.callBtn} onPress={() => Linking.openURL(meeting.link)}>
-                <Text style={styles.callBtnText}>{t("detail.joinCall")}</Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <>
+      {/* An online meeting's link is the whole meeting, so it has the same
+          shape as turning up to a place: it belongs to people who committed,
+          and it happens at a time rather than whenever you feel like it.
+
+          Four states, because collapsing them lies in both directions — a
+          padlock on a call you have joined reads as being shut out, and a live
+          "Join" button a week early reads as a call nobody else is at. The
+          server decides all of them; `live` is never inferred from the clock
+          here beyond counting the last seconds down. */}
+      {isOnline ? (() => {
+        const lv = meeting.link_view || {};
+        const ended = lv.phase === "ended";
+        const live = !!lv.live || (lv.visible && opensIn <= 0 && !ended);
+
+        if (ended) {
+          return (
+            <View style={styles.callbox}>
+              <Text style={styles.callIcon}>📴</Text>
+              <Text style={styles.callTitle}>{t("detail.callEnded")}</Text>
+            </View>
+          );
+        }
+        if (!lv.visible) {
+          return (
+            <View style={styles.callbox}>
+              <Text style={styles.callIcon}>🔒</Text>
               <Text style={styles.callTitle}>{t("detail.callLocked")}</Text>
               <Text style={styles.callSub}>{t("detail.callLockedSub")}</Text>
-            </>
-          )}
-        </View>
-      ) : hasPlace ? (
+            </View>
+          );
+        }
+        if (!live) {
+          return (
+            <View style={styles.callbox}>
+              <Text style={styles.callIcon}>⏳</Text>
+              <Text style={styles.callTitle}>
+                {t("detail.callOpensIn", { time: formatCountdown(opensIn) })}
+              </Text>
+              <Text style={styles.callSub}>
+                {t("detail.callWindow", { minutes: lv.window_minutes || 10 })}
+              </Text>
+            </View>
+          );
+        }
+        return (
+          <View style={[styles.callbox, styles.callboxLive]}>
+            <Text style={styles.callIcon}>🎥</Text>
+            <Text style={styles.callTitle}>{t("detail.callOpen")}</Text>
+            <TouchableOpacity
+              style={styles.callBtn}
+              onPress={() => Linking.openURL(meeting.link)}
+              // The link can only be missing here if the response and this
+              // render disagree; better an inert button than a crash.
+              disabled={!meeting.link}
+            >
+              <Text style={styles.callBtnText}>{t("detail.joinCall")}</Text>
+            </TouchableOpacity>
+          </View>
+        );
+      })() : hasPlace ? (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{`📍 ${t("detail.where")}`}</Text>
           {meeting.location ? <Text style={styles.body}>{meeting.location}</Text> : null}

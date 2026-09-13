@@ -176,16 +176,13 @@ export default function UserProfileScreen({ route, navigation }) {
         <ReliabilityCard
           reliability={user.reliability}
           style={styles.reliability}
-          // No "Trusted" tile: the badge beside the name already says so when
-          // it is held, and a tile reading "No" about a stranger states a
-          // negative nobody asked for. What replaces it is what they have
-          // actually done — hosted, met, and what they keep turning up to.
+          // "Hosted" and "Top interest" were here and are gone again: neither
+          // changes what you do next about a person. How many people they have
+          // actually met is the one of the three that says something — whether
+          // anyone turns up to what they are part of — and it sits next to the
+          // show-up rate, which is the same question asked the other way round.
           facts={[
-            { value: String(highlights.hosted ?? 0), label: t("profile.statHosted") },
             { value: String(highlights.people_met ?? 0), label: t("profile.statPeopleMet") },
-            ...(highlights.top_tag
-              ? [{ value: highlights.top_tag, label: t("profile.statTopInterest") }]
-              : []),
             { value: memberSince, label: t("profile.statMemberSince") },
           ]}
           roles={user.is_admin ? [`\u{1F6E0} ${t("profile.roleModerator")}`] : []}
