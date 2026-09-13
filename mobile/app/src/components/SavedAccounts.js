@@ -5,6 +5,7 @@ import { useTheme } from "../context/ThemeContext";
 import { useI18n } from "../context/LocaleContext";
 import { FONTS } from "../styles/fonts";
 import { RADIUS } from "../styles/theme";
+import FaceAvatar from "./FaceAvatar";
 
 /**
  * One-tap return to an account this device is still signed into.
@@ -30,10 +31,17 @@ export default function SavedAccounts({ accounts, onPick }) {
             style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
             onPress={() => onPick(account)}
           >
-            <View style={[styles.avatar, { backgroundColor: account.color || theme.accent }]}>
-              <Text style={account.emoji ? styles.emoji : styles.initials}>
-                {account.emoji || name.slice(0, 2).toUpperCase()}
-              </Text>
+            <View style={[
+              styles.avatar,
+              !account.face && { backgroundColor: account.color || theme.accent },
+            ]}>
+              {account.face ? (
+                <FaceAvatar id={account.face} size={34} />
+              ) : (
+                <Text style={account.emoji ? styles.emoji : styles.initials}>
+                  {account.emoji || name.slice(0, 2).toUpperCase()}
+                </Text>
+              )}
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.name} numberOfLines={1}>{name}</Text>
@@ -59,7 +67,7 @@ const makeStyles = (t) => StyleSheet.create({
     backgroundColor: t.surface,
   },
   rowPressed: { opacity: 0.6 },
-  avatar: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
+  avatar: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", overflow: "hidden" },
   initials: { color: "#fff", fontFamily: FONTS.heading, fontSize: t.fs(12.5) },
   emoji: { fontSize: t.fs(18) },
   name: { fontSize: t.fs(14), fontFamily: FONTS.bodySemi, color: t.text },

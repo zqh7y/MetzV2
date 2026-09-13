@@ -2175,6 +2175,7 @@ def platform_stats():
         "name": u.get("display_name") or u.get("username") or u["uid"],
         "created": len(u.get("created_meeting_ids", [])),
         "color": generate_user_color(u["uid"]),
+        "avatar_face": u.get("avatar_face") or "",
     } for u in organisers]
 
     return {

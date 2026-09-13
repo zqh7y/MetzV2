@@ -464,8 +464,13 @@ ${url}`,
                 activeOpacity={0.7}
                 onPress={() => navigation.navigate("UserProfile", { uid: comment.uid })}
               >
-                <View style={[styles.commentAvatar, { backgroundColor: comment.color }]}>
-                  <Text style={styles.personInitial}>{comment.initial}</Text>
+                <View style={[
+                  styles.commentAvatar,
+                  !comment.avatar_face && { backgroundColor: comment.color },
+                ]}>
+                  {comment.avatar_face
+                    ? <FaceAvatar id={comment.avatar_face} size={30} />
+                    : <Text style={styles.personInitial}>{comment.initial}</Text>}
                 </View>
               </TouchableOpacity>
 
@@ -724,6 +729,7 @@ const makeStyles = (t) => StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
+    overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
     marginTop: 1,

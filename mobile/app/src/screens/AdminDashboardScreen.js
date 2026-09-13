@@ -10,6 +10,7 @@ import { useTheme } from "../context/ThemeContext";
 import { RADIUS, SHADOW } from "../styles/theme";
 import { FONTS } from "../styles/fonts";
 import { Alert } from "../components/AppAlert";
+import FaceAvatar from "../components/FaceAvatar";
 
 // The app half of the web's /admin/dashboard: same three tabs, same tiles,
 // same actions. Numbers come from data.platform_stats() on the server, so this
@@ -152,8 +153,10 @@ export default function AdminDashboardScreen({ navigation }) {
                   style={styles.row}
                   onPress={() => navigation.navigate("UserProfile", { uid: o.uid })}
                 >
-                  <View style={[styles.avatar, { backgroundColor: o.color }]}>
-                    <Text style={styles.avatarText}>{(o.name || o.uid).slice(0, 1).toUpperCase()}</Text>
+                  <View style={[styles.avatar, !o.avatar_face && { backgroundColor: o.color }]}>
+                    {o.avatar_face
+                      ? <FaceAvatar id={o.avatar_face} size={36} />
+                      : <Text style={styles.avatarText}>{(o.name || o.uid).slice(0, 1).toUpperCase()}</Text>}
                   </View>
                   <Text style={styles.rowName}>{o.name}</Text>
                   <View style={{ flex: 1 }} />
@@ -170,8 +173,10 @@ export default function AdminDashboardScreen({ navigation }) {
           {users.map((u) => (
             <View key={u.uid} style={styles.userBlock}>
               <Pressable style={styles.row} onPress={() => navigation.navigate("UserProfile", { uid: u.uid })}>
-                <View style={[styles.avatar, { backgroundColor: u.color }]}>
-                  <Text style={styles.avatarText}>{u.initial}</Text>
+                <View style={[styles.avatar, !u.avatar_face && { backgroundColor: u.color }]}>
+                  {u.avatar_face
+                    ? <FaceAvatar id={u.avatar_face} size={36} />
+                    : <Text style={styles.avatarText}>{u.initial}</Text>}
                 </View>
                 <View style={{ flex: 1 }}>
                   <View style={styles.nameRow}>
@@ -360,7 +365,7 @@ const makeStyles = (t) => StyleSheet.create({
 
   userBlock: { borderBottomWidth: 1, borderBottomColor: t.border, paddingVertical: 10 },
   row: { flexDirection: "row", alignItems: "center", gap: 10 },
-  avatar: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  avatar: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", overflow: "hidden" },
   avatarText: { color: "#fff", fontFamily: FONTS.accent, fontSize: t.fs(13) },
   nameRow: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
   rowName: { fontSize: t.fs(14), fontFamily: FONTS.bodySemi, color: t.text, flexShrink: 1 },

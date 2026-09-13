@@ -180,6 +180,10 @@ function buildHtml(config) {
     display: flex; align-items: center; justify-content: center;
     color: #fff; font-size: 12px; font-weight: 700;
   }
+  /* A face brings its own background, and has to fill the circle rather than
+     sit inside it as a picture. */
+  .metz-me-face { background: none; overflow: hidden; }
+  .metz-me-face svg { width: 100%; height: 100%; display: block; }
   @keyframes metzMePulse {
     0%   { transform: scale(1);   opacity: 0.9; }
     100% { transform: scale(2.6); opacity: 0; }
@@ -428,9 +432,13 @@ function buildHtml(config) {
   window.setMe = function (me) {
     if (userMarker) { map.removeLayer(userMarker); userMarker = null; }
     if (!me) return;
-    var inner = me.initial
-      ? '<div class="metz-me-avatar" style="background:' + (me.color || "#4285f4") + '">' + me.initial + "</div>"
-      : '<div class="metz-me-avatar" style="background:#4285f4"></div>';
+    // The same drawing as everywhere else in the app, handed over as markup
+    // because there is no React in here to render the component into.
+    var inner = me.faceSvg
+      ? '<div class="metz-me-avatar metz-me-face">' + me.faceSvg + "</div>"
+      : me.initial
+        ? '<div class="metz-me-avatar" style="background:' + (me.color || "#4285f4") + '">' + me.initial + "</div>"
+        : '<div class="metz-me-avatar" style="background:#4285f4"></div>';
     userMarker = L.marker([me.lat, me.lng], {
       interactive: false,
       zIndexOffset: 1000,

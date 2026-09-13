@@ -211,6 +211,7 @@ def _serialize_comment(comment, meeting, viewer_uid):
         "text": comment.get("text", ""),
         "created_at": comment.get("created_at", ""),
         "color": generate_user_color(author_uid),
+        "avatar_face": (get_user(author_uid) or {}).get("avatar_face") or "",
         "initial": (name or "?")[:1].upper(),
         "is_trusted": is_trusted(author_uid),
         "is_admin": is_admin(author_uid),

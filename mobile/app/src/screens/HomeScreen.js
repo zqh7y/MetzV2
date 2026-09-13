@@ -10,6 +10,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { api } from "../api";
 import { getSeenId } from "../adminSeen";
 import { useAuth } from "../context/AuthContext";
+import { faceSvg } from "../components/FaceAvatar";
 import MeetingCard from "../components/MeetingCard";
 import SectionRule from "../components/SectionRule";
 import HostingPanel from "../components/HostingPanel";
@@ -439,6 +440,7 @@ export default function HomeScreen({ navigation, route }) {
       lng: myPosition.longitude,
       color: profile?.profile_color,
       initial: name ? name.slice(0, 1).toUpperCase() : "",
+      faceSvg: profile?.avatar_face ? faceSvg(profile.avatar_face) : null,
     };
   }, [myPosition, profile, uid]);
 

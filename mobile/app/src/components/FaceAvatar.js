@@ -1,5 +1,5 @@
-import React from "react";
-import Svg, { Circle, Ellipse, Path, Rect, G } from "react-native-svg";
+import React, { useMemo } from "react";
+import { SvgXml } from "react-native-svg";
 
 /**
  * Drawn faces, as an alternative to the emoji avatars.
@@ -13,6 +13,13 @@ import Svg, { Circle, Ellipse, Path, Rect, G } from "react-native-svg";
  * instead of fifteen hand-drawn files. Fifteen separate drawings would drift
  * apart the moment one is touched; assembling them from shared pieces keeps
  * them looking like one family, and adding a sixteenth is a line of data.
+ *
+ * The drawing is built as SVG *markup* rather than as JSX so that the one place
+ * that is not React — the Leaflet map, which is HTML inside a WebView and draws
+ * the "you are here" marker itself — can show the same face as everywhere else.
+ * A second copy of the geometry for the map would have gone stale the first
+ * time either was touched. faceSvg() is what that marker uses; the component
+ * below renders the identical string.
  *
  * The first pass came out looking like a school photo. What fixed it was mostly
  * not the hair — it was brows, a smaller mouth, a jaw instead of a circle,
@@ -73,6 +80,10 @@ export function faceById(id) {
   return FACES.find((f) => f.id === id) || null;
 }
 
+// A full head of short hair. The crescent this replaced covered the top ~10px
+// of a 57px head, which reads as a receding hairline rather than as hair.
+const CROWN = "M26 47c0-15 11-24 24-24s24 9 24 24c0-6-2-9-5-11-4-3-11-4-19-4s-15 1-19 4c-3 2-5 5-5 11z";
+
 /**
  * The part of a hairstyle that belongs *behind* the head.
  *
@@ -80,149 +91,119 @@ export function faceById(id) {
  * blob with a hint of a face on it. Volume has to sit behind the head and show
  * around the edges; only the hairline sits in front.
  */
-function HairBack({ style, color }) {
+function hairBack(style, c) {
   switch (style) {
     case "afro":
-      return <Circle cx="50" cy="36" r="30" fill={color} />;
+      return `<circle cx="50" cy="36" r="30" fill="${c}"/>`;
     case "long":
-      return (
-        <Path d="M22 48c0-17 12-27 28-27s28 10 28 27v28c0 4-7 4-7 0V52c-5-7-13-10-21-10s-16 3-21 10v24c0 4-7 4-7 0z" fill={color} />
-      );
+      return `<path d="M22 48c0-17 12-27 28-27s28 10 28 27v28c0 4-7 4-7 0V52c-5-7-13-10-21-10s-16 3-21 10v24c0 4-7 4-7 0z" fill="${c}"/>`;
     case "ponytail":
-      return (
-        <Path d="M66 36c11 3 16 12 15 23-1 9-7 14-13 13 6-5 9-11 8-19-1-7-5-13-10-17z" fill={color} />
-      );
+      return `<path d="M66 36c11 3 16 12 15 23-1 9-7 14-13 13 6-5 9-11 8-19-1-7-5-13-10-17z" fill="${c}"/>`;
     case "braids":
-      return (
-        <G>
-          <Rect x="20" y="44" width="8" height="32" rx="4" fill={color} />
-          <Rect x="72" y="44" width="8" height="32" rx="4" fill={color} />
-        </G>
-      );
+      return `<rect x="20" y="44" width="8" height="32" rx="4" fill="${c}"/>`
+           + `<rect x="72" y="44" width="8" height="32" rx="4" fill="${c}"/>`;
     default:
-      return null;
+      return "";
   }
 }
 
-function Hair({ style, color }) {
+function hairFront(style, c) {
   switch (style) {
-    case "long":
-      return <Path d="M26 47c0-15 11-24 24-24s24 9 24 24c0-6-2-9-5-11-4-3-11-4-19-4s-15 1-19 4c-3 2-5 5-5 11z" fill={color} />;
     case "bob":
-      return (
-        <G>
-          <Path d="M25 51c0-17 11-28 25-28s25 11 25 28v7c0 3-5 3-5 0v-7c-5-7-12-10-20-10s-15 3-20 10v7c0 3-5 3-5 0z" fill={color} />
-          {/* A parting. Without it the shape is a smooth shell and reads as a
-              headscarf rather than hair. */}
-          <Path d="M50 25c-9 2-15 8-18 17 6-7 12-10 18-11z" fill={color} opacity={0.5} />
-        </G>
-      );
+      return `<path d="M25 51c0-17 11-28 25-28s25 11 25 28v7c0 3-5 3-5 0v-7c-5-7-12-10-20-10s-15 3-20 10v7c0 3-5 3-5 0z" fill="${c}"/>`
+           // A parting. Without it the shape is a smooth shell and reads as a
+           // headscarf rather than hair.
+           + `<path d="M50 25c-9 2-15 8-18 17 6-7 12-10 18-11z" fill="${c}" opacity="0.5"/>`;
     case "curls":
-      return (
-        <G>
-          {[[33, 35], [43, 28], [55, 27], [66, 32], [72, 42], [29, 45]].map(([cx, cy], i) => (
-            <Circle key={i} cx={cx} cy={cy} r={9.5} fill={color} />
-          ))}
-        </G>
-      );
+      return [[33, 35], [43, 28], [55, 27], [66, 32], [72, 42], [29, 45]]
+        .map(([cx, cy]) => `<circle cx="${cx}" cy="${cy}" r="9.5" fill="${c}"/>`).join("");
     case "bun":
-      return (
-        <G>
-          {/* A top knot rather than a low bun — it shows above the head at
-              24px, where a bun behind the crown is invisible. */}
-          <Circle cx="50" cy="18" r="9" fill={color} />
-          <Path d="M26 47c0-15 11-24 24-24s24 9 24 24c0-6-2-9-5-11-4-3-11-4-19-4s-15 1-19 4c-3 2-5 5-5 11z" fill={color} />
-        </G>
-      );
-    case "braids":
-    case "ponytail":
-      return <Path d="M26 47c0-15 11-24 24-24s24 9 24 24c0-6-2-9-5-11-4-3-11-4-19-4s-15 1-19 4c-3 2-5 5-5 11z" fill={color} />;
+      // A top knot rather than a low bun — it shows above the head at 24px,
+      // where a bun behind the crown is invisible.
+      return `<circle cx="50" cy="18" r="9" fill="${c}"/><path d="${CROWN}" fill="${c}"/>`;
     case "afro":
-      return null;   // the volume behind the head is the whole style
-    case "fade":
+      return "";   // the volume behind the head is the whole style
     default:
-      // A sharp, low hairline with the sides taken in. The soft dome it
-      // replaced was the single most school-photo thing in the set.
-      return <Path d="M26 47c0-15 11-24 24-24s24 9 24 24c0-6-2-9-5-11-4-3-11-4-19-4s-15 1-19 4c-3 2-5 5-5 11z" fill={color} />;
+      return `<path d="${CROWN}" fill="${c}"/>`;
   }
 }
 
-export default function FaceAvatar({ id, size = 48 }) {
+/**
+ * One face as SVG markup, ready to drop into a document or an <svg> element.
+ *
+ * Exported because the map marker is drawn by Leaflet inside a WebView, where
+ * there is no React to render a component into.
+ */
+export function faceSvg(id, { size } = {}) {
   const face = faceById(id) || FACES[0];
   const skin = SKIN[face.skin] || SKIN.sand;
   const hair = HAIR[face.hair] || HAIR.black;
   const shirt = SHIRT[face.shirt] || SHIRT.charcoal;
+  const dim = size ? ` width="${size}" height="${size}"` : "";
 
-  return (
-    <Svg width={size} height={size} viewBox="0 0 100 100">
-      <Circle cx="50" cy="50" r="50" fill={face.bg} />
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"${dim}>`
+    + `<circle cx="50" cy="50" r="50" fill="${face.bg}"/>`
+    + hairBack(face.hairStyle, hair)
 
-      <HairBack style={face.hairStyle} color={hair} />
+    // Neck first, so the shoulders cover where it meets the top.
+    + `<rect x="43" y="66" width="14" height="14" fill="${skin}" opacity="0.88"/>`
+    + `<path d="M16 100c0-16 15-26 34-26s34 10 34 26z" fill="${shirt}"/>`
 
-      {/* Neck first, so the shoulders cover where it meets the top. */}
-      <Rect x="43" y="66" width="14" height="14" fill={skin} opacity={0.88} />
-      <Path d="M16 100c0-16 15-26 34-26s34 10 34 26z" fill={shirt} />
+    // A jaw, not a circle. The ellipse it replaced is why every face looked
+    // like the same cartoon baby.
+    + `<path d="M27 45c0-13 10-22 23-22s23 9 23 22v7c0 15-10 27-23 27s-23-12-23-27z" fill="${skin}"/>`
+    + `<circle cx="26" cy="57" r="5.5" fill="${skin}"/>`
+    + `<circle cx="74" cy="57" r="5.5" fill="${skin}"/>`
 
-      {/* A jaw, not a circle. The ellipse it replaced is why every face looked
-          like the same cartoon baby. */}
-      <Path d="M27 45c0-13 10-22 23-22s23 9 23 22v7c0 15-10 27-23 27s-23-12-23-27z" fill={skin} />
-      <Circle cx="26" cy="57" r="5.5" fill={skin} />
-      <Circle cx="74" cy="57" r="5.5" fill={skin} />
+    + hairFront(face.hairStyle, hair)
 
-      <Hair style={face.hairStyle} color={hair} />
+    // Brows before the eyes, and both before any feature that covers them.
+    + `<path d="M34.5 44.2L44 45M65.5 44.2L56 45" stroke="${INK}" stroke-width="2.8" stroke-linecap="round" fill="none"/>`
+    + `<ellipse cx="41" cy="53" rx="3" ry="3.4" fill="${INK}"/>`
+    + `<ellipse cx="59" cy="53" rx="3" ry="3.4" fill="${INK}"/>`
+    + `<path d="M50 55v6c0 1 .9 1.7 2.2 1.7" stroke="${INK}" stroke-width="1.8" stroke-linecap="round" fill="none" opacity="0.35"/>`
 
-      {/* Brows before the eyes, and both before any feature that covers them. */}
-      <Path
-        d="M34.5 44.2L44 45M65.5 44.2L56 45"
-        stroke={INK} strokeWidth="2.8" strokeLinecap="round" fill="none"
-      />
-      <Ellipse cx="41" cy="53" rx="3" ry="3.4" fill={INK} />
-      <Ellipse cx="59" cy="53" rx="3" ry="3.4" fill={INK} />
-      <Path
-        d="M50 55v6c0 1 .9 1.7 2.2 1.7"
-        stroke={INK} strokeWidth="1.8" strokeLinecap="round" fill="none" opacity={0.35}
-      />
+    + (face.feature === "beard"
+      ? `<path d="M27 54c0 17 10 27 23 27s23-10 23-27c-2 11-11 16-23 16s-21-5-23-16z" fill="${hair}"/>`
+      : "")
 
-      {face.feature === "beard" ? (
-        <Path d="M27 54c0 17 10 27 23 27s23-10 23-27c-2 11-11 16-23 16s-21-5-23-16z" fill={hair} />
-      ) : null}
+    // Small, and short of a grin. The wide smiley curve that was here is the
+    // other half of why these looked like children.
+    + `<path d="M44 66.5c2.5 2.4 9.5 2.4 12 0" stroke="${INK}" stroke-width="2.8" stroke-linecap="round" fill="none"/>`
 
-      {/* Small, and short of a grin. The wide smiley curve that was here is the
-          other half of why these looked like children. */}
-      <Path
-        d="M44 66.5c2.5 2.4 9.5 2.4 12 0"
-        stroke={INK} strokeWidth="2.8" strokeLinecap="round" fill="none"
-      />
+    + (face.feature === "shades"
+      ? `<rect x="29.5" y="46.5" width="18" height="12" rx="4" fill="${DARK}"/>`
+        + `<rect x="52.5" y="46.5" width="18" height="12" rx="4" fill="${DARK}"/>`
+        + `<rect x="47" y="50" width="6" height="2.6" rx="1.3" fill="${DARK}"/>`
+        + `<path d="M29.5 49l-5-1.6M70.5 49l5-1.6" stroke="${DARK}" stroke-width="2.6" stroke-linecap="round" fill="none"/>`
+        // The glint is what makes them read as glass rather than as two black
+        // rectangles.
+        + `<path d="M33.5 56l6-7.5" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" fill="none" opacity="0.32"/>`
+      : "")
 
-      {face.feature === "shades" ? (
-        <G>
-          <Rect x="29.5" y="46.5" width="18" height="12" rx="4" fill={DARK} />
-          <Rect x="52.5" y="46.5" width="18" height="12" rx="4" fill={DARK} />
-          <Rect x="47" y="50" width="6" height="2.6" rx="1.3" fill={DARK} />
-          <Path
-            d="M29.5 49l-5-1.6M70.5 49l5-1.6"
-            stroke={DARK} strokeWidth="2.6" strokeLinecap="round" fill="none"
-          />
-          {/* The glint is what makes them read as glass rather than as two
-              black rectangles. */}
-          <Path
-            d="M33.5 56l6-7.5"
-            stroke="#ffffff" strokeWidth="2.2" strokeLinecap="round" fill="none" opacity={0.32}
-          />
-        </G>
-      ) : null}
+    + (face.feature === "headphones"
+      ? `<path d="M23 50a27 27 0 0 1 54 0" stroke="${DARK}" stroke-width="4.5" stroke-linecap="round" fill="none"/>`
+        + `<rect x="15.5" y="47" width="12" height="18" rx="6" fill="${DARK}"/>`
+        + `<rect x="72.5" y="47" width="12" height="18" rx="6" fill="${DARK}"/>`
+      : "")
 
-      {face.feature === "headphones" ? (
-        <G>
-          <Path d="M23 50a27 27 0 0 1 54 0" stroke={DARK} strokeWidth="4.5" strokeLinecap="round" fill="none" />
-          <Rect x="15.5" y="47" width="12" height="18" rx="6" fill={DARK} />
-          <Rect x="72.5" y="47" width="12" height="18" rx="6" fill={DARK} />
-        </G>
-      ) : null}
+    + (face.feature === "earring" ? `<circle cx="74" cy="63.5" r="3" fill="#f4c542"/>` : "")
 
-      {face.feature === "earring" ? (
-        <Circle cx="74" cy="63.5" r="3" fill="#f4c542" />
-      ) : null}
-    </Svg>
-  );
+    + "</svg>";
 }
+
+// Built once per face rather than on every render: an avatar appears in lists
+// many rows long, and SvgXml re-parses whenever the string is not the same one.
+const MARKUP = new Map();
+function markupFor(id) {
+  const key = faceById(id) ? id : FACES[0].id;
+  if (!MARKUP.has(key)) MARKUP.set(key, faceSvg(key));
+  return MARKUP.get(key);
+}
+
+function FaceAvatar({ id, size = 48 }) {
+  const xml = useMemo(() => markupFor(id), [id]);
+  return <SvgXml xml={xml} width={size} height={size} />;
+}
+
+export default React.memo(FaceAvatar);
