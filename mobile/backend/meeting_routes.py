@@ -11,7 +11,7 @@ from data import (
     in_viewer_country,
     generate_user_color, display_name_for, is_trusted, is_admin, get_reliability,
     get_comments, add_comment, delete_comment, can_delete_comment, get_blocked_uids,
-    record_checkin,
+    record_checkin, meeting_insights,
 )
 from utils.models import (
     InPersonMeeting, OnlineMeeting, AVAILABLE_TAGS,
@@ -278,6 +278,27 @@ def remove_comment(meeting_id, comment_id):
         # tells a stranger which comment ids exist.
         return jsonify({"error": "forbidden"}), 403
     return jsonify({"status": "deleted"})
+
+
+@meeting_bp.route("/api/meetings/<int:meeting_id>/insights")
+def meeting_insights_route(meeting_id):
+    """How one meeting is actually doing, for the person running it.
+
+    404 rather than 403 when the caller is not the organiser: a "forbidden"
+    would confirm the meeting exists, and the same ids are handed out publicly
+    in share links. meeting_insights() decides who counts as the organiser, so
+    the rule lives with the data rather than being re-stated per route.
+    """
+    uid = current_uid()
+    if not uid:
+        return jsonify({"error": "unauthorized"}), 401
+    view = meeting_insights(meeting_id, uid)
+    if view is None:
+        return jsonify({"error": "not found"}), 404
+    # Built here rather than in data.py, which has no request to take a host
+    # from — the same reason share_url_for lives in helpers.
+    view["share_url"] = share_url_for(MEETINGS_DB.get(meeting_id))
+    return jsonify(view)
 
 
 @meeting_bp.route("/api/meetings/<int:meeting_id>/checkin", methods=["POST"])

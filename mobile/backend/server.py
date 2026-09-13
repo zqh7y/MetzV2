@@ -38,6 +38,7 @@ import data as _data
 from data import (
     touch_last_online, is_banned, public_meeting, add_guest,
     MEETINGS_DB, meeting_visibility, find_meeting_by_slug, PRIVATE,
+    record_share_view,
 )
 
 from utils.security import rate_limit_exceeded, client_ip
@@ -277,6 +278,33 @@ def _render_share(meeting_id, error="", joined=False):
     )
 
 
+def _render_share_page(meeting_id, joined):
+    """The share page as someone opening the link sees it, counting one view.
+
+    Separate from _render_share because that is also what the join handlers
+    re-render, and a join is not a fresh visitor — counting there would score
+    every link twice for anyone who actually signed up.
+
+    The cookie only stops the same browser being counted again; it holds no id
+    and says nothing about who. A first visit that lands on a missing meeting
+    counts nothing, since _render_share answers 404 as a tuple.
+    """
+    page = _render_share(meeting_id, joined=joined)
+    if isinstance(page, tuple):
+        return page
+
+    response = make_response(page)
+    cookie = f"metz_v{meeting_id}"
+    if request.cookies.get(cookie) != "1":
+        record_share_view(meeting_id)
+        response.set_cookie(
+            cookie, "1",
+            max_age=60 * 60 * 24 * 365,
+            samesite="Lax", httponly=True, secure=IS_PRODUCTION,
+        )
+    return response
+
+
 @app.route("/m/<int:meeting_id>")
 def share_meeting(meeting_id):
     # A private meeting is not reachable by its number. Returning 404 rather
@@ -287,7 +315,7 @@ def share_meeting(meeting_id):
     # The cookie is not a login — it only stops the same browser being counted
     # twice and shows the person they are already down, since there is no way
     # to un-join.
-    return _render_share(meeting_id, joined=request.cookies.get(f"metz_g{meeting_id}") == "1")
+    return _render_share_page(meeting_id, joined=request.cookies.get(f"metz_g{meeting_id}") == "1")
 
 
 @app.route("/m/<slug>")
@@ -301,7 +329,7 @@ def share_meeting_by_slug(slug):
     if record is None:
         abort(404)
     meeting_id = record.get("id")
-    return _render_share(meeting_id, joined=request.cookies.get(f"metz_g{meeting_id}") == "1")
+    return _render_share_page(meeting_id, joined=request.cookies.get(f"metz_g{meeting_id}") == "1")
 
 
 @app.route("/m/<slug>/join", methods=["POST"])
