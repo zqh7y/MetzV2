@@ -23,6 +23,8 @@ import WelcomeScreen from "./src/screens/WelcomeScreen";
 import IntroScreen from "./src/screens/IntroScreen";
 import { hasSeenIntro } from "./src/intro";
 import CreateScreen from "./src/screens/CreateScreen";
+import MeetingCreatedScreen from "./src/screens/MeetingCreatedScreen";
+import MeetingInsightsScreen from "./src/screens/MeetingInsightsScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
 import AdminPendingScreen from "./src/screens/AdminPendingScreen";
 import MeetingDetailScreen from "./src/screens/MeetingDetailScreen";
@@ -92,6 +94,19 @@ function MainNavigator() {
           screens still exist as components — see the notes at the top of each. */}
       <RootStack.Screen name="Inbox" component={InboxScreen} options={{ title: t("nav.inbox") }} />
       <RootStack.Screen name="Profile" component={ProfileScreen} options={{ title: t("nav.myProfile") }} />
+      {/* No back chevron: the create form it came from has already been
+          submitted, and offering a way back to it offers a second submit.
+          Every step ends in a button that leaves deliberately. */}
+      <RootStack.Screen
+        name="MeetingCreated"
+        component={MeetingCreatedScreen}
+        options={{ title: "", headerBackVisible: false, gestureEnabled: false }}
+      />
+      <RootStack.Screen
+        name="MeetingInsights"
+        component={MeetingInsightsScreen}
+        options={{ title: t("nav.insights") }}
+      />
       <RootStack.Screen name="MeetingDetail" component={MeetingDetailScreen} options={{ title: t("nav.meeting") }} />
       <RootStack.Screen name="AdminPending" component={AdminPendingScreen} options={{ title: t("nav.pendingMeetings") }} />
       <RootStack.Screen name="UserProfile" component={UserProfileScreen} options={{ title: t("nav.profile") }} />

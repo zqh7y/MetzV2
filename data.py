@@ -953,6 +953,87 @@ def checkin_is_open(m):
     return datetime.now() >= start + timedelta(hours=ASSUMED_DURATION_HOURS)
 
 
+def record_share_view(meeting_id):
+    """Count one browser opening the share link.
+
+    The only way an organiser can tell whether sharing did anything. Without it
+    a link that nobody clicked and a link nobody acted on look identical — no
+    joins either way — and the advice "share it again" is a guess.
+
+    Counted once per browser (the caller holds the cookie), so it is closer to
+    people than to page loads. It is not analytics about who: nothing is stored
+    but a number, because the page is open to anyone and the organiser has no
+    business knowing more than how many.
+    """
+    m = MEETINGS_DB.get(meeting_id)
+    if not m:
+        return
+    m["share_views"] = int(m.get("share_views") or 0) + 1
+    save_data()
+
+
+def meeting_insights(meeting_id, host_uid):
+    """Everything the organiser of one meeting is entitled to know about it.
+
+    Host-only, and checked here rather than in the route: the guest breakdown
+    and the link count say things about a meeting that nobody else should be
+    able to read off a public id.
+
+    Every figure is one the organiser would otherwise have to work out by
+    counting rows on the meeting page, and two of them — how many opened the
+    link, and how many of the people coming arrived through it — cannot be
+    worked out there at all.
+    """
+    m = MEETINGS_DB.get(meeting_id)
+    if not m:
+        return None
+    if m.get("creator_uid") != host_uid and not is_admin(host_uid):
+        return None
+
+    members = list(m.get("joined_uids") or [])
+    guests = list(m.get("guests") or [])
+    going = len(members) + len(guests)
+    attendance = m.get("attendance") or {}
+
+    minimum = int(m.get("min_attendees") or 0)
+    maximum = int(m.get("max_attendees") or 0)
+
+    return {
+        "id": meeting_id,
+        "title": m.get("title", ""),
+        "emoji": m.get("emoji", ""),
+        "time": m.get("time", ""),
+        "status": m.get("status", "approved"),
+        "visibility": m.get("visibility", PUBLIC),
+        "created_at": m.get("created_at"),
+        "is_over": checkin_is_open(m),
+
+        # Reach. views is browsers that opened the link; from_link is the ones
+        # who went on to put their name down without ever installing anything.
+        "views": int(m.get("share_views") or 0),
+        "going": going,
+        "from_app": len(members),
+        "from_link": len(guests),
+
+        # The threshold, if one was set. spots_left is None rather than 0 when
+        # there is no cap, so "no limit" and "full" cannot be confused.
+        "min_attendees": minimum,
+        "max_attendees": maximum,
+        "join_deadline": m.get("join_deadline") or "",
+        "commit_status": m.get("commit_status") or "",
+        "spots_left": max(0, maximum - going) if maximum else None,
+
+        # What the organiser owes an answer on.
+        "questions": len(m.get("comments") or []),
+        # Only members can be asked whether they came: a guest from the link
+        # has no account to answer with, so counting them here would leave a
+        # figure that could never be completed.
+        "awaiting_checkin": max(0, len(members) - len(attendance)),
+        "said_went": sum(1 for v in attendance.values() if v == "went"),
+        "said_missed": sum(1 for v in attendance.values() if v == "missed"),
+    }
+
+
 def record_checkin(uid, meeting_id, status):
     """The attendee's own answer to "did you go?".
 

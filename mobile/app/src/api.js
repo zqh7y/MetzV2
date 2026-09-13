@@ -132,6 +132,9 @@ export const api = {
   readAllInbox: () => request("/api/inbox/read-all", { method: "POST" }),
 
   getAttendees: (id) => request(`/api/meetings/${id}/attendees`),
+  // Host-only; the server answers 404 to anyone else, same as a meeting
+  // that does not exist.
+  getMeetingInsights: (id) => request(`/api/meetings/${id}/insights`),
   /** status: "went" | "missed". Returns the updated reliability. */
   checkIn: (id, status) =>
     request(`/api/meetings/${id}/checkin`, { method: "POST", body: { status } }),

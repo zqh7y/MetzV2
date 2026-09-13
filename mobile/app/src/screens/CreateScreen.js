@@ -270,11 +270,16 @@ export default function CreateScreen({ navigation }) {
         visibility: isPrivate ? "private" : "public",
       };
       const res = await api.createMeeting(payload);
-      Alert.alert(
-        t(res.status === "pending" ? "create.submittedTitle" : "create.createdTitle"),
-        t(res.status === "pending" ? "create.submittedBody" : "create.createdBody")
-      );
-      navigation.navigate("Home");
+      // The alert that used to be here said "created" and dropped the organiser
+      // back on the map with nothing to act on — the moment they have the most
+      // to do and the least idea what. replace() rather than navigate(): going
+      // back to a form that has already been submitted offers a second submit.
+      navigation.replace("MeetingCreated", {
+        meetingId: res.id,
+        status: res.status,
+        shareUrl: res.share_url,
+        title,
+      });
     } catch (e) {
       setError(e.message);
     } finally {

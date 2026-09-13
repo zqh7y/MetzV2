@@ -563,6 +563,19 @@ ${url}`,
         </View>
       ) : null}
 
+      {/* Only the organiser's, and only theirs: the numbers behind it say how
+          many opened the link and how many of the people coming arrived that
+          way, which is nobody else's business. */}
+      {meeting.creator_uid === uid ? (
+        <TouchableOpacity
+          style={styles.insightsBtn}
+          activeOpacity={0.85}
+          onPress={() => navigation.navigate("MeetingInsights", { meetingId: meeting.id })}
+        >
+          <Text style={styles.insightsBtnText}>{`📈  ${t("detail.howItsGoing")}`}</Text>
+        </TouchableOpacity>
+      ) : null}
+
       {/* Quiet and last: reporting should be findable without competing with
           the thing most people came here to do. Hidden on your own meeting —
           you can delete that instead. */}
@@ -586,6 +599,13 @@ ${url}`,
 const makeStyles = (t) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.bg },
   content: { padding: 16, paddingBottom: 40 },
+
+  insightsBtn: {
+    marginTop: 18, borderRadius: RADIUS.pill, paddingVertical: 14,
+    alignItems: "center", backgroundColor: t.surface,
+    borderWidth: 1.5, borderColor: t.border,
+  },
+  insightsBtnText: { color: t.text, fontFamily: FONTS.accentMedium, fontSize: t.fs(14.5) },
 
   hero: {
     padding: 18,
