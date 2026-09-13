@@ -5,6 +5,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { I18nManager } from "react-native";
 
+import { LinearGradient } from "expo-linear-gradient";
+
 import BrandMark from "./BrandMark";
 import ProfileAvatar from "./ProfileAvatar";
 import { FONTS } from "../styles/fonts";
@@ -54,22 +56,60 @@ const ADMIN_ITEMS = [
   { route: "AdminReports", labelKey: "drawer.reports", Icon: FlagIcon, badgeKey: "reports" },
 ];
 
+/**
+ * The one control floating over the map, so it is the only thing on that
+ * screen that can look like the app rather than like a default.
+ *
+ * Three changes from the flat dark pill it was. The bars are tapered and the
+ * short one carries the accent, which turns a generic hamburger into a mark
+ * that belongs to this app and changes with the colour someone picked. The
+ * fill is a gradient rather than one flat navy, so it reads as a raised object
+ * over a busy map instead of a sticker. And it presses in, because a button
+ * sitting on top of a map that moves under your finger should answer the touch
+ * it got.
+ */
 export function MenuButton({ onPress, showDot }) {
-  const { theme } = useTheme();
+  const { theme, reduceMotion } = useTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
+  const press = useRef(new Animated.Value(0)).current;
+  const animate = (to) => {
+    if (reduceMotion) return;
+    Animated.spring(press, {
+      toValue: to, useNativeDriver: true, speed: 40, bounciness: 6,
+    }).start();
+  };
+  const scale = press.interpolate({ inputRange: [0, 1], outputRange: [1, 0.94] });
+
   return (
-    <Pressable style={[styles.menuBtn, { top: insets.top + 14 }]} onPress={onPress} hitSlop={8}>
-      {/* Three bars, drawn rather than pulled in as an icon font */}
-      <View style={styles.burger}>
-        <View style={styles.burgerLine} />
-        <View style={styles.burgerLine} />
-        <View style={styles.burgerLine} />
-      </View>
-      <Text style={styles.menuBrand}>Metz</Text>
-      {showDot ? <View style={styles.menuDot} /> : null}
-    </Pressable>
+    <Animated.View
+      style={[styles.menuWrap, { top: insets.top + 14, transform: [{ scale }] }]}
+    >
+      <Pressable
+        onPress={onPress}
+        onPressIn={() => animate(1)}
+        onPressOut={() => animate(0)}
+        hitSlop={8}
+      >
+        <LinearGradient
+          colors={["rgba(44, 44, 68, 0.94)", "rgba(20, 20, 36, 0.94)"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.menuBtn}
+        >
+          {/* Drawn rather than pulled in as an icon font, so the short bar can
+              take the accent and the weights stay ours. */}
+          <View style={styles.burger}>
+            <View style={styles.burgerLine} />
+            <View style={styles.burgerLine} />
+            <View style={[styles.burgerLine, styles.burgerLineShort]} />
+          </View>
+          <Text style={styles.menuBrand}>Metz</Text>
+          {showDot ? <View style={styles.menuDot} /> : null}
+        </LinearGradient>
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -289,10 +329,10 @@ export default function HomeDrawer({
 
 const makeStyles = (t) => StyleSheet.create({
   // ── Floating pill on the map (.map-menu-btn) ─────────────────────────
+  // The position lives on the wrapper so the transform has something to scale
+  // that is not also the thing being laid out.
+  menuWrap: { position: "absolute", start: 14, zIndex: 6, borderRadius: 22, ...SHADOW.s2 },
   menuBtn: {
-    position: "absolute",
-    start: 14,
-    zIndex: 6,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
@@ -300,13 +340,15 @@ const makeStyles = (t) => StyleSheet.create({
     paddingStart: 12,
     paddingEnd: 14,
     borderRadius: 22,
-    backgroundColor: "rgba(28, 28, 46, 0.86)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.14)",
-    ...SHADOW.s2,
+    borderColor: "rgba(255, 255, 255, 0.16)",
+    overflow: "hidden",
   },
   burger: { width: 18, height: 12, justifyContent: "space-between" },
   burgerLine: { height: 2.4, borderRadius: 2, backgroundColor: "#fff" },
+  // Tapered, and in the accent: the detail that stops it being the same three
+  // bars every app draws, and the one part that follows the chosen colour.
+  burgerLineShort: { width: 11, backgroundColor: t.accent },
   menuBrand: { color: "#fff", fontSize: t.fs(13.5), fontFamily: FONTS.heading },
   menuDot: {
     width: 8,
