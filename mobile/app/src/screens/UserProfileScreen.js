@@ -14,21 +14,8 @@ import { backgroundFor } from "../styles/profileLooks";
 import { useTheme } from "../context/ThemeContext";
 import { RADIUS, SHADOW } from "../styles/theme";
 import { useI18n } from "../context/LocaleContext";
-// Module-scope helper below, so it takes the plain `t` rather than the hook.
-import { t } from "../i18n/active";
-import { getActiveLanguage } from "../i18n/active";
 import { Alert } from "../components/AppAlert";
-
-// Convert the UTC timestamp from the API into a date and time people can read.
-function formatProfileTime(value) {
-  if (!value) return t("userProfile.notAvailable");
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return t("userProfile.notAvailable");
-  return date.toLocaleString(getActiveLanguage(), {
-    day: "numeric", month: "long", year: "numeric",
-    hour: "numeric", minute: "2-digit",
-  });
-}
+import { formatAgo, parseTime } from "../utils/time";
 
 export default function UserProfileScreen({ route, navigation }) {
   const { theme } = useTheme();
@@ -117,6 +104,17 @@ export default function UserProfileScreen({ route, navigation }) {
     );
   }
 
+  // profile_highlights() has been computed and sent on every request and then
+  // drawn nowhere. It is the part that answers "who is this person" rather
+  // than "how much have they used the app", which is exactly what someone
+  // opening a stranger's profile is trying to work out.
+  const highlights = user.highlights || {};
+
+  // Ten minutes: long enough that someone reading a meeting page still counts
+  // as there, short enough that "now" means it.
+  const lastOnlineAt = parseTime(user.last_online);
+  const online = !!lastOnlineAt && Date.now() - lastOnlineAt.getTime() < 10 * 60 * 1000;
+
   const memberSince = (() => {
     if (!user.joined_at) return "\u2014";
     const d = new Date(user.joined_at);
@@ -151,6 +149,19 @@ export default function UserProfileScreen({ route, navigation }) {
         </View>
         <Text style={styles.uid}>@{user.uid}</Text>
 
+        {/* Was a card of its own at the foot of the page holding a single full
+            timestamp — "September 13, 2026, 9:03 AM", which nobody reads as
+            "around ten minutes ago". Relative, and next to the name, it is
+            the thing you actually wanted to know before messaging someone. */}
+        {lastOnlineAt ? (
+          <View style={styles.presence}>
+            <View style={[styles.presenceDot, online && styles.presenceDotOn]} />
+            <Text style={styles.presenceText}>
+              {online ? t("userProfile.activeNow") : t("userProfile.activeAgo", { ago: formatAgo(user.last_online) })}
+            </Text>
+          </View>
+        ) : null}
+
         {profile?.is_admin ? (
           <TouchableOpacity style={styles.trustBtn} onPress={handleToggleTrust} activeOpacity={0.85}>
             <Text style={styles.trustBtnText}>{user.is_trusted ? "★ Remove Trusted Status" : "☆ Mark as Trusted"}</Text>
@@ -165,9 +176,16 @@ export default function UserProfileScreen({ route, navigation }) {
         <ReliabilityCard
           reliability={user.reliability}
           style={styles.reliability}
+          // No "Trusted" tile: the badge beside the name already says so when
+          // it is held, and a tile reading "No" about a stranger states a
+          // negative nobody asked for. What replaces it is what they have
+          // actually done — hosted, met, and what they keep turning up to.
           facts={[
-            { value: t(user.is_trusted || user.is_admin ? "common.yes" : "common.no"),
-              label: t("profile.statTrusted") },
+            { value: String(highlights.hosted ?? 0), label: t("profile.statHosted") },
+            { value: String(highlights.people_met ?? 0), label: t("profile.statPeopleMet") },
+            ...(highlights.top_tag
+              ? [{ value: highlights.top_tag, label: t("profile.statTopInterest") }]
+              : []),
             { value: memberSince, label: t("profile.statMemberSince") },
           ]}
           roles={user.is_admin ? [`\u{1F6E0} ${t("profile.roleModerator")}`] : []}
@@ -193,34 +211,28 @@ export default function UserProfileScreen({ route, navigation }) {
         </Appear>
       ) : null}
 
-      {user.hosting?.length ? (
-        <Appear delay={160}>
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>
-              {t("userProfile.hosting", { name: user.display_name || user.username })}
-            </Text>
-            {user.hosting.map((m) => (
+      {/* Rendered even when empty. Silence here is ambiguous — it reads as a
+          section that failed to load rather than as a person with nothing
+          coming up, and whether you can join them is the one thing this screen
+          is for. */}
+      <Appear delay={160}>
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>
+            {t("userProfile.hosting", { name: user.display_name || user.username })}
+          </Text>
+          {user.hosting?.length ? (
+            user.hosting.map((m) => (
               <View key={m.id} style={styles.hostedItem}>
                 <MeetingCard
                   meeting={m}
                   onPress={() => navigation.navigate("MeetingDetail", { meeting: m })}
                 />
               </View>
-            ))}
-          </View>
-        </Appear>
-      ) : null}
-
-      <Appear delay={220}>
-      <View style={styles.activity}>
-        <View style={styles.activityRow}>
-          <Text style={styles.activityIcon}>🟢</Text>
-          <View>
-            <Text style={styles.activityLabel}>{t("userProfile.lastOnline")}</Text>
-            <Text style={styles.activityValue}>{formatProfileTime(user.last_online)}</Text>
-          </View>
+            ))
+          ) : (
+            <Text style={styles.emptyLine}>{t("userProfile.nothingComingUp")}</Text>
+          )}
         </View>
-      </View>
       </Appear>
 
       {/* Blocking is the one that works immediately and needs no moderator, so
@@ -300,14 +312,16 @@ const makeStyles = (t) => StyleSheet.create({
   // The card already provides the outer gap; only the space between them.
   hostedItem: { marginBottom: 10 },
   reliability: { marginHorizontal: 16, marginBottom: 14 },
-  activity: {
-    backgroundColor: t.surface, marginHorizontal: 16, borderRadius: 16, padding: 16,
-    shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2,
+  presence: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8 },
+  // Grey unless they really are around: a dot that is always green says
+  // nothing, and this one is the only thing on the screen claiming "now".
+  presenceDot: {
+    width: 7, height: 7, borderRadius: 3.5,
+    backgroundColor: "rgba(255,255,255,0.5)",
   },
-  activityRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8 },
-  activityIcon: { fontSize: t.fs(18) },
-  activityLabel: { fontSize: t.fs(11), color: t.text3, fontFamily: FONTS.bodySemi, textTransform: "uppercase" },
-  activityValue: { fontSize: t.fs(14), color: t.text, fontFamily: FONTS.bodySemi, marginTop: 2 },
+  presenceDotOn: { backgroundColor: "#4ade80" },
+  presenceText: { fontSize: t.fs(11.5), color: "rgba(255,255,255,0.85)", fontFamily: FONTS.bodySemi },
+  emptyLine: { fontSize: t.fs(13.5), color: t.text3, paddingVertical: 2 },
   errorText: { color: t.text2, fontSize: t.fs(14), marginBottom: 14 },
   retryBtn: { backgroundColor: t.accent, borderRadius: 20, paddingVertical: 10, paddingHorizontal: 24 },
   retryBtnText: { color: t.surface, fontFamily: FONTS.accentMedium },
