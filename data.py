@@ -2030,11 +2030,72 @@ def filter_blocked(uid, meetings):
 
 
 def generate_user_id(email):
-    """Create a short deterministic display ID from an email, e.g. 'ART4821'."""
+    """A short display ID derived from an email, e.g. 'ART4821'.
+
+    Only a *starting point* — see _allocate_uid. Three letters and four digits
+    is ten thousand ids per prefix, so two addresses beginning with the same
+    three characters collide about half the time once a hundred of them exist.
+    Worse, the ids are public (a profile shows @ART4821), so a collision can be
+    aimed: pick a target, then search addresses you own until one hashes to
+    their number. Gmail's "+tag" delivers every candidate to one inbox, which
+    makes that a few thousand tries and a single verified signup.
+
+    So this no longer decides who an account belongs to. It proposes a name;
+    uniqueness is enforced when the account is created, and finding an account
+    from an address goes through uid_for_email.
+    """
     email = email.strip().lower()
     num = int(hashlib.sha256(email.encode()).hexdigest(), 16) % 10000
     prefix = email.split("@")[0][:3].upper()
     return f"{prefix}{num:04d}"
+
+
+def uid_for_email(email):
+    """The account id belonging to an address, or None if it has no account.
+
+    The id can no longer be recomputed from the address — the second holder of
+    a colliding id gets a different one — so the only truthful way to ask "does
+    this address have an account" is to look for it.
+
+    A scan rather than an index: USERS_DB is already entirely in memory, this
+    runs on sign-in rather than per request, and an index is one more thing
+    that can fall out of step with the records it describes. Revisit if the
+    user table ever stops fitting in a process.
+    """
+    wanted = (email or "").strip().lower()
+    if not wanted:
+        return None
+    for uid, record in USERS_DB.items():
+        if (record.get("email") or "").strip().lower() == wanted:
+            return uid
+    return None
+
+
+def _allocate_uid(email):
+    """A free id for a new account, preferring the one derived from the email.
+
+    The derived id is used whenever it is free, so the overwhelming majority of
+    accounts still get the readable id their address suggests and nothing about
+    existing ids changes. Only the loser of a collision is moved, and it is
+    moved within the same prefix so it still looks like every other id.
+    """
+    base = generate_user_id(email)
+    if base not in USERS_DB:
+        return base
+
+    prefix, num = base[:-4], int(base[-4:])
+    for step in range(1, 10000):
+        candidate = f"{prefix}{(num + step) % 10000:04d}"
+        if candidate not in USERS_DB:
+            return candidate
+
+    # Ten thousand accounts share these three letters. Widening the id beats
+    # refusing the signup, and at that point one more digit is not the thing
+    # anybody will notice.
+    while True:
+        candidate = f"{prefix}{secrets.randbelow(1000000):06d}"
+        if candidate not in USERS_DB:
+            return candidate
 
 
 def get_joined_users_preview(joined_uids, limit=4):
@@ -2064,8 +2125,18 @@ def generate_user_color(uid):
 
 
 def register_user(email):
-    """Add user to USERS_DB if not already present. Returns their display ID."""
-    uid = generate_user_id(email)
+    """Add user to USERS_DB if not already present. Returns their display ID.
+
+    Looked up by address, not by derived id. It used to do the latter, which
+    meant a second person whose address happened to derive the same id was
+    handed the first person's account — their name, their bio, their meetings —
+    after verifying nothing but their own inbox.
+    """
+    existing = uid_for_email(email)
+    if existing:
+        return existing
+
+    uid = _allocate_uid(email)
     if uid not in USERS_DB:
         now = datetime.now(timezone.utc).isoformat()
         USERS_DB[uid] = {

@@ -9,7 +9,7 @@ import time
 import requests
 from flask import Blueprint, request, jsonify
 
-from data import register_user, generate_user_id, get_user
+from data import register_user, uid_for_email
 from utils.auth_errors import friendly_auth_error
 from utils.email_utils import (
     generate_verification_code, send_verification_email, EmailNotSent,
@@ -293,8 +293,10 @@ def login():
     # verified email into a Metz account; login used to call register_user too,
     # which made the whole code step optional — sign up, ignore the email, then
     # log in with the same details and you were through with a full account.
-    uid = generate_user_id(email)
-    if not get_user(uid):
+    # By address, not by derived id: ids are no longer recomputable from an
+    # email, because a collision gives the second holder a different one.
+    uid = uid_for_email(email)
+    if not uid:
         # Firebase knows the address, so the password was right, but this
         # account was never verified here. Rather than refusing and leaving
         # them stuck — they cannot sign up again, Firebase already has the
@@ -309,21 +311,31 @@ def login():
         try:
             send_verification_email(email, code)
         except EmailNotSent as exc:
-            # Same call as in signup, for the same reason. Without this, the
-            # rule above ("signing in must not create the account") would lock
-            # out every account that signed up while mail was broken — they
-            # never got a code, so they were never registered, and refusing
-            # them here would leave them with no way in at all.
-            print(f"[Metz] verification email failed for {email}: {exc} "
-                  f"— letting them in without it", flush=True)
-            uid = register_user(email)
+            print(f"[Metz] verification email failed for {email}: {exc}", flush=True)
             PENDING_SIGNUPS.pop(email, None)
+
+            if DEV_MODE:
+                # A laptop has no mail credentials by design, so without this
+                # there is no way to reach an account while working on the app.
+                uid = register_user(email)
+                return jsonify({
+                    "uid": uid,
+                    "email": email,
+                    "token": issue_token(uid),
+                    "email_failed": True,
+                })
+
+            # Production must not create the account here. Firebase will hand
+            # out credentials for an address without ever checking that the
+            # person owns it, so "the password was right" is not evidence of
+            # anything — registering on that basis is the same unverified-signup
+            # hole that /api/signup had, reached through the login door.
             return jsonify({
-                "uid": uid,
+                "error": "This account still needs verifying, and we couldn't "
+                         "send the code just now. Please try again in a few minutes.",
+                "status": "pending_verification",
                 "email": email,
-                "token": issue_token(uid),
-                "email_failed": True,
-            })
+            }), 503
         return jsonify({
             "error": "This account hasn't been verified yet — we've sent a new code to your email.",
             "status": "pending_verification",

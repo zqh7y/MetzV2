@@ -2,7 +2,7 @@ import os
 import time
 from flask import request, render_template, session, redirect, url_for
 import requests
-from data import generate_user_id, get_user, is_banned
+from data import uid_for_email, is_banned
 from utils.auth_errors import friendly_auth_error
 from utils.email_utils import (
     generate_verification_code, send_verification_email, EmailNotSent,
@@ -40,8 +40,9 @@ def login_route():
             # turns a verified email into a Metz account; calling register_user
             # here as well made the code step optional — sign up, ignore the
             # email, log in with the same details and you were through.
-            uid = generate_user_id(email)
-            if not get_user(uid):
+            # By address, not by derived id — see data.uid_for_email.
+            uid = uid_for_email(email)
+            if not uid:
                 # The password was right, so Firebase knows the address, but it
                 # was never verified here. Refusing outright would strand them,
                 # since signing up again only reports the address as taken — so
