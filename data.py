@@ -1919,6 +1919,7 @@ def get_joined_users_preview(joined_uids, limit=4):
             # Same reason as public_user(): the stack on a meeting card is the
             # most-seen place a person's avatar appears in the whole app.
             "avatar_emoji": (user.get("avatar_emoji") or "") if user else "",
+            "avatar_face": (user.get("avatar_face") or "") if user else "",
             "profile_frame": (user.get("profile_frame") or "none") if user else "none",
             "color": generate_user_color(uid),
             "initial": username[:1].upper(),
@@ -2056,6 +2057,7 @@ def public_user(u):
         "username": u.get("display_name") or u.get("username", ""),
         "bio": u.get("bio", ""),
         "avatar_emoji": u.get("avatar_emoji", ""),
+        "avatar_face": u.get("avatar_face", ""),
         # The look someone chose has to travel with them everywhere they are
         # drawn, not only on their own profile — otherwise picking a frame
         # changes one screen and nothing else, which reads as not having saved.
@@ -2173,6 +2175,7 @@ def platform_stats():
         "name": u.get("display_name") or u.get("username") or u["uid"],
         "created": len(u.get("created_meeting_ids", [])),
         "color": generate_user_color(u["uid"]),
+        "avatar_face": u.get("avatar_face") or "",
     } for u in organisers]
 
     return {
@@ -2218,6 +2221,10 @@ def platform_stats():
 PROFILE_EMOJIS = ["😀", "😎", "🤓", "🥳", "🧑‍💻", "🎨", "🎧", "⚽", "🏔️",
                   "🌊", "🍕", "☕", "📚", "🎬", "🐱", "🐶", "🌸", "🚀"]
 
+# Drawn faces, an alternative to an emoji. Ids only — components/FaceAvatar.js
+# owns the drawings, for the same reason PROFILE_FRAMES owns no colours.
+AVATAR_FACES = [f"face{n}" for n in range(1, 16)]
+
 # Look-and-feel presets. The server stores only the id and the client owns the
 # actual colours: a palette is a design decision that changes far more often
 # than the API, and shipping hex values from here would freeze the look until
@@ -2239,7 +2246,7 @@ MAX_INTERESTS = 5
 
 def update_profile(uid, display_name=None, bio=None, avatar_emoji=None,
                    profile_frame=None, profile_background=None, interests=None,
-                   onboarded=None, role=None):
+                   onboarded=None, role=None, avatar_face=None):
     """Update the parts of a profile a user is allowed to change.
 
     Everything is length-capped and HTML-escaped, since these strings end up
@@ -2259,6 +2266,11 @@ def update_profile(uid, display_name=None, bio=None, avatar_emoji=None,
     if avatar_emoji is not None:
         # Whitelist only — an arbitrary string here would be rendered as-is.
         user["avatar_emoji"] = avatar_emoji if avatar_emoji in PROFILE_EMOJIS else ""
+    if avatar_face is not None:
+        # "" clears it, which is how someone goes back to an emoji or their
+        # initials. Anything unrecognised clears it too, rather than being
+        # stored and rendered as a missing drawing.
+        user["avatar_face"] = avatar_face if avatar_face in AVATAR_FACES else ""
     if profile_frame is not None:
         user["profile_frame"] = profile_frame if profile_frame in PROFILE_FRAMES else "none"
     if profile_background is not None:

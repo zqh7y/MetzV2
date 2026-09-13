@@ -63,6 +63,7 @@ def admin_dashboard():
             "username": display_name_for(u["uid"]),
             "email": u.get("email", ""),
             "color": generate_user_color(u["uid"]),
+            "avatar_face": u.get("avatar_face") or "",
             "initial": (display_name_for(u["uid"]) or u["uid"])[:1].upper(),
             "is_admin": is_admin(u["uid"]),
             "is_trusted": is_trusted(u["uid"]),
