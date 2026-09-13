@@ -18,7 +18,16 @@ export const PREF_DEFAULTS = {
   // changed nothing at all. A value left in storage from before is simply
   // ignored now.
   sheet: "peek",         // peek | half | full  (Home sheet on open)
+  // How big the app's text is. Not the phone's setting — this one is Metz's
+  // own, so someone who wants larger type here does not have to enlarge every
+  // other app on their phone to get it.
+  textSize: "default",   // small | default | large | larger
 };
+
+// Multipliers rather than point sizes: every size in the app is written for
+// "default", so a factor keeps the proportions between a heading and a label
+// intact instead of flattening them towards one size.
+export const TEXT_SCALES = { small: 0.92, default: 1, large: 1.12, larger: 1.25 };
 
 const PREF_KEYS = Object.keys(PREF_DEFAULTS);
 const storageKey = (key) => `pref:${key}`;
@@ -49,7 +58,15 @@ export function ThemeProvider({ children }) {
 
   // "system" follows the phone; the other two are explicit, exactly as on web.
   const scheme = prefs.theme === "system" ? (systemScheme || "light") : prefs.theme;
-  const theme = useMemo(() => buildTheme(scheme, prefs.accent), [scheme, prefs.accent]);
+  const theme = useMemo(() => {
+    const base = buildTheme(scheme, prefs.accent);
+    const factor = TEXT_SCALES[prefs.textSize] ?? 1;
+    // `fs` is what every style calls instead of writing a bare number, so one
+    // preference resizes the whole app without each screen knowing about it.
+    // Rounded to a half point: fractional sizes make text land off the pixel
+    // grid and look slightly soft on Android.
+    return { ...base, fs: (n) => Math.round(n * factor * 2) / 2, textScale: factor };
+  }, [scheme, prefs.accent, prefs.textSize]);
 
   const value = useMemo(() => {
     function setPref(key, next) {
@@ -73,6 +90,7 @@ export function ThemeProvider({ children }) {
       density: prefs.density,
       motion: prefs.motion,
       sheet: prefs.sheet,
+      textSize: prefs.textSize,
 
       // Convenience for the two the layout asks about constantly.
       comfortable: prefs.density === "comfortable",

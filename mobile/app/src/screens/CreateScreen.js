@@ -713,8 +713,8 @@ const makeStyles = (t) => StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     elevation: 6,
   },
-  headerTitle: { fontSize: 20, fontFamily: FONTS.headingExtra, color: t.text },
-  headerSub: { fontSize: 13, color: t.text2, marginTop: 1 },
+  headerTitle: { fontSize: t.fs(20), fontFamily: FONTS.headingExtra, color: t.text },
+  headerSub: { fontSize: t.fs(13), color: t.text2, marginTop: 1 },
 
   preview: {
     flexDirection: "row",
@@ -738,8 +738,8 @@ const makeStyles = (t) => StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  previewTitle: { fontSize: 15, fontFamily: FONTS.heading, color: t.text },
-  previewMeta: { fontSize: 11.5, color: t.text3, marginTop: 2 },
+  previewTitle: { fontSize: t.fs(15), fontFamily: FONTS.heading, color: t.text },
+  previewMeta: { fontSize: t.fs(11.5), color: t.text3, marginTop: 2 },
 
   card: {
     backgroundColor: t.surface,
@@ -760,17 +760,17 @@ const makeStyles = (t) => StyleSheet.create({
     justifyContent: "center",
   },
   sectionStep: {
-    fontSize: 9.5,
+    fontSize: t.fs(9.5),
     fontFamily: FONTS.accent,
     color: t.text3,
     letterSpacing: 1,
   },
-  sectionTitle: { fontSize: 16, fontFamily: FONTS.heading, color: t.text },
-  sectionSub: { fontSize: 12, color: t.text3, lineHeight: 17, marginTop: 6 },
+  sectionTitle: { fontSize: t.fs(16), fontFamily: FONTS.heading, color: t.text },
+  sectionSub: { fontSize: t.fs(12), color: t.text3, lineHeight: 17, marginTop: 6 },
 
   labelRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   label: {
-    fontSize: 11,
+    fontSize: t.fs(11),
     fontFamily: FONTS.bodySemi,
     color: t.text3,
     textTransform: "uppercase",
@@ -778,20 +778,20 @@ const makeStyles = (t) => StyleSheet.create({
     marginTop: 16,
     marginBottom: 7,
   },
-  counter: { fontSize: 11, color: t.text3, marginTop: 9, fontFamily: FONTS.accentMedium },
+  counter: { fontSize: t.fs(11), color: t.text3, marginTop: 9, fontFamily: FONTS.accentMedium },
   input: {
     borderWidth: 1.5,
     borderColor: t.border,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 12,
-    fontSize: 14,
+    fontSize: t.fs(14),
     color: t.text,
     backgroundColor: t.surface2,
   },
   textarea: { height: 88 },
 
-  visibilityNote: { fontSize: 12.5, lineHeight: 18, color: t.text3, marginTop: 8, marginBottom: 4 },
+  visibilityNote: { fontSize: t.fs(12.5), lineHeight: 18, color: t.text3, marginTop: 8, marginBottom: 4 },
   typeRow: { flexDirection: "row", gap: 10, marginTop: 14 },
   typeBtn: {
     flex: 1,
@@ -806,7 +806,7 @@ const makeStyles = (t) => StyleSheet.create({
     backgroundColor: t.surface2,
   },
   typeBtnActive: { backgroundColor: t.accent, borderColor: t.accent },
-  typeText: { fontSize: 13.5, fontFamily: FONTS.bodySemi, color: t.text2 },
+  typeText: { fontSize: t.fs(13.5), fontFamily: FONTS.bodySemi, color: t.text2 },
   typeTextActive: { color: t.accentOn },
 
   tagWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
@@ -819,7 +819,7 @@ const makeStyles = (t) => StyleSheet.create({
     backgroundColor: t.surface2,
   },
   tagBtnActive: { backgroundColor: t.accent, borderColor: t.accent },
-  tagBtnText: { fontSize: 12, fontFamily: FONTS.bodySemi, color: t.text2 },
+  tagBtnText: { fontSize: t.fs(12), fontFamily: FONTS.bodySemi, color: t.text2 },
   tagBtnTextActive: { color: t.accentOn },
   emojiBtn: {
     width: 42,
@@ -833,9 +833,9 @@ const makeStyles = (t) => StyleSheet.create({
   },
   emojiBtnActive: { backgroundColor: t.accentSoft, borderColor: t.accent },
 
-  hint: { fontSize: 12, color: t.text3, marginTop: 8 },
+  hint: { fontSize: t.fs(12), color: t.text3, marginTop: 8 },
   hintDone: { color: t.accentStrong, fontFamily: FONTS.bodySemi },
-  hintBad: { fontSize: 12, color: t.status.bad, marginTop: 8, fontFamily: FONTS.bodySemi },
+  hintBad: { fontSize: t.fs(12), color: t.status.bad, marginTop: 8, fontFamily: FONTS.bodySemi },
   inputBad: { borderColor: t.status.bad },
 
   // "Use my location" — outlined rather than filled, so it reads as a shortcut
@@ -853,7 +853,7 @@ const makeStyles = (t) => StyleSheet.create({
     backgroundColor: t.accentSoft,
   },
   locateBtnBusy: { opacity: 0.7 },
-  locateBtnText: { fontSize: 13.5, fontFamily: FONTS.bodySemi, color: t.accentStrong },
+  locateBtnText: { fontSize: t.fs(13.5), fontFamily: FONTS.bodySemi, color: t.accentStrong },
 
   quickRow: { flexDirection: "row", gap: 8, marginBottom: 12 },
   quickBtn: {
@@ -867,7 +867,7 @@ const makeStyles = (t) => StyleSheet.create({
     backgroundColor: t.surface2,
   },
   quickBtnActive: { backgroundColor: t.accent, borderColor: t.accent },
-  quickText: { fontSize: 12.5, fontFamily: FONTS.bodySemi, color: t.text2 },
+  quickText: { fontSize: t.fs(12.5), fontFamily: FONTS.bodySemi, color: t.text2 },
   quickTextActive: { color: t.accentOn },
 
   stepper: { flexDirection: "row", alignItems: "center", gap: 14 },
@@ -881,8 +881,8 @@ const makeStyles = (t) => StyleSheet.create({
     justifyContent: "center",
     backgroundColor: t.surface2,
   },
-  stepperText: { fontSize: 20, color: t.text, fontFamily: FONTS.accent, lineHeight: 24 },
-  stepperValue: { fontSize: 18, fontFamily: FONTS.accent, color: t.text, minWidth: 34, textAlign: "center" },
+  stepperText: { fontSize: t.fs(20), color: t.text, fontFamily: FONTS.accent, lineHeight: 24 },
+  stepperValue: { fontSize: t.fs(18), fontFamily: FONTS.accent, color: t.text, minWidth: 34, textAlign: "center" },
 
   // #create-map: 240px with a 1.5px border on the web
   mapOpen: {
@@ -890,7 +890,7 @@ const makeStyles = (t) => StyleSheet.create({
     alignItems: "center", backgroundColor: t.accentSoft,
     borderWidth: 1, borderColor: t.accent,
   },
-  mapOpenText: { fontSize: 14, fontFamily: FONTS.accent, color: t.accentStrong },
+  mapOpenText: { fontSize: t.fs(14), fontFamily: FONTS.accent, color: t.accentStrong },
   mapWrap: {
     height: 240,
     borderRadius: RADIUS.base,
@@ -913,7 +913,7 @@ const makeStyles = (t) => StyleSheet.create({
     shadowOffset: { width: 0, height: -4 },
     elevation: 12,
   },
-  actionHint: { fontSize: 11.5, color: t.text3, marginBottom: 9, fontFamily: FONTS.bodySemi },
+  actionHint: { fontSize: t.fs(11.5), color: t.text3, marginBottom: 9, fontFamily: FONTS.bodySemi },
   actionHintReady: { color: t.status.good },
   submitBtn: {
     backgroundColor: t.accent,
@@ -923,7 +923,7 @@ const makeStyles = (t) => StyleSheet.create({
     ...SHADOW.s2,
   },
   submitBtnInert: { backgroundColor: t.surface3, shadowOpacity: 0, elevation: 0 },
-  submitText: { color: t.accentOn, fontFamily: FONTS.accent, fontSize: 16, letterSpacing: 0.3 },
+  submitText: { color: t.accentOn, fontFamily: FONTS.accent, fontSize: t.fs(16), letterSpacing: 0.3 },
   submitTextInert: { color: t.text3 },
 
   error: {
@@ -935,7 +935,7 @@ const makeStyles = (t) => StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     marginBottom: 14,
-    fontSize: 13.5,
+    fontSize: t.fs(13.5),
     fontFamily: FONTS.bodySemi,
   },
 });

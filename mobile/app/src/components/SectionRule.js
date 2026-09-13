@@ -43,7 +43,7 @@ const makeStyles = (t) => StyleSheet.create({
   headRow: { flexDirection: "row", alignItems: "center" },
   icon: { marginEnd: 7 },
   label: {
-    fontSize: 11.5,
+    fontSize: t.fs(11.5),
     fontFamily: FONTS.accent,
     letterSpacing: 1.1,
     textTransform: "uppercase",
@@ -56,8 +56,8 @@ const makeStyles = (t) => StyleSheet.create({
     backgroundColor: t.accentSoft,
   },
   countPillFar: { backgroundColor: t.surface3 },
-  count: { fontSize: 11, fontFamily: FONTS.accent, color: t.accentStrong },
+  count: { fontSize: t.fs(11), fontFamily: FONTS.accent, color: t.accentStrong },
   countFar: { color: t.text3 },
   rule: { flex: 1, height: 1, marginStart: 12 },
-  note: { fontSize: 11, color: t.text3, marginTop: 4 },
+  note: { fontSize: t.fs(11), color: t.text3, marginTop: 4 },
 });

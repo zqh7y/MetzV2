@@ -44,14 +44,14 @@ const makeStyles = (t) => StyleSheet.create({
   name: {
     marginTop: 22,
     fontFamily: FONTS.headingExtra,
-    fontSize: 34,
+    fontSize: t.fs(34),
     letterSpacing: -0.6,
     color: t.text,
   },
-  tagline: { marginTop: 6, fontSize: 14, color: t.text2 },
+  tagline: { marginTop: 6, fontSize: t.fs(14), color: t.text2 },
   blurb: {
     textAlign: "center",
-    fontSize: 12.5,
+    fontSize: t.fs(12.5),
     lineHeight: 19,
     color: t.text3,
   },

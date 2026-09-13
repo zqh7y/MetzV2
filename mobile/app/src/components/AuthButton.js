@@ -46,7 +46,7 @@ const makeStyles = (t) => StyleSheet.create({
   label: {
     color: "#fff",
     fontFamily: FONTS.accent,
-    fontSize: 15.5,
+    fontSize: t.fs(15.5),
     letterSpacing: 0.2,
     includeFontPadding: false,
   },

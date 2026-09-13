@@ -58,7 +58,7 @@ const makeStyles = (t) => StyleSheet.create({
   },
   fill: { height: "100%", borderRadius: 3 },
   label: {
-    fontSize: 11.5,
+    fontSize: t.fs(11.5),
     fontFamily: FONTS.bodySemi,
     color: t.text3,
     // min-width: 6ch, so "Strong" and "" hold the same slot.

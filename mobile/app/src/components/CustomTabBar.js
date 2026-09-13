@@ -77,8 +77,8 @@ const makeStyles = (t) => StyleSheet.create({
     elevation: 8,
   },
   tabBtn: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 4 },
-  icon: { fontSize: 20, marginBottom: 3 },
-  label: { fontSize: 11, fontWeight: "600", color: t.text3 },
+  icon: { fontSize: t.fs(20), marginBottom: 3 },
+  label: { fontSize: t.fs(11), fontWeight: "600", color: t.text3 },
   labelActive: { color: t.accent, fontWeight: "700" },
   dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: t.accent, marginTop: 4 },
   // Not a rule of its own — just somewhere to keep the ripple colour themed

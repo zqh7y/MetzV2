@@ -62,7 +62,7 @@ export default function VerifyScreen({ route }) {
 // Same surface/border tokens as .auth-input, just sized for a 4-digit code.
 const makeStyles = (t) => StyleSheet.create({
   codeInput: {
-    fontSize: 28, fontFamily: FONTS.headingExtra, color: t.text, textAlign: "center", letterSpacing: 8,
+    fontSize: t.fs(28), fontFamily: FONTS.headingExtra, color: t.text, textAlign: "center", letterSpacing: 8,
     borderWidth: 1.5, borderColor: t.border, borderRadius: 12, backgroundColor: t.surface,
     paddingVertical: 14, marginBottom: 16,
   },

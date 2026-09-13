@@ -187,9 +187,9 @@ const makeStyles = (t) => StyleSheet.create({
     backgroundColor: t.surface,
     ...SHADOW.s3,
   },
-  title: { fontSize: 17, fontFamily: FONTS.heading, color: t.text },
+  title: { fontSize: t.fs(17), fontFamily: FONTS.heading, color: t.text },
   // Only spaced from the title when there is a title to be spaced from.
-  message: { marginTop: 8, fontSize: 14, lineHeight: 20, color: t.text2 },
+  message: { marginTop: 8, fontSize: t.fs(14), lineHeight: 20, color: t.text2 },
 
   actions: { flexDirection: "row", gap: 8, marginTop: 20 },
   actionsStacked: { flexDirection: "column-reverse", gap: 8 },
@@ -210,7 +210,7 @@ const makeStyles = (t) => StyleSheet.create({
   buttonCancel: { backgroundColor: t.surface2 },
   buttonDestructive: { backgroundColor: t.status.badSoft || t.surface2 },
 
-  buttonText: { fontSize: 15, fontFamily: FONTS.bodySemi, color: t.accentOn, textAlign: "center" },
+  buttonText: { fontSize: t.fs(15), fontFamily: FONTS.bodySemi, color: t.accentOn, textAlign: "center" },
   buttonTextCancel: { color: t.text2 },
   buttonTextDestructive: { color: t.status.bad },
 });

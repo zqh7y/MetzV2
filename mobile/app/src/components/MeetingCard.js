@@ -8,6 +8,8 @@ import AnimatedPressable from "./AnimatedPressable";
 import { MapPinIcon, GlobeIcon, TagIcon } from "./NavIcons";
 import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
+import { useLocation } from "../context/LocationContext";
+import { distanceToMeeting, formatDistance } from "../utils/distance";
 import { formatWhen, formatRelative } from "../utils/time";
 import { CARD_GRADIENTS, RADIUS, SHADOW } from "../styles/theme";
 import { useI18n } from "../context/LocaleContext";
@@ -32,6 +34,23 @@ import { localizedTag } from "../i18n/vocab";
 const MAX_TAGS = 3;
 
 function MeetingCard({ meeting, index = 0, distance, onPress, onJoin, onDelete }) {
+  /**
+   * How far away this is, worked out here rather than passed in.
+   *
+   * Home already computes distances because it sorts by them, and it still
+   * passes its own. Everywhere else — Explore, your meetings, someone's
+   * profile — the card was the same card with the distance missing, which is
+   * the thing you most want to know about a meeting you are looking at.
+   *
+   * Empty for online meetings and whenever the phone's position is unknown:
+   * the API stores those with no coordinates, so there is nothing to measure.
+   */
+  const myPosition = useLocation();
+  const shown = distance || (() => {
+    const km = distanceToMeeting(myPosition, meeting);
+    return Number.isFinite(km) ? formatDistance(km) : "";
+  })();
+
   const { theme } = useTheme();
   const { t } = useI18n();
   const styles = useMemo(() => makeStyles(theme), [theme]);
@@ -113,9 +132,9 @@ function MeetingCard({ meeting, index = 0, distance, onPress, onJoin, onDelete }
             {relative}
           </Text>
         </View>
-        {distance ? (
+        {shown ? (
           <View style={[styles.chip, styles.chipDistance]}>
-            <Text style={[styles.chipText, styles.chipDistanceText]}>{distance}</Text>
+            <Text style={[styles.chipText, styles.chipDistanceText]}>{shown}</Text>
           </View>
         ) : null}
       </View>
@@ -225,12 +244,12 @@ const makeStyles = (t) => StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  tileEmoji: { fontSize: 26 },
+  tileEmoji: { fontSize: t.fs(26) },
   headText: { flex: 1, minWidth: 0, justifyContent: "center" },
-  title: { fontSize: 17, fontFamily: FONTS.heading, color: t.text, lineHeight: 21 },
-  when: { fontSize: 12.5, fontFamily: FONTS.accentMedium, color: t.text2, marginTop: 3 },
+  title: { fontSize: t.fs(17), fontFamily: FONTS.heading, color: t.text, lineHeight: 21 },
+  when: { fontSize: t.fs(12.5), fontFamily: FONTS.accentMedium, color: t.text2, marginTop: 3 },
   placeRow: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 2 },
-  place: { flexShrink: 1, fontSize: 12, color: t.text3 },
+  place: { flexShrink: 1, fontSize: t.fs(12), color: t.text3 },
 
   // Every secondary fact is a chip on one wrapping row, instead of each
   // claiming its own line and stretching the card.
@@ -252,10 +271,10 @@ const makeStyles = (t) => StyleSheet.create({
     borderRadius: RADIUS.pill,
     backgroundColor: t.surface2,
   },
-  tagChipText: { flexShrink: 1, fontSize: 10.5, fontFamily: FONTS.bodyMedium, color: t.text2 },
+  tagChipText: { flexShrink: 1, fontSize: t.fs(10.5), fontFamily: FONTS.bodyMedium, color: t.text2 },
 
   chip: { borderRadius: RADIUS.pill, paddingHorizontal: 9, paddingVertical: 3.5 },
-  chipText: { fontSize: 10.5, fontFamily: FONTS.accent },
+  chipText: { fontSize: t.fs(10.5), fontFamily: FONTS.accent },
   chipInPerson: { backgroundColor: t.accentSoft },
   chipOnline: { backgroundColor: t.surface3 },
   chipTextInPerson: { color: t.accentStrong },
@@ -267,15 +286,15 @@ const makeStyles = (t) => StyleSheet.create({
   chipDistance: { backgroundColor: t.accentSoft },
   chipDistanceText: { color: t.accentStrong },
 
-  desc: { fontSize: 13, color: t.text2, marginTop: 9, lineHeight: 18 },
+  desc: { fontSize: t.fs(13), color: t.text2, marginTop: 9, lineHeight: 18 },
 
   rule: { height: 1, backgroundColor: t.border, marginTop: 12 },
 
   footer: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 11 },
   goingWrap: { flex: 1, minWidth: 0 },
-  going: { fontSize: 12.5, fontFamily: FONTS.bodySemi, color: t.text },
+  going: { fontSize: t.fs(12.5), fontFamily: FONTS.bodySemi, color: t.text },
   creatorRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 1 },
-  creator: { fontSize: 11.5, color: t.text3, flexShrink: 1 },
+  creator: { fontSize: t.fs(11.5), color: t.text3, flexShrink: 1 },
   // Also unshadowed, for the same reason — a solid accent pill on a white card
   // already stands out without a glow behind it.
   joinBtn: {
@@ -285,7 +304,7 @@ const makeStyles = (t) => StyleSheet.create({
     backgroundColor: t.accent,
   },
   joinBtnActive: { backgroundColor: t.surface3 },
-  joinBtnText: { fontSize: 13, fontFamily: FONTS.accent, color: t.accentOn },
+  joinBtnText: { fontSize: t.fs(13), fontFamily: FONTS.accent, color: t.accentOn },
   joinBtnTextActive: { color: t.text2 },
   deleteBtn: { padding: 4 },
   deleteBtnText: { color: t.status.bad, fontFamily: FONTS.accent },

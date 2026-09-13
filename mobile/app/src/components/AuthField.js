@@ -80,9 +80,9 @@ export default function AuthField({ label, icon = "mail", reveal = false, action
 const makeStyles = (t) => StyleSheet.create({
   field: { marginBottom: 16 },
   labelRow: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" },
-  action: { fontSize: 12, fontFamily: FONTS.bodySemi, color: t.accent, marginBottom: 7 },
+  action: { fontSize: t.fs(12), fontFamily: FONTS.bodySemi, color: t.accent, marginBottom: 7 },
   label: {
-    fontSize: 12.5,
+    fontSize: t.fs(12.5),
     fontFamily: FONTS.bodySemi,
     letterSpacing: 0.2,
     color: t.text2,
@@ -112,7 +112,7 @@ const makeStyles = (t) => StyleSheet.create({
     flex: 1,
     paddingVertical: 0,
     paddingEnd: 6,
-    fontSize: 15,
+    fontSize: t.fs(15),
     fontFamily: FONTS.body,
     color: t.text,
     includeFontPadding: false,

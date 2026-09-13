@@ -107,6 +107,6 @@ const makeStyles = (t) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.accent,
   },
-  sentIcon: { fontSize: 20, lineHeight: 24 },
-  sentText: { flex: 1, fontSize: 13.5, lineHeight: 20, color: t.text, fontFamily: FONTS.body },
+  sentIcon: { fontSize: t.fs(20), lineHeight: 24 },
+  sentText: { flex: 1, fontSize: t.fs(13.5), lineHeight: 20, color: t.text, fontFamily: FONTS.body },
 });

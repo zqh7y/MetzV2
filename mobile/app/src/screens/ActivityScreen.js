@@ -285,9 +285,9 @@ const makeStyles = (t) => StyleSheet.create({
     borderColor: t.border,
     ...SHADOW.s1,
   },
-  heroCount: { fontSize: 34, fontFamily: FONTS.accent, color: t.accentStrong, minWidth: 44, textAlign: "center" },
-  heroTitle: { fontSize: 16, fontFamily: FONTS.heading, color: t.text },
-  heroSub: { fontSize: 12.5, color: t.text3, marginTop: 2 },
+  heroCount: { fontSize: t.fs(34), fontFamily: FONTS.accent, color: t.accentStrong, minWidth: 44, textAlign: "center" },
+  heroTitle: { fontSize: t.fs(16), fontFamily: FONTS.heading, color: t.text },
+  heroSub: { fontSize: t.fs(12.5), color: t.text3, marginTop: 2 },
 
   reliability: { marginTop: 12 },
 
@@ -300,14 +300,14 @@ const makeStyles = (t) => StyleSheet.create({
     borderColor: t.border,
   },
   sectionHead: { flexDirection: "row", alignItems: "center", gap: 8 },
-  sectionTitle: { fontSize: 15, fontFamily: FONTS.heading, color: t.text },
+  sectionTitle: { fontSize: t.fs(15), fontFamily: FONTS.heading, color: t.text },
   // The three "you owe an answer" sections carry the accent; the rest are grey.
   sectionTitleAction: { color: t.accentStrong },
   pill: { borderRadius: RADIUS.pill, paddingHorizontal: 8, paddingVertical: 2, backgroundColor: t.surface3 },
   pillAction: { backgroundColor: t.accentSoft },
-  pillText: { fontSize: 11, fontFamily: FONTS.accent, color: t.text3 },
+  pillText: { fontSize: t.fs(11), fontFamily: FONTS.accent, color: t.text3 },
   pillTextAction: { color: t.accentStrong },
-  sectionBlurb: { fontSize: 12, color: t.text3, marginTop: 4, marginBottom: 6, lineHeight: 17 },
+  sectionBlurb: { fontSize: t.fs(12), color: t.text3, marginTop: 4, marginBottom: 6, lineHeight: 17 },
 
   row: { flexDirection: "row", alignItems: "center", gap: 11, paddingVertical: 9 },
   rowEmoji: {
@@ -316,31 +316,31 @@ const makeStyles = (t) => StyleSheet.create({
     backgroundColor: t.surface2,
   },
   rowBody: { flex: 1, minWidth: 0 },
-  rowTitle: { fontSize: 14.5, fontFamily: FONTS.bodySemi, color: t.text },
-  rowWhen: { fontSize: 12, fontFamily: FONTS.accentMedium, color: t.text2, marginTop: 1 },
+  rowTitle: { fontSize: t.fs(14.5), fontFamily: FONTS.bodySemi, color: t.text },
+  rowWhen: { fontSize: t.fs(12), fontFamily: FONTS.accentMedium, color: t.text2, marginTop: 1 },
   rowMeta: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 1 },
-  rowWhere: { fontSize: 11.5, color: t.text3, flexShrink: 1 },
+  rowWhere: { fontSize: t.fs(11.5), color: t.text3, flexShrink: 1 },
   rowRight: { alignItems: "center", flexDirection: "row", gap: 4 },
-  rowRel: { fontSize: 11, fontFamily: FONTS.accentMedium, color: t.text3 },
+  rowRel: { fontSize: t.fs(11), fontFamily: FONTS.accentMedium, color: t.text3 },
 
   // Inline answer for "Did you go?". Indented to the row's text so it
   // reads as belonging to that meeting rather than to the section.
   answerRow: { flexDirection: "row", gap: 8, paddingStart: 49, paddingBottom: 10, alignItems: "center" },
   answerBtn: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: RADIUS.pill, borderWidth: 1 },
   answerWent: { backgroundColor: t.status.goodSoft, borderColor: t.status.good },
-  answerWentText: { fontSize: 12.5, fontFamily: FONTS.bodySemi, color: t.status.good },
+  answerWentText: { fontSize: t.fs(12.5), fontFamily: FONTS.bodySemi, color: t.status.good },
   answerMissed: { backgroundColor: t.surface2, borderColor: t.border },
-  answerMissedText: { fontSize: 12.5, fontFamily: FONTS.bodySemi, color: t.text2 },
+  answerMissedText: { fontSize: t.fs(12.5), fontFamily: FONTS.bodySemi, color: t.text2 },
 
   emptyBox: {
     marginTop: 14, padding: 22, borderRadius: RADIUS.lg, alignItems: "center",
     backgroundColor: t.surface, borderWidth: 1, borderColor: t.border,
   },
-  emptyTitle: { fontSize: 16, fontFamily: FONTS.heading, color: t.text, textAlign: "center" },
-  emptyBody: { fontSize: 13.5, color: t.text3, marginTop: 6, textAlign: "center", lineHeight: 19 },
+  emptyTitle: { fontSize: t.fs(16), fontFamily: FONTS.heading, color: t.text, textAlign: "center" },
+  emptyBody: { fontSize: t.fs(13.5), color: t.text3, marginTop: 6, textAlign: "center", lineHeight: 19 },
   retry: {
     marginTop: 14, backgroundColor: t.accent, borderRadius: RADIUS.pill,
     paddingHorizontal: 22, paddingVertical: 10,
   },
-  retryText: { color: t.accentOn, fontFamily: FONTS.accent, fontSize: 13.5 },
+  retryText: { color: t.accentOn, fontFamily: FONTS.accent, fontSize: t.fs(13.5) },
 });

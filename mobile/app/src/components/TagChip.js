@@ -12,7 +12,7 @@ export default function TagChip({ label }) {
 
 const makeStyles = (t) => StyleSheet.create({
   chip: {
-    fontSize: 10,
+    fontSize: t.fs(10),
     fontWeight: "600",
     color: t.text2,
     backgroundColor: t.surface2,

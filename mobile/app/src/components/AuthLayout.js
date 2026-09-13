@@ -132,20 +132,20 @@ const makeStyles = (t) => StyleSheet.create({
   brandLogo: { marginEnd: 10, justifyContent: "center" },
   brandName: {
     fontFamily: FONTS.headingExtra,
-    fontSize: 15,
+    fontSize: t.fs(15),
     letterSpacing: 1.4,
     color: t.text,
   },
 
   title: {
     fontFamily: FONTS.headingExtra,
-    fontSize: 27,
+    fontSize: t.fs(27),
     letterSpacing: -0.4,
     color: t.text,
     marginBottom: 6,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: t.fs(14),
     lineHeight: 21,
     color: t.text2,
     marginBottom: 26,
@@ -167,7 +167,7 @@ const makeStyles = (t) => StyleSheet.create({
   errorText: {
     flex: 1,
     color: ERROR_FG,
-    fontSize: 13.5,
+    fontSize: t.fs(13.5),
     lineHeight: 19.5,
     fontFamily: FONTS.bodySemi,
   },
@@ -175,7 +175,7 @@ const makeStyles = (t) => StyleSheet.create({
   legal: {
     marginTop: 26,
     textAlign: "center",
-    fontSize: 11.5,
+    fontSize: t.fs(11.5),
     lineHeight: 17,
     color: t.text3,
   },

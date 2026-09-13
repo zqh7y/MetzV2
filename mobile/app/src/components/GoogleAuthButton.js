@@ -92,7 +92,7 @@ function GoogleAuthButtonInner({ label }) {
 const makeStyles = (t) => StyleSheet.create({
   dividerRow: { flexDirection: "row", alignItems: "center", gap: 12, marginVertical: 16 },
   rule: { flex: 1, height: 1, backgroundColor: t.border },
-  dividerText: { color: t.text3, fontSize: 12, fontFamily: FONTS.accentMedium },
+  dividerText: { color: t.text3, fontSize: t.fs(12), fontFamily: FONTS.accentMedium },
 
   button: {
     flexDirection: "row",
@@ -116,8 +116,8 @@ const makeStyles = (t) => StyleSheet.create({
     backgroundColor: "#ffffff",
     borderWidth: 1, borderColor: "#dadce0",
   },
-  badgeText: { color: "#4285f4", fontFamily: FONTS.heading, fontSize: 13, lineHeight: 16 },
-  label: { color: t.text, fontFamily: FONTS.headingSemi, fontSize: 15 },
-  note: { fontSize: 12, color: t.text3, marginTop: 8, textAlign: "center" },
-  error: { color: t.status.bad, fontSize: 12.5, marginTop: 8, textAlign: "center" },
+  badgeText: { color: "#4285f4", fontFamily: FONTS.heading, fontSize: t.fs(13), lineHeight: 16 },
+  label: { color: t.text, fontFamily: FONTS.headingSemi, fontSize: t.fs(15) },
+  note: { fontSize: t.fs(12), color: t.text3, marginTop: 8, textAlign: "center" },
+  error: { color: t.status.bad, fontSize: t.fs(12.5), marginTop: 8, textAlign: "center" },
 });

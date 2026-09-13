@@ -300,17 +300,17 @@ function Bar({ label, value, total, styles, theme }) {
 const makeStyles = (t) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.bg },
   centered: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: t.bg, padding: 24 },
-  errorText: { color: t.text2, fontSize: 14, marginBottom: 14, textAlign: "center" },
+  errorText: { color: t.text2, fontSize: t.fs(14), marginBottom: 14, textAlign: "center" },
   retry: { backgroundColor: t.accent, borderRadius: RADIUS.pill, paddingVertical: 10, paddingHorizontal: 24 },
   retryText: { color: t.accentOn, fontFamily: FONTS.accentMedium },
 
-  title: { fontSize: 21, fontFamily: FONTS.heading, color: t.text },
-  sub: { fontSize: 12.5, color: t.text3, marginTop: 3, marginBottom: 14 },
+  title: { fontSize: t.fs(21), fontFamily: FONTS.heading, color: t.text },
+  sub: { fontSize: t.fs(12.5), color: t.text3, marginTop: 3, marginBottom: 14 },
 
   tabs: { flexDirection: "row", backgroundColor: t.surface2, borderRadius: RADIUS.base, padding: 3, marginBottom: 14 },
   tab: { flex: 1, alignItems: "center", paddingVertical: 9, borderRadius: RADIUS.base - 3 },
   tabActive: { backgroundColor: t.surface, ...SHADOW.s1 },
-  tabText: { fontSize: 12.5, fontFamily: FONTS.bodySemi, color: t.text3 },
+  tabText: { fontSize: t.fs(12.5), fontFamily: FONTS.bodySemi, color: t.text3 },
   tabTextActive: { color: t.accentStrong },
 
   alert: {
@@ -323,8 +323,8 @@ const makeStyles = (t) => StyleSheet.create({
     padding: 14,
     marginBottom: 14,
   },
-  alertText: { flex: 1, color: t.accentStrong, fontFamily: FONTS.bodySemi, fontSize: 13.5 },
-  alertChevron: { color: t.accentStrong, fontSize: 20 },
+  alertText: { flex: 1, color: t.accentStrong, fontFamily: FONTS.bodySemi, fontSize: t.fs(13.5) },
+  alertChevron: { color: t.accentStrong, fontSize: t.fs(20) },
 
   tileGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 14 },
   tile: {
@@ -337,9 +337,9 @@ const makeStyles = (t) => StyleSheet.create({
     borderColor: t.border,
     paddingVertical: 14,
   },
-  tileIcon: { fontSize: 17 },
-  tileValue: { fontSize: 20, fontFamily: FONTS.accent, color: t.text, marginTop: 4 },
-  tileLabel: { fontSize: 10.5, color: t.text3, marginTop: 2, textAlign: "center" },
+  tileIcon: { fontSize: t.fs(17) },
+  tileValue: { fontSize: t.fs(20), fontFamily: FONTS.accent, color: t.text, marginTop: 4 },
+  tileLabel: { fontSize: t.fs(10.5), color: t.text3, marginTop: 2, textAlign: "center" },
 
   card: {
     backgroundColor: t.surface,
@@ -350,34 +350,34 @@ const makeStyles = (t) => StyleSheet.create({
     marginBottom: 14,
     ...SHADOW.s1,
   },
-  cardTitle: { fontSize: 15, fontFamily: FONTS.heading, color: t.text, marginBottom: 12 },
+  cardTitle: { fontSize: t.fs(15), fontFamily: FONTS.heading, color: t.text, marginBottom: 12 },
 
   barRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 9 },
-  barLabel: { width: 78, fontSize: 12, color: t.text2 },
+  barLabel: { width: 78, fontSize: t.fs(12), color: t.text2 },
   barTrack: { flex: 1, height: 7, borderRadius: 4, backgroundColor: t.surface3, overflow: "hidden" },
   barFill: { height: "100%", borderRadius: 4 },
-  barValue: { width: 28, textAlign: "right", fontSize: 12, fontFamily: FONTS.accentMedium, color: t.text2 },
+  barValue: { width: 28, textAlign: "right", fontSize: t.fs(12), fontFamily: FONTS.accentMedium, color: t.text2 },
 
   userBlock: { borderBottomWidth: 1, borderBottomColor: t.border, paddingVertical: 10 },
   row: { flexDirection: "row", alignItems: "center", gap: 10 },
   avatar: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
-  avatarText: { color: "#fff", fontFamily: FONTS.accent, fontSize: 13 },
+  avatarText: { color: "#fff", fontFamily: FONTS.accent, fontSize: t.fs(13) },
   nameRow: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
-  rowName: { fontSize: 14, fontFamily: FONTS.bodySemi, color: t.text, flexShrink: 1 },
-  rowMeta: { fontSize: 11.5, color: t.text3, marginTop: 2 },
-  rowChevron: { fontSize: 20, color: t.text3 },
+  rowName: { fontSize: t.fs(14), fontFamily: FONTS.bodySemi, color: t.text, flexShrink: 1 },
+  rowMeta: { fontSize: t.fs(11.5), color: t.text3, marginTop: 2 },
+  rowChevron: { fontSize: t.fs(20), color: t.text3 },
   banned: { textDecorationLine: "line-through" },
 
   adminTag: {
-    fontSize: 10, fontFamily: FONTS.accent, color: t.accentOn, backgroundColor: t.accent,
+    fontSize: t.fs(10), fontFamily: FONTS.accent, color: t.accentOn, backgroundColor: t.accent,
     borderRadius: RADIUS.pill, paddingHorizontal: 7, paddingVertical: 2, overflow: "hidden",
   },
   bannedTag: {
-    fontSize: 10, fontFamily: FONTS.accent, color: "#fff", backgroundColor: t.status.bad,
+    fontSize: t.fs(10), fontFamily: FONTS.accent, color: "#fff", backgroundColor: t.status.bad,
     borderRadius: RADIUS.pill, paddingHorizontal: 7, paddingVertical: 2, overflow: "hidden",
   },
   pendingTag: {
-    fontSize: 10, fontFamily: FONTS.accent, color: t.text2, backgroundColor: t.surface3,
+    fontSize: t.fs(10), fontFamily: FONTS.accent, color: t.text2, backgroundColor: t.surface3,
     borderRadius: RADIUS.pill, paddingHorizontal: 7, paddingVertical: 2, overflow: "hidden",
   },
 
@@ -390,7 +390,7 @@ const makeStyles = (t) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.border,
   },
-  actionText: { fontSize: 12, fontFamily: FONTS.bodySemi, color: t.text2 },
+  actionText: { fontSize: t.fs(12), fontFamily: FONTS.bodySemi, color: t.text2 },
   dangerBtn: { borderColor: t.status.bad, backgroundColor: "rgba(231, 76, 60, 0.08)" },
-  dangerText: { fontSize: 12, fontFamily: FONTS.bodySemi, color: t.status.bad },
+  dangerText: { fontSize: t.fs(12), fontFamily: FONTS.bodySemi, color: t.status.bad },
 });

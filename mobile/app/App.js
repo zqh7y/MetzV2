@@ -13,6 +13,7 @@ import { FONTS } from "./src/styles/fonts";
 import { AuthProvider, useAuth } from "./src/context/AuthContext";
 import { ThemeProvider, useTheme } from "./src/context/ThemeContext";
 import { LocaleProvider, useI18n } from "./src/context/LocaleContext";
+import { LocationProvider } from "./src/context/LocationContext";
 import LoginScreen from "./src/screens/LoginScreen";
 import SignupScreen from "./src/screens/SignupScreen";
 import VerifyScreen from "./src/screens/VerifyScreen";
@@ -215,7 +216,10 @@ export default function App() {
         <LocaleProvider>
           <ThemeProvider>
             <AuthProvider>
-              <Root />
+              {/* One GPS watcher for the whole app — see LocationContext. */}
+              <LocationProvider>
+                <Root />
+              </LocationProvider>
             </AuthProvider>
           </ThemeProvider>
         </LocaleProvider>

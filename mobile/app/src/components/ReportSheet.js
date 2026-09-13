@@ -151,17 +151,17 @@ const makeStyles = (t) => StyleSheet.create({
     alignSelf: "center", marginBottom: 14,
   },
 
-  title: { fontSize: 18, fontFamily: FONTS.heading, color: t.text },
-  target: { fontSize: 12.5, color: t.text3, marginTop: 3 },
-  body: { fontSize: 13.5, color: t.text2, marginTop: 10, lineHeight: 19 },
+  title: { fontSize: t.fs(18), fontFamily: FONTS.heading, color: t.text },
+  target: { fontSize: t.fs(12.5), color: t.text3, marginTop: 3 },
+  body: { fontSize: t.fs(13.5), color: t.text2, marginTop: 10, lineHeight: 19 },
   label: {
-    fontSize: 11, fontFamily: FONTS.bodySemi, color: t.text3,
+    fontSize: t.fs(11), fontFamily: FONTS.bodySemi, color: t.text3,
     textTransform: "uppercase", letterSpacing: 0.5, marginTop: 18, marginBottom: 7,
   },
   error: {
     marginTop: 10, padding: 10, borderRadius: RADIUS.base,
     backgroundColor: t.status.badSoft, color: t.status.bad,
-    fontSize: 12.5, fontFamily: FONTS.bodySemi,
+    fontSize: t.fs(12.5), fontFamily: FONTS.bodySemi,
   },
 
   reasons: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 14 },
@@ -170,12 +170,12 @@ const makeStyles = (t) => StyleSheet.create({
     backgroundColor: t.surface2, borderWidth: 1, borderColor: t.border,
   },
   reasonActive: { backgroundColor: t.accent, borderColor: t.accent },
-  reasonText: { fontSize: 12.5, fontFamily: FONTS.bodySemi, color: t.text2 },
+  reasonText: { fontSize: t.fs(12.5), fontFamily: FONTS.bodySemi, color: t.text2 },
   reasonTextActive: { color: t.accentOn },
 
   input: {
     backgroundColor: t.surface2, borderWidth: 1, borderColor: t.border,
-    borderRadius: RADIUS.base, padding: 12, fontSize: 14.5, color: t.text,
+    borderRadius: RADIUS.base, padding: 12, fontSize: t.fs(14.5), color: t.text,
     height: 88,
   },
 
@@ -184,15 +184,15 @@ const makeStyles = (t) => StyleSheet.create({
     flex: 1, borderRadius: RADIUS.base, paddingVertical: 14, alignItems: "center",
     backgroundColor: t.surface2, borderWidth: 1, borderColor: t.border,
   },
-  secondaryText: { fontSize: 14.5, fontFamily: FONTS.accentMedium, color: t.text2 },
+  secondaryText: { fontSize: t.fs(14.5), fontFamily: FONTS.accentMedium, color: t.text2 },
   primary: {
     flex: 1, borderRadius: RADIUS.base, paddingVertical: 14, alignItems: "center",
     justifyContent: "center", backgroundColor: t.accent,
   },
   primaryInert: { backgroundColor: t.surface3 },
-  primaryText: { fontSize: 14.5, fontFamily: FONTS.accent, color: t.accentOn },
+  primaryText: { fontSize: t.fs(14.5), fontFamily: FONTS.accent, color: t.accentOn },
   primaryTextInert: { color: t.text3 },
 
   done: { alignItems: "center", paddingVertical: 10 },
-  doneIcon: { fontSize: 38, marginBottom: 10 },
+  doneIcon: { fontSize: t.fs(38), marginBottom: 10 },
 });

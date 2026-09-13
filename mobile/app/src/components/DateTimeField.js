@@ -100,10 +100,10 @@ const makeStyles = (t) => StyleSheet.create({
   },
   fieldSet: { borderColor: t.accent, backgroundColor: t.accentSoft },
   icon: { width: 26 },
-  value: { flex: 1, fontSize: 14, color: t.text, fontFamily: FONTS.bodyMedium },
+  value: { flex: 1, fontSize: t.fs(14), color: t.text, fontFamily: FONTS.bodyMedium },
   placeholder: { color: t.text3, fontFamily: FONTS.body },
   change: {
-    fontSize: 11,
+    fontSize: t.fs(11),
     fontFamily: FONTS.accent,
     color: t.accentStrong,
     backgroundColor: t.surface,

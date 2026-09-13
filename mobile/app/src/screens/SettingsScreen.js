@@ -25,7 +25,7 @@ const ACCENT_LABEL_KEYS = {
 };
 
 export default function SettingsScreen({ navigation }) {
-  const { theme, choice, accentName, density, motion, sheet, setTheme, setAccent, setPref, resetPrefs } =
+  const { theme, choice, accentName, motion, textSize, setTheme, setAccent, setPref, resetPrefs } =
     useTheme();
   const { profile, signOut, refreshProfile } = useAuth();
   const { t, choice: langChoice, deviceLanguage, setLanguage, restartNeeded } = useI18n();
@@ -137,15 +137,31 @@ export default function SettingsScreen({ navigation }) {
         </View>
       </Section>
 
-      <Section styles={styles} title={`📐 ${t("settings.layoutMotion")}`}>
+      {/* Replaces "Layout & motion" and "Home screen".
+          Density changed six pixels of padding and the panel position only
+          applied on a cold start — two controls that read as settings and
+          behaved like decoration. Text size and units are things a person can
+          actually feel the effect of. Reduced motion stays: it is an
+          accessibility setting that genuinely works, and dropping it to tidy
+          up would cost someone who needs it. */}
+      <Section styles={styles} title={`\u{1F524} ${t("settings.textSize")}`}>
         <Block
           styles={styles}
-          label={t("settings.density")}
-          desc={t("settings.densityDesc")}
-          value={density}
-          options={[["compact", t("settings.compact")], ["comfortable", t("settings.comfortable")]]}
-          onChange={(v) => setPref("density", v)}
+          label={t("settings.textSize")}
+          desc={t("settings.textSizeDesc")}
+          value={textSize}
+          options={[
+            ["small", t("settings.textSmall")],
+            ["default", t("settings.textDefault")],
+            ["large", t("settings.textLarge")],
+            ["larger", t("settings.textLarger")],
+          ]}
+          onChange={(v) => setPref("textSize", v)}
         />
+        {/* Shown at the size that is actually selected, so the choice can be
+            judged by reading it rather than by guessing from a label. */}
+        <Text style={styles.sample}>{t("settings.textSample")}</Text>
+
         <Block
           styles={styles}
           label={t("settings.animations")}
@@ -155,21 +171,6 @@ export default function SettingsScreen({ navigation }) {
           onChange={(v) => setPref("motion", v)}
         />
       </Section>
-
-      {/* "Live maps on For You cards" was the first control here. The For You
-          shelf no longer exists and nothing read the preference, so it was a
-          switch that did nothing whichever way you set it. */}
-      <Section styles={styles} title={`🗺️ ${t("settings.homeScreen")}`}>
-        <Block
-          styles={styles}
-          label={t("settings.panelPosition")}
-          desc={t("settings.panelPositionDesc")}
-          value={sheet}
-          options={[["peek", t("settings.panelMap")], ["half", t("settings.panelSplit")], ["full", t("settings.panelList")]]}
-          onChange={(v) => setPref("sheet", v)}
-        />
-      </Section>
-
       {/* The intro asked this before there was an account to keep it on. A
           wrong tap at sign-up should not be permanent, and someone who joined
           to attend and started organising should be able to say so. */}
@@ -391,6 +392,11 @@ function Row({ label, value, styles }) {
 }
 
 const makeStyles = (t) => StyleSheet.create({
+  sample: {
+    fontSize: t.fs(15), lineHeight: t.fs(22), color: t.text2,
+    fontFamily: FONTS.body, marginTop: 12,
+    backgroundColor: t.surface2, borderRadius: RADIUS.md, padding: 12,
+  },
   container: { flex: 1, backgroundColor: t.bg },
 
   card: {
@@ -402,9 +408,9 @@ const makeStyles = (t) => StyleSheet.create({
     marginBottom: 14,
     ...SHADOW.s1,
   },
-  cardTitle: { fontSize: 16, fontFamily: FONTS.heading, color: t.text },
-  cardHint: { fontSize: 12.5, color: t.text3, marginTop: 3, lineHeight: 18 },
-  note: { fontSize: 11.5, color: t.text3, marginTop: 10, lineHeight: 16 },
+  cardTitle: { fontSize: t.fs(16), fontFamily: FONTS.heading, color: t.text },
+  cardHint: { fontSize: t.fs(12.5), color: t.text3, marginTop: 3, lineHeight: 18 },
+  note: { fontSize: t.fs(11.5), color: t.text3, marginTop: 10, lineHeight: 16 },
 
   row: { flexDirection: "row", gap: 8 },
   choice: {
@@ -419,9 +425,9 @@ const makeStyles = (t) => StyleSheet.create({
     borderColor: "transparent",
   },
   choiceActive: { backgroundColor: t.accentSoft, borderColor: t.accent },
-  choiceLabel: { fontSize: 11.5, fontFamily: FONTS.bodySemi, color: t.text2, textAlign: "center" },
+  choiceLabel: { fontSize: t.fs(11.5), fontFamily: FONTS.bodySemi, color: t.text2, textAlign: "center" },
   choiceLabelActive: { color: t.accentStrong },
-  check: { position: "absolute", top: 4, right: 6, fontSize: 11, color: t.accent, fontFamily: FONTS.accent },
+  check: { position: "absolute", top: 4, right: 6, fontSize: t.fs(11), color: t.accent, fontFamily: FONTS.accent },
 
   swatch: {
     width: 38,
@@ -438,12 +444,12 @@ const makeStyles = (t) => StyleSheet.create({
   accentDot: { width: 28, height: 28, borderRadius: 14 },
 
   block: { marginBottom: 16 },
-  blockLabel: { fontSize: 14, fontFamily: FONTS.bodySemi, color: t.text },
-  blockDesc: { fontSize: 12, color: t.text3, marginTop: 2, marginBottom: 8, lineHeight: 17 },
+  blockLabel: { fontSize: t.fs(14), fontFamily: FONTS.bodySemi, color: t.text },
+  blockDesc: { fontSize: t.fs(12), color: t.text3, marginTop: 2, marginBottom: 8, lineHeight: 17 },
   segmented: { flexDirection: "row", backgroundColor: t.surface2, borderRadius: RADIUS.base, padding: 3 },
   segBtn: { flex: 1, alignItems: "center", paddingVertical: 8, borderRadius: RADIUS.base - 3 },
   segBtnActive: { backgroundColor: t.surface, ...SHADOW.s1 },
-  segText: { fontSize: 12.5, fontFamily: FONTS.bodySemi, color: t.text3 },
+  segText: { fontSize: t.fs(12.5), fontFamily: FONTS.bodySemi, color: t.text3 },
   segTextActive: { color: t.accentStrong },
 
   infoRow: {
@@ -469,12 +475,12 @@ const makeStyles = (t) => StyleSheet.create({
   // Stepped in from the summary row above them, so the open list reads as
   // belonging to it rather than as eight more settings.
   langRowIndent: { marginStart: 14 },
-  langChevron: { fontSize: 13, color: t.text3, paddingHorizontal: 2 },
-  langLabel: { fontSize: 15, fontFamily: FONTS.bodyMedium, color: t.text },
+  langChevron: { fontSize: t.fs(13), color: t.text3, paddingHorizontal: 2 },
+  langLabel: { fontSize: t.fs(15), fontFamily: FONTS.bodyMedium, color: t.text },
   langLabelActive: { color: t.accentStrong, fontFamily: FONTS.bodySemi },
-  langSub: { fontSize: 12, color: t.text3, marginTop: 2 },
+  langSub: { fontSize: t.fs(12), color: t.text3, marginTop: 2 },
   restartNote: {
-    fontSize: 12.5,
+    fontSize: t.fs(12.5),
     lineHeight: 18,
     color: t.text2,
     marginTop: 10,
@@ -482,8 +488,8 @@ const makeStyles = (t) => StyleSheet.create({
     borderRadius: RADIUS.base,
     backgroundColor: t.surface2,
   },
-  infoLabel: { fontSize: 13, color: t.text3 },
-  infoValue: { fontSize: 13.5, fontFamily: FONTS.bodySemi, color: t.text, flexShrink: 1 },
+  infoLabel: { fontSize: t.fs(13), color: t.text3 },
+  infoValue: { fontSize: t.fs(13.5), fontFamily: FONTS.bodySemi, color: t.text, flexShrink: 1 },
 
   action: {
     flexDirection: "row",
@@ -494,8 +500,8 @@ const makeStyles = (t) => StyleSheet.create({
     borderRadius: RADIUS.base,
     backgroundColor: t.surface2,
   },
-  actionText: { flex: 1, fontSize: 14.5, fontFamily: FONTS.bodySemi, color: t.text },
-  chevron: { fontSize: 20, color: t.text3 },
+  actionText: { flex: 1, fontSize: t.fs(14.5), fontFamily: FONTS.bodySemi, color: t.text },
+  chevron: { fontSize: t.fs(20), color: t.text3 },
 
   secondary: {
     alignItems: "center",
@@ -506,7 +512,7 @@ const makeStyles = (t) => StyleSheet.create({
     borderColor: t.border,
     marginBottom: 10,
   },
-  secondaryText: { color: t.text2, fontSize: 14.5, fontFamily: FONTS.accentMedium },
+  secondaryText: { color: t.text2, fontSize: t.fs(14.5), fontFamily: FONTS.accentMedium },
 
   logout: {
     alignItems: "center",
@@ -514,7 +520,7 @@ const makeStyles = (t) => StyleSheet.create({
     borderRadius: RADIUS.base,
     backgroundColor: "rgba(231, 76, 60, 0.08)",
   },
-  logoutText: { color: t.status.bad, fontSize: 15, fontFamily: FONTS.accentMedium },
+  logoutText: { color: t.status.bad, fontSize: t.fs(15), fontFamily: FONTS.accentMedium },
 
   danger: {
     marginTop: 22,
@@ -524,8 +530,8 @@ const makeStyles = (t) => StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(192,57,43,0.3)",
   },
-  dangerTitle: { fontSize: 15, fontFamily: FONTS.heading, color: t.status.bad },
-  dangerBody: { fontSize: 12.5, lineHeight: 18, color: t.text2, marginTop: 6, marginBottom: 14 },
+  dangerTitle: { fontSize: t.fs(15), fontFamily: FONTS.heading, color: t.status.bad },
+  dangerBody: { fontSize: t.fs(12.5), lineHeight: 18, color: t.text2, marginTop: 6, marginBottom: 14 },
   dangerBtn: {
     alignSelf: "flex-start",
     borderRadius: RADIUS.base,
@@ -534,5 +540,5 @@ const makeStyles = (t) => StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 11,
   },
-  dangerBtnText: { color: t.status.bad, fontSize: 13.5, fontFamily: FONTS.accentMedium },
+  dangerBtnText: { color: t.status.bad, fontSize: t.fs(13.5), fontFamily: FONTS.accentMedium },
 });

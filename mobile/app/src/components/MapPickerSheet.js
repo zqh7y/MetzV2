@@ -115,18 +115,18 @@ const makeStyles = (t) => StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: t.border,
   },
   close: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-  closeText: { fontSize: 20, color: t.text2, fontFamily: FONTS.accent },
-  title: { fontSize: 16, fontFamily: FONTS.heading, color: t.text },
+  closeText: { fontSize: t.fs(20), color: t.text2, fontFamily: FONTS.accent },
+  title: { fontSize: t.fs(16), fontFamily: FONTS.heading, color: t.text },
   mapArea: { flex: 1 },
   footer: {
     paddingHorizontal: 16, paddingTop: 12, gap: 10,
     backgroundColor: t.surface, borderTopWidth: 1, borderTopColor: t.border,
   },
-  hint: { fontSize: 13, color: t.text2, fontFamily: FONTS.bodyMedium, textAlign: "center" },
+  hint: { fontSize: t.fs(13), color: t.text2, fontFamily: FONTS.bodyMedium, textAlign: "center" },
   confirm: {
     backgroundColor: t.accent, borderRadius: RADIUS.md,
     paddingVertical: 15, alignItems: "center",
   },
   confirmOff: { opacity: 0.45 },
-  confirmText: { color: "#fff", fontSize: 16, fontFamily: FONTS.accent },
+  confirmText: { color: "#fff", fontSize: t.fs(16), fontFamily: FONTS.accent },
 });

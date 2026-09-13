@@ -51,7 +51,7 @@ export default function SavedAccounts({ accounts, onPick }) {
 
 const makeStyles = (t) => StyleSheet.create({
   wrap: { marginTop: 18 },
-  label: { fontSize: 12, fontFamily: FONTS.bodySemi, color: t.text3, marginBottom: 8 },
+  label: { fontSize: t.fs(12), fontFamily: FONTS.bodySemi, color: t.text3, marginBottom: 8 },
   row: {
     flexDirection: "row", alignItems: "center", gap: 11,
     paddingHorizontal: 12, paddingVertical: 10, marginBottom: 8,
@@ -60,9 +60,9 @@ const makeStyles = (t) => StyleSheet.create({
   },
   rowPressed: { opacity: 0.6 },
   avatar: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
-  initials: { color: "#fff", fontFamily: FONTS.heading, fontSize: 12.5 },
-  emoji: { fontSize: 18 },
-  name: { fontSize: 14, fontFamily: FONTS.bodySemi, color: t.text },
-  email: { fontSize: 12, color: t.text3, marginTop: 1 },
-  chevron: { fontSize: 20, color: t.text3 },
+  initials: { color: "#fff", fontFamily: FONTS.heading, fontSize: t.fs(12.5) },
+  emoji: { fontSize: t.fs(18) },
+  name: { fontSize: t.fs(14), fontFamily: FONTS.bodySemi, color: t.text },
+  email: { fontSize: t.fs(12), color: t.text3, marginTop: 1 },
+  chevron: { fontSize: t.fs(20), color: t.text3 },
 });

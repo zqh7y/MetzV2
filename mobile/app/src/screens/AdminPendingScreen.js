@@ -81,8 +81,8 @@ export default function AdminPendingScreen() {
 const makeStyles = (t) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.bg, padding: 16 },
   centered: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: t.bg },
-  header: { fontSize: 20, fontFamily: FONTS.heading, color: t.text },
-  subheader: { fontSize: 13, color: t.text2, marginBottom: 14 },
+  header: { fontSize: t.fs(20), fontFamily: FONTS.heading, color: t.text },
+  subheader: { fontSize: t.fs(13), color: t.text2, marginBottom: 14 },
   card: {
     backgroundColor: t.surface,
     borderRadius: RADIUS.lg,
@@ -92,12 +92,12 @@ const makeStyles = (t) => StyleSheet.create({
     marginBottom: 12,
     ...SHADOW.s1,
   },
-  title: { fontSize: 16, fontFamily: FONTS.heading, color: t.text },
-  creator: { fontSize: 12, color: t.text2, marginTop: 2 },
-  desc: { fontSize: 13, color: t.text2, marginTop: 6, lineHeight: 18 },
+  title: { fontSize: t.fs(16), fontFamily: FONTS.heading, color: t.text },
+  creator: { fontSize: t.fs(12), color: t.text2, marginTop: 2 },
+  desc: { fontSize: t.fs(13), color: t.text2, marginTop: 6, lineHeight: 18 },
   actionsRow: { flexDirection: "row", gap: 8, marginTop: 10 },
   approveBtn: { flex: 1, backgroundColor: t.status.good, borderRadius: 11, paddingVertical: 10, alignItems: "center" },
   declineBtn: { flex: 1, backgroundColor: t.status.bad, borderRadius: 11, paddingVertical: 10, alignItems: "center" },
-  btnText: { color: "#fff", fontFamily: FONTS.accent, fontSize: 13 },
+  btnText: { color: "#fff", fontFamily: FONTS.accent, fontSize: t.fs(13) },
   empty: { textAlign: "center", color: t.text3, marginTop: 60 },
 });

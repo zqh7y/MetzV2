@@ -17,7 +17,7 @@ import HomeDrawer, { MenuButton } from "../components/HomeDrawer";
 import AccountSheet from "../components/AccountSheet";
 import ExplorePane from "./ExploreScreen";
 import { SearchIcon, MapPinIcon, GlobeIcon, CrosshairIcon } from "../components/NavIcons";
-import useMyLocation from "../hooks/useMyLocation";
+import { useLocation } from "../context/LocationContext";
 import useAutoRefresh from "../hooks/useAutoRefresh";
 import { distanceToMeeting, formatDistance } from "../utils/distance";
 import { FONTS } from "../styles/fonts";
@@ -395,7 +395,31 @@ export default function HomeScreen({ navigation, route }) {
 
   // "You are here". The web draws the same marker with the user's avatar
   // colour and initial, so pass those through rather than a generic dot.
-  const myPosition = useMyLocation();
+  // Shared with every meeting card — one watcher for the app, not one each.
+  const myPosition = useLocation();
+
+  /**
+   * Tell the server which country this phone is in, once per session.
+   *
+   * The listing is filtered to the viewer's country, and the server can only
+   * know that from coordinates the app reports — a bare API request carries no
+   * location. Sent once and then remembered on the account, because the point
+   * is that the listing still works the next time the app opens with location
+   * switched off.
+   *
+   * Fires only when a fix actually arrives, so nothing is sent for someone who
+   * declined the permission; their country stays unknown and they see
+   * everything, which is the intended fallback.
+   */
+  const reportedCountry = useRef(false);
+  useEffect(() => {
+    if (!myPosition || reportedCountry.current) return;
+    reportedCountry.current = true;
+    api.updateProfile({ lat: myPosition.latitude, lng: myPosition.longitude })
+      .then(() => refreshProfile())
+      // Best effort: a failure here only means the listing stays unfiltered.
+      .catch(() => {});
+  }, [myPosition, refreshProfile]);
 
   // The camera follows the user until they drag the map away, which is the
   // same bargain every maps app makes: auto-centring is helpful right up to
@@ -881,6 +905,7 @@ export default function HomeScreen({ navigation, route }) {
         onClose={() => setMenuOpen(false)}
         navigation={navigation}
         activeRoute="Home"
+        profile={profile}
         isAdmin={!!profile?.is_admin}
         pendingCount={pendingCount}
         activityCount={profile?.action_count || 0}
@@ -918,7 +943,7 @@ const makeStyles = (t, comfortable = false) => StyleSheet.create({
   },
   mapBtnBottom: { borderBottomStartRadius: RADIUS.base, borderBottomEndRadius: RADIUS.base },
   mapBtnText: {
-    fontSize: 22,
+    fontSize: t.fs(22),
     lineHeight: 26,
     color: t.text,
     fontFamily: FONTS.accentMedium,
@@ -936,7 +961,7 @@ const makeStyles = (t, comfortable = false) => StyleSheet.create({
     paddingVertical: 7,
     ...SHADOW.s2,
   },
-  titlePillText: { color: "#fff", fontSize: 12, fontFamily: FONTS.accent },
+  titlePillText: { color: "#fff", fontSize: t.fs(12), fontFamily: FONTS.accent },
   sheet: {
     position: "absolute",
     left: 0,
@@ -960,9 +985,9 @@ const makeStyles = (t, comfortable = false) => StyleSheet.create({
   sheetBody: { flex: 1 },
   sheetHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: comfortable ? 16 : 10 },
   titleWrap: { flexDirection: "row", alignItems: "center", gap: 8 },
-  panelTitle: { fontSize: 17, fontFamily: FONTS.heading, color: t.text },
+  panelTitle: { fontSize: t.fs(17), fontFamily: FONTS.heading, color: t.text },
   panelCount: {
-    fontSize: 11,
+    fontSize: t.fs(11),
     fontFamily: FONTS.accent,
     color: t.text3,
     backgroundColor: t.surface2,
@@ -978,7 +1003,7 @@ const makeStyles = (t, comfortable = false) => StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 7,
   },
-  newBtnText: { color: t.accentOn, fontSize: 13, fontFamily: FONTS.accent },
+  newBtnText: { color: t.accentOn, fontSize: t.fs(13), fontFamily: FONTS.accent },
   searchWrap: {
     flexDirection: "row",
     alignItems: "center",
@@ -994,10 +1019,10 @@ const makeStyles = (t, comfortable = false) => StyleSheet.create({
     flex: 1,
     color: t.text,
     paddingVertical: 11,
-    fontSize: 15,
+    fontSize: t.fs(15),
     includeFontPadding: false,
   },
-  searchClear: { color: t.text3, fontSize: 13, paddingHorizontal: 2 },
+  searchClear: { color: t.text3, fontSize: t.fs(13), paddingHorizontal: 2 },
 
   // Nearby / Explore. A segmented control rather than two more rows in the
   // drawer: they are two orderings of one list, and the whole point of folding
@@ -1012,7 +1037,7 @@ const makeStyles = (t, comfortable = false) => StyleSheet.create({
   },
   tab: { flex: 1, alignItems: "center", paddingVertical: 8, borderRadius: RADIUS.pill },
   tabOn: { backgroundColor: t.surface, ...SHADOW.s1 },
-  tabText: { fontSize: 13.5, fontFamily: FONTS.bodySemi, color: t.text2 },
+  tabText: { fontSize: t.fs(13.5), fontFamily: FONTS.bodySemi, color: t.text2 },
   tabTextOn: { color: t.accentStrong, fontFamily: FONTS.headingSemi },
 
   // Centred, not baseline-aligned: the title is a row (icon + text) rather than

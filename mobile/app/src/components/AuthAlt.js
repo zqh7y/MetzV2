@@ -23,6 +23,6 @@ export default function AuthAlt({ text, linkText, onPress }) {
 }
 
 const makeStyles = (t) => StyleSheet.create({
-  alt: { marginTop: 22, textAlign: "center", fontSize: 13.5, color: t.text2 },
+  alt: { marginTop: 22, textAlign: "center", fontSize: t.fs(13.5), color: t.text2 },
   link: { color: t.accent, fontFamily: FONTS.bodySemi },
 });
