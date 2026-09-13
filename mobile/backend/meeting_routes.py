@@ -8,6 +8,7 @@ from data import (
     get_user, get_all_meetings, add_meeting, toggle_join_meeting, filter_blocked,
     can_view_meeting, PUBLIC, PRIVATE,
     user_pass, delete_meeting, get_joined_users_preview, MEETINGS_DB,
+    in_viewer_country,
     generate_user_color, display_name_for, is_trusted, is_admin, get_reliability,
     get_comments, add_comment, delete_comment, can_delete_comment, get_blocked_uids,
     record_checkin,
@@ -40,6 +41,16 @@ def list_meetings():
     # meetings this person created or joined, so a link-only meeting is still
     # findable by the people actually in it.
     meetings = filter_blocked(uid, get_all_meetings(status="approved", viewer_uid=uid))
+
+    # Meetings somewhere else in the world are not a listing, they are noise: a
+    # meetup in another country is not something anyone here can attend. The
+    # filter only hides meetings known to be elsewhere — see
+    # data.in_viewer_country() for why it fails open in every other case.
+    viewer_country = (get_user(uid) or {}).get("country")
+    meetings = [
+        m for m in meetings
+        if in_viewer_country(MEETINGS_DB.get(getattr(m, "id", None)), viewer_country)
+    ]
     return jsonify([serialize_meeting(m, uid) for m in meetings])
 
 

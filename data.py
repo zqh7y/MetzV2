@@ -323,6 +323,62 @@ def find_meeting_by_slug(slug):
     return None
 
 
+# Coordinates -> country, so a listing can be narrowed to where the person
+# actually is. Cached by rounded coordinates: two points a hundred metres apart
+# are in the same country, and the free geocoder asks for no more than one
+# request a second.
+_COUNTRY_CACHE = {}
+
+
+def country_for(lat, lng):
+    """ISO country code for a point, or None if it cannot be determined.
+
+    None is a real answer and not an error: an online meeting has no
+    coordinates, the geocoder may be unreachable, and Render's free tier can be
+    slow. Every caller treats None as "no opinion" and shows the meeting, which
+    is the only safe direction to fail — hiding meetings because a lookup timed
+    out would empty the app for reasons nobody could see.
+    """
+    try:
+        lat = float(lat)
+        lng = float(lng)
+    except (TypeError, ValueError):
+        return None
+
+    key = (round(lat, 2), round(lng, 2))
+    if key in _COUNTRY_CACHE:
+        return _COUNTRY_CACHE[key]
+
+    import json as _json
+    import urllib.parse
+    import urllib.request
+
+    url = ("https://nominatim.openstreetmap.org/reverse?"
+           + urllib.parse.urlencode({
+               "lat": f"{lat:.4f}", "lng": f"{lng:.4f}",
+               "lon": f"{lng:.4f}", "format": "jsonv2", "zoom": "3",
+           }))
+    req = urllib.request.Request(url, headers={
+        # Nominatim refuses requests without a real identifier.
+        "User-Agent": "Metz/1.0 (meetup app; contact via app)",
+        "Accept-Language": "en",
+    })
+    code = None
+    try:
+        with urllib.request.urlopen(req, timeout=4) as resp:
+            payload = _json.loads(resp.read().decode("utf-8") or "{}")
+        code = ((payload.get("address") or {}).get("country_code") or "").upper() or None
+    except Exception:
+        # Deliberately broad: a geocoder problem must never fail a request that
+        # was really about creating a meeting or saving a profile.
+        code = None
+
+    # Cached either way. A failure that is retried on every listing would turn
+    # one slow lookup into a slow app.
+    _COUNTRY_CACHE[key] = code
+    return code
+
+
 def add_meeting(meeting_obj, creator_uid=None, visibility=PUBLIC):
     """Add a meeting to MEETINGS_DB and record it on the creator's profile.
 
@@ -342,6 +398,9 @@ def add_meeting(meeting_obj, creator_uid=None, visibility=PUBLIC):
     # untouched; used by the dashboard's "new this week" figure.
     record["created_at"] = datetime.now(timezone.utc).isoformat()
     record["visibility"] = PRIVATE if visibility == PRIVATE else PUBLIC
+    # Worked out once, here, rather than on every listing: the coordinates of a
+    # meeting never change, and a listing is read far more often than written.
+    record["country"] = country_for(record.get("lat"), record.get("lng"))
 
     # A private meeting is reachable only by its link, so the link must not be
     # guessable. Ids are sequential — /m/2, /m/3 — which means a numeric URL
@@ -1895,6 +1954,7 @@ def register_user(email):
             # not a reason to be asked to choose interests again.
             "onboarded": False,
             "role": "member",
+            "country": None,
             "interests": [],
             "profile_frame": "none",
             "profile_background": "default",
@@ -2217,6 +2277,40 @@ def update_profile(uid, display_name=None, bio=None, avatar_emoji=None,
 
     save_data()
     return True
+
+
+def set_user_country(uid, lat, lng):
+    """Remember where someone is, from coordinates their app reported.
+
+    Stored on the account rather than worked out per request: the phone only
+    knows its position while the app is open and location is granted, and the
+    listing still has to be filterable the next time they open it on a train
+    with the GPS off.
+    """
+    user = USERS_DB.get(uid)
+    if not user:
+        return None
+    code = country_for(lat, lng)
+    if code and user.get("country") != code:
+        user["country"] = code
+        save_data()
+    return code
+
+
+def in_viewer_country(record, viewer_country):
+    """Whether a meeting belongs in a listing for someone in `viewer_country`.
+
+    Fails open in both directions. No viewer country (location never granted)
+    shows everything, and a meeting with no country of its own — every online
+    meeting, and anything created before this existed — is shown to everyone.
+    The filter only ever hides a meeting that is known to be somewhere else.
+    """
+    if not viewer_country:
+        return True
+    theirs = (record or {}).get("country")
+    if not theirs:
+        return True
+    return theirs == viewer_country
 
 
 def display_name_for(uid):
