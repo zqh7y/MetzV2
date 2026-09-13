@@ -5,8 +5,13 @@ import random
 import smtplib
 from email.mime.text import MIMEText
 
-GMAIL_ADDRESS = os.environ.get("GMAIL_ADDRESS", "")
-GMAIL_APP_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD", "")
+GMAIL_ADDRESS = os.environ.get("GMAIL_ADDRESS", "").strip()
+# Google shows an app password as four groups of four — "abcd efgh ijkl mnop" —
+# and it is copied and pasted exactly like that. SMTP AUTH does not want the
+# spaces, so a correctly copied password fails to log in and the only symptom is
+# the same "couldn't send your verification email" as having set nothing at all.
+# Stripped here rather than left as an instruction nobody will find again.
+GMAIL_APP_PASSWORD = "".join(os.environ.get("GMAIL_APP_PASSWORD", "").split())
 
 DEV_MODE = os.environ.get("FLASK_ENV", "production").lower() == "development"
 
