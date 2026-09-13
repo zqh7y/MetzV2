@@ -26,6 +26,28 @@ MAX_CODE_ATTEMPTS = 6
 auth_bp = Blueprint("auth", __name__)
 
 
+def _delete_firebase_account(id_token, email):
+    """Undo a signup we could not finish.
+
+    Without this the address is taken forever by an account that was never
+    verified and nobody can sign in to: Firebase holds it, and every retry is
+    told it exists. Best effort — if the delete fails there is nothing further
+    to try from here, and it is logged so it can be cleared by hand.
+    """
+    try:
+        resp = requests.post(
+            f"https://identitytoolkit.googleapis.com/v1/accounts:delete?key={FIREBASE_API_KEY}",
+            json={"idToken": id_token},
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            print(f"[Metz] could not roll back the Firebase account for {email}: "
+                  f"{resp.status_code} {resp.text[:200]}", flush=True)
+    except requests.RequestException as exc:
+        print(f"[Metz] could not roll back the Firebase account for {email}: {exc}",
+              flush=True)
+
+
 @auth_bp.route("/api/signup", methods=["POST"])
 def signup():
     body = request.get_json(force=True) or {}
@@ -53,31 +75,40 @@ def signup():
     try:
         send_verification_email(email, code)
     except EmailNotSent as exc:
-        # Mail is down, so finish the signup here instead of stranding them.
+        # Mail is down. The Firebase account already exists by this point —
+        # that call succeeded — so doing nothing leaves the person unable to
+        # continue and unable to start over either, because signing up again
+        # only gets "that address is taken". An account they cannot reach.
         #
-        # The Firebase account already exists at this point — that call
-        # succeeded. Returning an error left the person in the worst possible
-        # state: unable to continue, and unable to start over either, because
-        # signing up again only gets "that address is taken". They had an
-        # account they could not reach.
+        # This used to be answered by registering them as verified anyway,
+        # which handed a working account to an address nobody had proved they
+        # owned. Convenient while mail was unconfigured, and not something to
+        # ship: the verification step is the only thing standing between the
+        # app and anyone signing up as anyone.
         #
-        # So the code step is skipped and the account is registered as if it
-        # had been verified. That is a real trade: an address nobody has proved
-        # they own now gets a working account. It is deliberate, and it lasts
-        # only as long as GMAIL_ADDRESS / GMAIL_APP_PASSWORD are unset on
-        # Render — set them and this branch stops being reached at all.
-        print(f"[Metz] verification email failed for {email}: {exc} "
-              f"— completing signup without it", flush=True)
-        uid = register_user(email)
+        # So the half-made account is undone instead. Deleting it in Firebase
+        # is what makes "try again later" true rather than a suggestion — with
+        # it gone, a second attempt behaves like a first one.
+        print(f"[Metz] verification email failed for {email}: {exc}", flush=True)
         PENDING_SIGNUPS.pop(email, None)
-        # Same shape as /api/verify, so the client signs in and goes straight
-        # to Home rather than to a code screen with no code coming.
+
+        if DEV_MODE:
+            # Development has no mail credentials by design, and stopping here
+            # would make the app unusable on a laptop. Never reached in
+            # production, where FLASK_ENV is not "development".
+            uid = register_user(email)
+            return jsonify({
+                "uid": uid,
+                "email": email,
+                "token": issue_token(uid),
+                "email_failed": True,
+            })
+
+        _delete_firebase_account(fb_data["idToken"], email)
         return jsonify({
-            "uid": uid,
-            "email": email,
-            "token": issue_token(uid),
-            "email_failed": True,
-        })
+            "error": "We couldn't send your verification email just now. "
+                     "Please try again in a few minutes.",
+        }), 503
 
     return jsonify({"status": "pending_verification", "email": email})
 
