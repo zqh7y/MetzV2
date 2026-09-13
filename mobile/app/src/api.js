@@ -106,6 +106,9 @@ export const api = {
 
   getTags: () => request("/api/tags", { auth: false }),
   getMeetings: () => request("/api/meetings"),
+  // One meeting as it stands now, rather than as the card had it when the
+  // listing was fetched — an online call's link opens on a clock.
+  getMeeting: (id) => request(`/api/meetings/${id}`),
   createMeeting: (payload) => request("/api/meetings", { method: "POST", body: payload }),
   joinMeeting: (id) => request(`/api/meetings/${id}/join`, { method: "POST" }),
   passMeeting: (id) => request(`/api/meetings/${id}/pass`, { method: "POST" }),

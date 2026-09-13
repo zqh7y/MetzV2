@@ -4,6 +4,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Clipboard from "expo-clipboard";
+import { useFocusEffect } from "@react-navigation/native";
 import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
 import TrustBadge from "../components/TrustBadge";
@@ -27,7 +28,11 @@ import FaceAvatar from "../components/FaceAvatar";
 // Mirrors the web's /meeting/<id> page: a tinted hero, then the details in
 // bordered sections on the neutral background.
 export default function MeetingDetailScreen({ route, navigation }) {
-  const { meeting } = route.params;
+  // The card that was tapped, kept as the first thing to draw so the screen
+  // opens with content rather than a spinner — then replaced by the server's
+  // current answer. Callers that only know an id (the organiser's figures
+  // screen) pass a stub, and everything below simply fills in when it lands.
+  const [meeting, setMeeting] = useState(route.params.meeting);
   const { uid, refreshProfile } = useAuth();
   const { theme } = useTheme();
   const { t } = useI18n();
@@ -37,6 +42,18 @@ export default function MeetingDetailScreen({ route, navigation }) {
   // route.params is a snapshot taken when the card was tapped, so joining has
   // to be tracked here or the button would keep claiming the old state.
   const [joined, setJoined] = useState(!!meeting.is_joined);
+
+  // Refetched whenever the screen is looked at. Beyond filling in a stub, this
+  // is what keeps an online meeting honest: link_view.live is a fact about the
+  // clock, and a snapshot taken when the listing loaded goes stale sitting in
+  // someone's pocket. A failure leaves the snapshot on screen rather than
+  // blanking a page that was already readable.
+  const refreshMeeting = useCallback(() => {
+    const id = route.params.meeting?.id;
+    if (!id) return;
+    api.getMeeting(id).then(setMeeting).catch(() => {});
+  }, [route.params.meeting?.id]);
+  useFocusEffect(useCallback(() => { refreshMeeting(); }, [refreshMeeting]));
 
   // How long until the call button goes live. Held in state and counted down
   // here rather than only read from the response, so somebody sitting on this
