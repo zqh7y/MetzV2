@@ -11,7 +11,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
  * switching) drops that account's token, because "log out" should mean the
  * next person cannot get back in with one tap.
  *
- * Entry: { uid, email, name, emoji, color, token, lastUsed }
+ * Entry: { uid, email, name, emoji, face, color, token, lastUsed }
  */
 const KEY = "known_accounts";
 const MAX_ACCOUNTS = 6;

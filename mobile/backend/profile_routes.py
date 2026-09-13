@@ -8,7 +8,7 @@ from data import (
     get_all_meetings, search_users, generate_user_color, update_profile,
     get_reliability, delete_own_account, open_report_count, unread_inbox_count,
     get_reports, profile_highlights, get_active_users, set_user_country,
-    PROFILE_EMOJIS, MAX_DISPLAY_NAME, MAX_BIO,
+    PROFILE_EMOJIS, AVATAR_FACES, MAX_DISPLAY_NAME, MAX_BIO,
     PROFILE_FRAMES, PROFILE_BACKGROUNDS, MAX_INTERESTS, USER_ROLES,
 )
 
@@ -46,6 +46,8 @@ def profile():
         "bio": user.get("bio") or "",
         "avatar_emoji": user.get("avatar_emoji") or "",
         "emoji_choices": PROFILE_EMOJIS,
+        "avatar_face": user.get("avatar_face") or "",
+        "face_choices": AVATAR_FACES,
         # Look-and-feel. The client owns the palettes and only ever sends an id
         # back, so the lists double as "what may I offer" and "what is valid".
         "profile_frame": user.get("profile_frame") or "none",
@@ -140,6 +142,7 @@ def edit_profile():
         display_name=body.get("display_name"),
         bio=body.get("bio"),
         avatar_emoji=body.get("avatar_emoji"),
+        avatar_face=body.get("avatar_face"),
         profile_frame=body.get("profile_frame"),
         profile_background=body.get("profile_background"),
         interests=body.get("interests"),
@@ -153,6 +156,7 @@ def edit_profile():
         "display_name": user.get("display_name") or "",
         "bio": user.get("bio") or "",
         "avatar_emoji": user.get("avatar_emoji") or "",
+        "avatar_face": user.get("avatar_face") or "",
         "profile_frame": user.get("profile_frame") or "none",
         "profile_background": user.get("profile_background") or "default",
         "interests": user.get("interests") or [],
@@ -217,6 +221,8 @@ def user_profile(uid):
         "display_name": user.get("display_name") or "",
         "bio": user.get("bio") or "",
         "interests": user.get("interests") or [],
+        "avatar_emoji": user.get("avatar_emoji") or "",
+        "avatar_face": user.get("avatar_face") or "",
         "profile_picture": user.get("profile_picture"),
         "profile_color": generate_user_color(uid),
         "profile_frame": user.get("profile_frame") or "none",

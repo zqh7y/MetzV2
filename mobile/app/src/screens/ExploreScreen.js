@@ -427,6 +427,7 @@ export default function ExplorePane({ navigation, search = "", listHeight, onRes
               <ProfileAvatar
                 size={44}
                 frame={item.profile_frame}
+                face={item.avatar_face}
                 emoji={item.avatar_emoji}
                 initials={(item.username || "?").slice(0, 2).toUpperCase()}
                 color={item.color || "#667eea"}
@@ -535,7 +536,7 @@ const makeStyles = (t) => StyleSheet.create({
     borderColor: "transparent",
   },
   modeBtnOn: { borderColor: t.accent, backgroundColor: t.accentSoft },
-  modeText: { fontSize: 13, fontFamily: FONTS.bodySemi, color: t.text3 },
+  modeText: { fontSize: t.fs(13), fontFamily: FONTS.bodySemi, color: t.text3 },
   modeTextOn: { color: t.accentStrong },
 
   // One person in the results — ported from the profile screen's old section.
@@ -551,11 +552,11 @@ const makeStyles = (t) => StyleSheet.create({
     width: 40, height: 40, borderRadius: 20,
     alignItems: "center", justifyContent: "center",
   },
-  userAvatarText: { color: "#fff", fontFamily: FONTS.headingSemi, fontSize: 14 },
+  userAvatarText: { color: "#fff", fontFamily: FONTS.headingSemi, fontSize: t.fs(14) },
   userNameRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  userName: { fontSize: 14.5, fontFamily: FONTS.bodySemi, color: t.text },
-  userUid: { fontSize: 12, color: t.text3, marginTop: 1 },
-  userChevron: { fontSize: 20, color: t.text3 },
+  userName: { fontSize: t.fs(14.5), fontFamily: FONTS.bodySemi, color: t.text },
+  userUid: { fontSize: t.fs(12), color: t.text3, marginTop: 1 },
+  userChevron: { fontSize: t.fs(20), color: t.text3 },
 
   chipRow: { gap: 7, paddingVertical: 7 },
   chip: {
@@ -567,12 +568,12 @@ const makeStyles = (t) => StyleSheet.create({
     borderColor: t.border,
   },
   chipActive: { backgroundColor: t.accent, borderColor: t.accent },
-  chipText: { fontSize: 12.5, fontFamily: FONTS.bodySemi, color: t.text2 },
+  chipText: { fontSize: t.fs(12.5), fontFamily: FONTS.bodySemi, color: t.text2 },
   chipTextActive: { color: t.accentOn },
 
   metaRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 6, marginBottom: 4 },
-  count: { fontSize: 12, fontFamily: FONTS.accent, color: t.text3, marginStart: "auto" },
-  toggle: { fontSize: 12, color: t.text3, fontFamily: FONTS.bodySemi },
+  count: { fontSize: t.fs(12), fontFamily: FONTS.accent, color: t.text3, marginStart: "auto" },
+  toggle: { fontSize: t.fs(12), color: t.text3, fontFamily: FONTS.bodySemi },
   toggleOn: { color: t.accentStrong },
 
   controls: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 },
@@ -582,7 +583,7 @@ const makeStyles = (t) => StyleSheet.create({
   },
   controlBtnOn: { borderColor: t.accent, backgroundColor: t.accentSoft },
   controlBtnOff: { opacity: 0.45 },
-  controlText: { fontSize: 12.5, fontFamily: FONTS.bodySemi, color: t.text2 },
+  controlText: { fontSize: t.fs(12.5), fontFamily: FONTS.bodySemi, color: t.text2 },
   controlTextOn: { color: t.accentStrong },
 
   panel: {
@@ -599,20 +600,20 @@ const makeStyles = (t) => StyleSheet.create({
     paddingHorizontal: 11, paddingVertical: 6, borderRadius: RADIUS.pill,
     backgroundColor: t.accentSoft, borderWidth: 1, borderColor: t.accent,
   },
-  activeChipText: { fontSize: 12, fontFamily: FONTS.bodySemi, color: t.accentStrong },
+  activeChipText: { fontSize: t.fs(12), fontFamily: FONTS.bodySemi, color: t.accentStrong },
   clearAll: { paddingHorizontal: 11, paddingVertical: 6, justifyContent: "center" },
-  clearAllText: { fontSize: 12, fontFamily: FONTS.bodySemi, color: t.text3, textDecorationLine: "underline" },
+  clearAllText: { fontSize: t.fs(12), fontFamily: FONTS.bodySemi, color: t.text3, textDecorationLine: "underline" },
 
   peopleHeader: {
-    fontSize: 11, fontFamily: FONTS.bodySemi, color: t.text3,
+    fontSize: t.fs(11), fontFamily: FONTS.bodySemi, color: t.text3,
     textTransform: "uppercase", marginBottom: 10, marginTop: 2,
   },
   empty: { alignItems: "center", paddingTop: 50, paddingHorizontal: 30 },
-  emptyTitle: { fontSize: 16, fontFamily: FONTS.heading, color: t.text },
-  emptyBody: { fontSize: 13.5, color: t.text3, marginTop: 6, textAlign: "center", lineHeight: 19 },
+  emptyTitle: { fontSize: t.fs(16), fontFamily: FONTS.heading, color: t.text },
+  emptyBody: { fontSize: t.fs(13.5), color: t.text3, marginTop: 6, textAlign: "center", lineHeight: 19 },
   emptyBtn: {
     marginTop: 16, paddingHorizontal: 18, paddingVertical: 11,
     borderRadius: RADIUS.pill, backgroundColor: t.accent,
   },
-  emptyBtnText: { color: t.accentOn, fontFamily: FONTS.headingSemi, fontSize: 13.5 },
+  emptyBtnText: { color: t.accentOn, fontFamily: FONTS.headingSemi, fontSize: t.fs(13.5) },
 });

@@ -10,7 +10,7 @@ import TrustBadge from "../components/TrustBadge";
 import TagChip from "../components/TagChip";
 import WebMap from "../components/WebMap";
 import ReportSheet from "../components/ReportSheet";
-import useMyLocation from "../hooks/useMyLocation";
+import { useLocation } from "../context/LocationContext";
 import { MapPinIcon } from "../components/NavIcons";
 import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
@@ -22,6 +22,7 @@ import { API_BASE_URL as SHARE_BASE_URL } from "../config";
 import { fetchRoute, formatRoute } from "../utils/route";
 import { useI18n } from "../context/LocaleContext";
 import { Alert } from "../components/AppAlert";
+import FaceAvatar from "../components/FaceAvatar";
 
 // Mirrors the web's /meeting/<id> page: a tinted hero, then the details in
 // bordered sections on the neutral background.
@@ -51,7 +52,9 @@ export default function MeetingDetailScreen({ route, navigation }) {
 
   // ─── Where, and how to get there ───────────────────────────────────────
   const hasPlace = !isOnline && typeof meeting.lat === "number" && typeof meeting.lng === "number";
-  const myPosition = useMyLocation(hasPlace);
+  // The gate is gone with the shared watcher: the position is already
+  // being tracked for the cards, so asking here costs nothing extra.
+  const myPosition = useLocation();
   const [routeInfo, setRouteInfo] = useState(null);
   // "idle" until both ends are known, then "loading" → "done" | "none"
   const [routeState, setRouteState] = useState("idle");
@@ -405,10 +408,17 @@ ${url}`,
               disabled={person.is_guest}
               onPress={() => navigation.navigate("UserProfile", { uid: person.uid })}
             >
-              <View style={[styles.personAvatar, { backgroundColor: person.color }]}>
-                {person.avatar_emoji
-                  ? <Text style={{ fontSize: 19 }}>{person.avatar_emoji}</Text>
-                  : <Text style={styles.personInitial}>{person.initial}</Text>}
+              <View style={[
+                styles.personAvatar,
+                // Only fill behind something that needs a backdrop: a drawn
+                // face already has its own.
+                !person.avatar_face && { backgroundColor: person.color },
+              ]}>
+                {person.avatar_face
+                  ? <FaceAvatar id={person.avatar_face} size={38} />
+                  : person.avatar_emoji
+                    ? <Text style={{ fontSize: 19 }}>{person.avatar_emoji}</Text>
+                    : <Text style={styles.personInitial}>{person.initial}</Text>}
               </View>
               <View style={{ flex: 1 }}>
                 <View style={styles.personNameRow}>
@@ -581,7 +591,7 @@ const makeStyles = (t) => StyleSheet.create({
     ...SHADOW.s1,
   },
   badge: {
-    fontSize: 11,
+    fontSize: t.fs(11),
     fontFamily: FONTS.accent,
     alignSelf: "flex-start",
     borderRadius: 10,
@@ -592,10 +602,10 @@ const makeStyles = (t) => StyleSheet.create({
   },
   badgeInPerson: { backgroundColor: t.accentSoft, color: t.accentStrong },
   badgeOnline: { backgroundColor: t.surface3, color: t.text2 },
-  title: { fontSize: 24, fontFamily: FONTS.heading, color: t.text, marginBottom: 8, lineHeight: 29 },
-  time: { fontSize: 14, fontFamily: FONTS.accentMedium, color: t.text },
+  title: { fontSize: t.fs(24), fontFamily: FONTS.heading, color: t.text, marginBottom: 8, lineHeight: 29 },
+  time: { fontSize: t.fs(14), fontFamily: FONTS.accentMedium, color: t.text },
   row: { flexDirection: "row", alignItems: "center", marginTop: 10 },
-  creator: { fontSize: 13, color: t.text2 },
+  creator: { fontSize: t.fs(13), color: t.text2 },
 
   callbox: {
     marginTop: 14,
@@ -607,9 +617,9 @@ const makeStyles = (t) => StyleSheet.create({
     borderColor: t.border,
   },
   callboxLive: { backgroundColor: t.surface, borderColor: t.accent },
-  callIcon: { fontSize: 32 },
-  callTitle: { fontSize: 16, fontFamily: FONTS.heading, color: t.text, marginTop: 10, textAlign: "center" },
-  callSub: { fontSize: 13, color: t.text2, marginTop: 6, textAlign: "center" },
+  callIcon: { fontSize: t.fs(32) },
+  callTitle: { fontSize: t.fs(16), fontFamily: FONTS.heading, color: t.text, marginTop: 10, textAlign: "center" },
+  callSub: { fontSize: t.fs(13), color: t.text2, marginTop: 6, textAlign: "center" },
   callBtn: {
     marginTop: 12,
     paddingHorizontal: 26,
@@ -618,7 +628,7 @@ const makeStyles = (t) => StyleSheet.create({
     backgroundColor: t.accent,
     ...SHADOW.s2,
   },
-  callBtnText: { color: t.accentOn, fontFamily: FONTS.accent, fontSize: 15 },
+  callBtnText: { color: t.accentOn, fontFamily: FONTS.accent, fontSize: t.fs(15) },
 
   section: {
     marginTop: 14,
@@ -628,9 +638,9 @@ const makeStyles = (t) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.border,
   },
-  sectionTitle: { fontSize: 15.5, fontFamily: FONTS.heading, color: t.text, marginBottom: 8 },
-  count: { fontFamily: FONTS.accentMedium, color: t.text2, fontSize: 13 },
-  body: { fontSize: 14.5, color: t.text2, lineHeight: 21 },
+  sectionTitle: { fontSize: t.fs(15.5), fontFamily: FONTS.heading, color: t.text, marginBottom: 8 },
+  count: { fontFamily: FONTS.accentMedium, color: t.text2, fontSize: t.fs(13) },
+  body: { fontSize: t.fs(14.5), color: t.text2, lineHeight: 21 },
   tagsRow: { flexDirection: "row", flexWrap: "wrap", marginTop: 10 },
 
   mapWrap: {
@@ -644,9 +654,9 @@ const makeStyles = (t) => StyleSheet.create({
   map: { flex: 1 },
   routeRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 11 },
   routeInfo: { flex: 1, flexDirection: "row", alignItems: "center", gap: 7 },
-  routeIcon: { fontSize: 14 },
-  routeText: { flexShrink: 1, fontSize: 13, fontFamily: FONTS.accentMedium, color: t.text },
-  routeMuted: { flexShrink: 1, fontSize: 12.5, color: t.text3 },
+  routeIcon: { fontSize: t.fs(14) },
+  routeText: { flexShrink: 1, fontSize: t.fs(13), fontFamily: FONTS.accentMedium, color: t.text },
+  routeMuted: { flexShrink: 1, fontSize: t.fs(12.5), color: t.text3 },
   directionsBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -657,7 +667,7 @@ const makeStyles = (t) => StyleSheet.create({
     backgroundColor: t.accent,
     ...SHADOW.s1,
   },
-  directionsText: { color: t.accentOn, fontFamily: FONTS.accent, fontSize: 12.5 },
+  directionsText: { color: t.accentOn, fontFamily: FONTS.accent, fontSize: t.fs(12.5) },
 
   joinBtn: {
     marginTop: 18,
@@ -669,7 +679,7 @@ const makeStyles = (t) => StyleSheet.create({
   },
   joinBtnActive: { backgroundColor: t.surface, borderWidth: 1, borderColor: t.border },
   joinBtnBusy: { opacity: 0.75 },
-  joinBtnText: { fontFamily: FONTS.accent, fontSize: 16, color: t.accentOn },
+  joinBtnText: { fontFamily: FONTS.accent, fontSize: t.fs(16), color: t.accentOn },
   joinBtnTextActive: { color: t.text2 },
 
   notice: {
@@ -684,8 +694,8 @@ const makeStyles = (t) => StyleSheet.create({
     borderColor: t.accent,
   },
   noticeBad: { backgroundColor: t.surface, borderColor: t.status.bad },
-  noticeIcon: { fontSize: 15, marginTop: 1 },
-  noticeText: { flex: 1, fontSize: 13.5, lineHeight: 19, color: t.accentStrong, fontFamily: FONTS.bodySemi },
+  noticeIcon: { fontSize: t.fs(15), marginTop: 1 },
+  noticeText: { flex: 1, fontSize: t.fs(13.5), lineHeight: 19, color: t.accentStrong, fontFamily: FONTS.bodySemi },
   noticeTextBad: { color: t.status.bad },
 
   person: {
@@ -695,10 +705,10 @@ const makeStyles = (t) => StyleSheet.create({
     paddingVertical: 9,
   },
   personAvatar: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
-  personInitial: { color: "#fff", fontFamily: FONTS.accent, fontSize: 13 },
+  personInitial: { color: "#fff", fontFamily: FONTS.accent, fontSize: t.fs(13) },
   personNameRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  personName: { fontSize: 14, fontFamily: FONTS.bodySemi, color: t.text },
-  record: { fontSize: 11.5, color: t.text3, marginTop: 1 },
+  personName: { fontSize: t.fs(14), fontFamily: FONTS.bodySemi, color: t.text },
+  record: { fontSize: t.fs(11.5), color: t.text3, marginTop: 1 },
   recordNew: { fontStyle: "italic" },
 
   // ── Discussion ───────────────────────────────────────────────────────
@@ -719,10 +729,10 @@ const makeStyles = (t) => StyleSheet.create({
     marginTop: 1,
   },
   commentHead: { flexDirection: "row", alignItems: "center", gap: 6 },
-  commentName: { fontSize: 13.5, fontFamily: FONTS.bodySemi, color: t.text, flexShrink: 1 },
-  commentAge: { fontSize: 11, color: t.text3, marginStart: "auto" },
-  commentText: { fontSize: 14.5, color: t.text2, lineHeight: 20, marginTop: 2 },
-  commentDelete: { fontSize: 12, fontFamily: FONTS.accentMedium, color: t.status.bad, marginTop: 4 },
+  commentName: { fontSize: t.fs(13.5), fontFamily: FONTS.bodySemi, color: t.text, flexShrink: 1 },
+  commentAge: { fontSize: t.fs(11), color: t.text3, marginStart: "auto" },
+  commentText: { fontSize: t.fs(14.5), color: t.text2, lineHeight: 20, marginTop: 2 },
+  commentDelete: { fontSize: t.fs(12), fontFamily: FONTS.accentMedium, color: t.status.bad, marginTop: 4 },
 
   composer: {
     flexDirection: "row",
@@ -743,7 +753,7 @@ const makeStyles = (t) => StyleSheet.create({
     borderRadius: RADIUS.base,
     backgroundColor: t.surface3,
     color: t.text,
-    fontSize: 14.5,
+    fontSize: t.fs(14.5),
   },
   composerBtn: {
     paddingHorizontal: 16,
@@ -754,7 +764,7 @@ const makeStyles = (t) => StyleSheet.create({
     justifyContent: "center",
   },
   composerBtnOff: { opacity: 0.45 },
-  composerBtnText: { color: t.accentOn, fontFamily: FONTS.accent, fontSize: 14 },
+  composerBtnText: { color: t.accentOn, fontFamily: FONTS.accent, fontSize: t.fs(14) },
 
   threshold: {
     marginTop: 4,
@@ -767,14 +777,14 @@ const makeStyles = (t) => StyleSheet.create({
   thresholdConfirmed: { borderColor: t.status.good },
   thresholdCancelled: { borderColor: t.status.bad, opacity: 0.7 },
   thresholdTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
-  thresholdLabel: { fontSize: 13, fontFamily: FONTS.bodySemi, color: t.text },
-  thresholdDeadline: { fontSize: 11.5, color: t.text3 },
+  thresholdLabel: { fontSize: t.fs(13), fontFamily: FONTS.bodySemi, color: t.text },
+  thresholdDeadline: { fontSize: t.fs(11.5), color: t.text3 },
   thresholdBar: { height: 7, borderRadius: 4, backgroundColor: t.surface3, overflow: "hidden" },
   thresholdFill: { height: "100%", borderRadius: 4, backgroundColor: t.accent },
 
   whenRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 8 },
   countdown: {
-    fontSize: 11.5,
+    fontSize: t.fs(11.5),
     fontFamily: FONTS.accentMedium,
     color: t.accentStrong,
     backgroundColor: t.accentSoft,
@@ -786,7 +796,7 @@ const makeStyles = (t) => StyleSheet.create({
   // Same shape as the host tag, in a neutral tone: it is a fact about how
   // they joined, not a rank.
   guestTag: {
-    fontSize: 10,
+    fontSize: t.fs(10),
     fontFamily: FONTS.accent,
     color: t.text3,
     backgroundColor: t.surface2,
@@ -796,7 +806,7 @@ const makeStyles = (t) => StyleSheet.create({
     overflow: "hidden",
   },
   hostTag: {
-    fontSize: 10,
+    fontSize: t.fs(10),
     fontFamily: FONTS.accent,
     color: t.accentStrong,
     backgroundColor: t.accentSoft,
@@ -805,7 +815,7 @@ const makeStyles = (t) => StyleSheet.create({
     paddingVertical: 2,
     overflow: "hidden",
   },
-  chevron: { fontSize: 20, color: t.text3 },
+  chevron: { fontSize: t.fs(20), color: t.text3 },
 
   shareRow: { flexDirection: "row", gap: 10, marginTop: 10 },
   shareBtn: {
@@ -813,7 +823,7 @@ const makeStyles = (t) => StyleSheet.create({
     alignItems: "center", backgroundColor: t.surface,
     borderWidth: 1, borderColor: t.border,
   },
-  shareBtnText: { fontSize: 14.5, fontFamily: FONTS.headingSemi, color: t.text },
+  shareBtnText: { fontSize: t.fs(14.5), fontFamily: FONTS.headingSemi, color: t.text },
   reportBtn: { marginTop: 18, paddingVertical: 12, alignItems: "center" },
-  reportBtnText: { fontSize: 13, color: t.text3, fontFamily: FONTS.bodySemi },
+  reportBtnText: { fontSize: t.fs(13), color: t.text3, fontFamily: FONTS.bodySemi },
 });

@@ -6,11 +6,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { I18nManager } from "react-native";
 
 import BrandMark from "./BrandMark";
+import ProfileAvatar from "./ProfileAvatar";
 import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
 import { RADIUS, SHADOW } from "../styles/theme";
 import {
-  HomeIcon, PlusIcon, UserIcon, GearIcon,
+  HomeIcon, PlusIcon, GearIcon, CompassIcon,
   ToolsIcon, ClockIcon, LogOutIcon, CloseIcon, BellIcon, FlagIcon,
 } from "./NavIcons";
 import { useI18n } from "../context/LocaleContext";
@@ -32,9 +33,13 @@ const DRAWER_MAX_WIDTH = 320;
 // (templates/home_menu.html), which still has all eight.
 const NAV_ITEMS = [
   { route: "Home", labelKey: "drawer.home", Icon: HomeIcon },
+  // Home already holds Explore as a tab; `route.params.tab` is how the
+  // rest of the app asks for that side directly, so this is a real
+  // destination rather than a row added to fill the panel.
+  { route: "Home", params: { tab: "explore" }, key: "Explore",
+    labelKey: "drawer.explore", Icon: CompassIcon },
   { route: "Inbox", labelKey: "drawer.inbox", Icon: BellIcon, badgeKey: "inbox" },
   { route: "Create", labelKey: "drawer.create", Icon: PlusIcon },
-  { route: "Profile", labelKey: "drawer.myProfile", Icon: UserIcon },
   { route: "Settings", labelKey: "drawer.settings", Icon: GearIcon },
 ];
 
@@ -67,9 +72,9 @@ export function MenuButton({ onPress, showDot }) {
  * One nav row. `index` drives the open stagger: rows fade and slide in a beat
  * apart so the panel reads as arriving rather than snapping into place.
  */
-function Item({ label, Icon, active, badge, onPress, styles, theme, index = 0, progress, reduceMotion }) {
+function Item({ label, Icon, badge, onPress, styles, theme, index = 0, progress, reduceMotion }) {
   // Icons take the row's colour, which is the point of dropping the emoji.
-  const tint = active ? theme.accentStrong : theme.text2;
+  const tint = theme.text2;
 
   const rowStyle = reduceMotion
     ? null
@@ -90,14 +95,14 @@ function Item({ label, Icon, active, badge, onPress, styles, theme, index = 0, p
   return (
     <Animated.View style={rowStyle}>
       <Pressable
-        style={[styles.item, active && styles.itemActive]}
+        style={styles.item}
         onPress={onPress}
         android_ripple={{ color: theme.surface3 }}
       >
         <View style={styles.itemIcon}>
           <Icon size={20} color={tint} />
         </View>
-        <Text style={[styles.itemLabel, active && styles.itemLabelActive]}>{label}</Text>
+        <Text style={styles.itemLabel}>{label}</Text>
         <View style={{ flex: 1 }} />
         {badge ? <Text style={styles.badge}>{badge > 99 ? "99+" : String(badge)}</Text> : null}
       </Pressable>
@@ -107,7 +112,7 @@ function Item({ label, Icon, active, badge, onPress, styles, theme, index = 0, p
 
 export default function HomeDrawer({
   open, onClose, navigation, activeRoute, isAdmin, pendingCount,
-  activityCount = 0, inboxCount = 0, reportCount = 0, onLogout,
+  activityCount = 0, inboxCount = 0, reportCount = 0, onLogout, profile,
 }) {
   const { theme, reduceMotion } = useTheme();
   const insets = useSafeAreaInsets();
@@ -161,8 +166,15 @@ export default function HomeDrawer({
     outputRange: [hidden, 0],
   });
 
-  function go(route) {
+  function go(route, params) {
     onClose();
+    // With params this is a request for a particular side of a screen you may
+    // already be on — Explore when Home is showing Nearby — so the "same
+    // route, skip it" shortcut would swallow it.
+    if (params) {
+      navigation.navigate(route, params);
+      return;
+    }
     if (route !== activeRoute) navigation.navigate(route);
   }
 
@@ -180,15 +192,24 @@ export default function HomeDrawer({
         style={[styles.drawer, { width, paddingBottom: insets.bottom + 16, transform: [{ translateX }] }]}
       >
         <View style={[styles.head, { paddingTop: insets.top + 16 }]}>
-          {/* Same mark as the launcher icon — see components/BrandMark.js. The
-              drawer sits on `surface`, not `bg`, so the lens takes that. */}
-          <View style={styles.logo}>
-            <BrandMark size={44} color={theme.accent} bg={theme.surface} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.title}>Metz</Text>
-            <Text style={styles.sub}>{t("drawer.tagline")}</Text>
-          </View>
+          {profile ? (
+            <Pressable style={styles.account} onPress={() => go("Profile")}>
+              <ProfileAvatar
+                size={42}
+                frame={profile.profile_frame}
+                face={profile.avatar_face}
+                emoji={profile.avatar_emoji}
+                initials={(profile.display_name || profile.username || "?").slice(0, 2).toUpperCase()}
+                color={profile.profile_color}
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.accountName} numberOfLines={1}>
+                  {profile.display_name || profile.username}
+                </Text>
+                <Text style={styles.accountUid} numberOfLines={1}>@{profile.uid}</Text>
+              </View>
+            </Pressable>
+          ) : <View style={{ flex: 1 }} />}
           <Pressable style={styles.close} onPress={onClose} hitSlop={8}>
             <CloseIcon size={16} color={theme.text2} />
           </Pressable>
@@ -197,16 +218,15 @@ export default function HomeDrawer({
         <ScrollView style={styles.nav} contentContainerStyle={{ paddingBottom: 8 }}>
           {NAV_ITEMS.map((item, i) => (
             <Item
-              key={item.route}
+              key={item.key || item.route}
               label={t(item.labelKey)}
               Icon={item.Icon}
-              active={activeRoute === item.route}
               /* Activity moved inside the Inbox screen, so its count moved
                  into the Inbox badge too — split across two rows it told you
                  how much was waiting; on one row that has to be the total, or
                  the badge undercounts what is actually behind the tap. */
               badge={item.badgeKey === "inbox" ? inboxCount + activityCount : 0}
-              onPress={() => go(item.route)}
+              onPress={() => go(item.route, item.params)}
               index={i}
               progress={rows}
               reduceMotion={reduceMotion}
@@ -226,7 +246,6 @@ export default function HomeDrawer({
                   key={item.route}
                   label={t(item.labelKey)}
                   Icon={item.Icon}
-                  active={activeRoute === item.route}
                   badge={item.badgeKey === "reports" ? reportCount : pendingCount}
                   onPress={() => go(item.route)}
                   index={NAV_ITEMS.length + i}
@@ -248,6 +267,16 @@ export default function HomeDrawer({
               used it. */}
           <Text style={styles.logoutText}>{t("account.logOut")}</Text>
         </Pressable>
+
+        <View style={styles.brandFoot}>
+          {/* Same mark as the launcher icon — see components/BrandMark.js. The
+              drawer sits on `surface`, not `bg`, so the lens takes that. */}
+          <BrandMark size={30} color={theme.accent} bg={theme.surface} />
+          <View>
+            <Text style={styles.brandName}>Metz</Text>
+            <Text style={styles.sub}>{t("drawer.tagline")}</Text>
+          </View>
+        </View>
       </Animated.View>
     </>
   );
@@ -273,7 +302,7 @@ const makeStyles = (t) => StyleSheet.create({
   },
   burger: { width: 18, height: 12, justifyContent: "space-between" },
   burgerLine: { height: 2.4, borderRadius: 2, backgroundColor: "#fff" },
-  menuBrand: { color: "#fff", fontSize: 13.5, fontFamily: FONTS.heading },
+  menuBrand: { color: "#fff", fontSize: t.fs(13.5), fontFamily: FONTS.heading },
   menuDot: {
     width: 8,
     height: 8,
@@ -297,38 +326,45 @@ const makeStyles = (t) => StyleSheet.create({
   },
 
   head: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingBottom: 16 },
+  account: { flexDirection: "row", alignItems: "center", gap: 12, flex: 1 },
+  accountName: { fontSize: t.fs(15), fontFamily: FONTS.headingSemi, color: t.text },
+  accountUid: { fontSize: t.fs(11.5), color: t.text3, fontFamily: FONTS.accentMedium, marginTop: 2 },
+  brandFoot: {
+    flexDirection: "row", alignItems: "center", gap: 10,
+    paddingHorizontal: 16, paddingTop: 14, marginTop: 6,
+    borderTopWidth: 1, borderTopColor: t.border,
+  },
+  brandName: { fontSize: t.fs(14), fontFamily: FONTS.heading, color: t.text2 },
   // The mark is 3:2 and sizes itself; the row just needs it vertically centred.
   logo: { justifyContent: "center" },
-  title: { fontSize: 17, fontFamily: FONTS.heading, color: t.text },
-  sub: { fontSize: 12, color: t.text2 },
+  title: { fontSize: t.fs(17), fontFamily: FONTS.heading, color: t.text },
+  sub: { fontSize: t.fs(12), color: t.text2 },
   close: {
     width: 30, height: 30, borderRadius: 15,
     alignItems: "center", justifyContent: "center",
     backgroundColor: t.surface2,
   },
-  closeText: { color: t.text2, fontSize: 14, fontWeight: "700" },
+  closeText: { color: t.text2, fontSize: t.fs(14), fontWeight: "700" },
 
   nav: { flex: 1, paddingHorizontal: 12 },
   item: {
     flexDirection: "row",
     alignItems: "center",
     gap: 13,
-    paddingVertical: 13,
+    paddingVertical: 15,
     paddingHorizontal: 14,
     borderRadius: 13,
     overflow: "hidden",
   },
-  itemActive: { backgroundColor: t.accentSoft },
   itemIcon: { width: 22, alignItems: "center", justifyContent: "center" },
-  itemLabel: { fontSize: 14.5, fontWeight: "600", color: t.text },
-  itemLabelActive: { color: t.accentStrong, fontFamily: FONTS.headingSemi },
+  itemLabel: { fontSize: t.fs(14.5), fontWeight: "600", color: t.text },
   badge: {
     minWidth: 22,
     textAlign: "center",
     borderRadius: RADIUS.pill,
     backgroundColor: t.status.bad,
     color: "#fff",
-    fontSize: 11,
+    fontSize: t.fs(11),
     fontFamily: FONTS.accent,
     paddingHorizontal: 7,
     paddingVertical: 2,
@@ -336,7 +372,7 @@ const makeStyles = (t) => StyleSheet.create({
   },
 
   divider: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingTop: 16, paddingBottom: 6 },
-  dividerText: { fontSize: 11, fontWeight: "700", letterSpacing: 0.5, color: t.text3 },
+  dividerText: { fontSize: t.fs(11), fontWeight: "700", letterSpacing: 0.5, color: t.text3 },
   dividerLine: { flex: 1, height: 1, backgroundColor: t.border },
 
   logout: {
@@ -349,5 +385,5 @@ const makeStyles = (t) => StyleSheet.create({
     borderRadius: 13,
     backgroundColor: "rgba(231, 76, 60, 0.08)",
   },
-  logoutText: { color: "#e74c3c", fontSize: 14.5, fontWeight: "700" },
+  logoutText: { color: "#e74c3c", fontSize: t.fs(14.5), fontWeight: "700" },
 });

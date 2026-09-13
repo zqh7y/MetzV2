@@ -201,6 +201,7 @@ export default function ProfileScreen({ navigation, route }) {
         <ProfileAvatar
           size={108}
           frame={profile.profile_frame}
+          face={profile.avatar_face}
           emoji={profile.avatar_emoji}
           initials={initialsFor(profile)}
         />
@@ -394,13 +395,13 @@ const makeStyles = (t) => StyleSheet.create({
   hero: { paddingBottom: 26, alignItems: "center" },
   nameRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   name: {
-    color: "#fff", fontSize: 23, fontFamily: FONTS.heading,
+    color: "#fff", fontSize: t.fs(23), fontFamily: FONTS.heading,
     textShadowColor: "rgba(0,0,0,0.18)", textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
-  email: { color: "rgba(255,255,255,0.72)", fontSize: 12.5, marginTop: 3 },
+  email: { color: "rgba(255,255,255,0.72)", fontSize: t.fs(12.5), marginTop: 3 },
   heroUid: {
-    fontSize: 11.5, color: "rgba(255,255,255,0.92)", fontFamily: FONTS.accentMedium,
+    fontSize: t.fs(11.5), color: "rgba(255,255,255,0.92)", fontFamily: FONTS.accentMedium,
     backgroundColor: "rgba(255,255,255,0.18)", overflow: "hidden",
     paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999,
     marginTop: 8,
@@ -410,57 +411,57 @@ const makeStyles = (t) => StyleSheet.create({
     paddingHorizontal: 20, paddingVertical: 10, borderRadius: RADIUS.pill,
     backgroundColor: t.surface,
   },
-  heroBtnText: { color: t.accentStrong, fontFamily: FONTS.headingSemi, fontSize: 13.5 },
+  heroBtnText: { color: t.accentStrong, fontFamily: FONTS.headingSemi, fontSize: t.fs(13.5) },
   heroBtnGhost: {
     paddingHorizontal: 20, paddingVertical: 10, borderRadius: RADIUS.pill,
     borderWidth: 1, borderColor: "rgba(255,255,255,0.45)",
   },
-  heroBtnGhostText: { color: t.surface, fontFamily: FONTS.headingSemi, fontSize: 13.5 },
+  heroBtnGhostText: { color: t.surface, fontFamily: FONTS.headingSemi, fontSize: t.fs(13.5) },
   stat: { alignItems: "center", flex: 1 },
-  statNumber: { fontSize: 22, fontFamily: FONTS.accent, color: t.text },
-  statLabel: { fontSize: 10, fontFamily: FONTS.bodySemi, color: t.text3, textTransform: "uppercase", marginTop: 2 },
+  statNumber: { fontSize: t.fs(22), fontFamily: FONTS.accent, color: t.text },
+  statLabel: { fontSize: t.fs(10), fontFamily: FONTS.bodySemi, color: t.text3, textTransform: "uppercase", marginTop: 2 },
   interestsCard: {
     backgroundColor: t.surface, borderRadius: RADIUS.lg, borderWidth: 1,
     borderColor: t.border, marginHorizontal: 16, marginTop: 16,
     paddingHorizontal: 16, paddingVertical: 14,
   },
   interestsTitle: {
-    fontSize: 11, fontFamily: FONTS.bodySemi, color: t.text3,
+    fontSize: t.fs(11), fontFamily: FONTS.bodySemi, color: t.text3,
     textTransform: "uppercase", marginBottom: 10,
   },
-  aboutPrompt: { fontSize: 14, color: t.accentStrong, fontFamily: FONTS.bodySemi },
+  aboutPrompt: { fontSize: t.fs(14), color: t.accentStrong, fontFamily: FONTS.bodySemi },
   // A bio is a sentence, so it is set as body text on a card rather than as
   // centred white type over the hero artwork. Left-aligned for the same
   // reason: centring reads as a caption, and a caption is not what this is.
-  aboutText: { fontSize: 14.5, lineHeight: 21, color: t.text2, fontFamily: FONTS.body },
+  aboutText: { fontSize: t.fs(14.5), lineHeight: 21, color: t.text2, fontFamily: FONTS.body },
   aboutRule: { height: 1, backgroundColor: t.border, marginVertical: 12 },
   interestChips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   interestChip: {
     paddingHorizontal: 11, paddingVertical: 6, borderRadius: RADIUS.pill,
     backgroundColor: t.surface2, color: t.text2,
-    fontSize: 12.5, fontFamily: FONTS.bodySemi, overflow: "hidden",
+    fontSize: t.fs(12.5), fontFamily: FONTS.bodySemi, overflow: "hidden",
   },
   reliability: { marginHorizontal: 16, marginTop: 16 },
   section: { backgroundColor: t.surface, marginHorizontal: 16, marginTop: 16, borderRadius: 18, padding: 16 },
   sectionHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 },
-  sectionTitle: { fontSize: 15, fontFamily: FONTS.heading, color: t.text, marginBottom: 10 },
-  sectionEmpty: { color: t.text3, fontSize: 13, textAlign: "center", paddingVertical: 14 },
+  sectionTitle: { fontSize: t.fs(15), fontFamily: FONTS.heading, color: t.text, marginBottom: 10 },
+  sectionEmpty: { color: t.text3, fontSize: t.fs(13), textAlign: "center", paddingVertical: 14 },
   segmented: { flexDirection: "row", backgroundColor: t.surface2, borderRadius: 12, padding: 3 },
   segBtn: { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6 },
   segBtnActive: { backgroundColor: t.surface, shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 4, elevation: 1 },
-  segText: { fontSize: 12, fontFamily: FONTS.bodySemi, color: t.text3 },
+  segText: { fontSize: t.fs(12), fontFamily: FONTS.bodySemi, color: t.text3 },
   segTextActive: { color: t.text },
   pastCard: { opacity: 0.62 },
   actions: { padding: 16, gap: 10 },
   actionBtn: { backgroundColor: t.surface, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 18 },
-  actionBtnText: { fontFamily: FONTS.accentMedium, color: t.text, fontSize: 14 },
+  actionBtnText: { fontFamily: FONTS.accentMedium, color: t.text, fontSize: t.fs(14) },
   urgentBtn: { backgroundColor: t.status.bad, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  urgentBtnText: { fontFamily: FONTS.accentMedium, color: t.surface, fontSize: 14 },
+  urgentBtnText: { fontFamily: FONTS.accentMedium, color: t.surface, fontSize: t.fs(14) },
   pendingBadge: { backgroundColor: t.surface, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
-  pendingBadgeText: { color: t.status.bad, fontFamily: FONTS.accent, fontSize: 12 },
+  pendingBadgeText: { color: t.status.bad, fontFamily: FONTS.accent, fontSize: t.fs(12) },
   logoutBtn: {},
-  logoutBtnText: { fontFamily: FONTS.accentMedium, color: t.status.bad, fontSize: 14 },
-  errorText: { color: t.text2, fontSize: 14, marginBottom: 14 },
+  logoutBtnText: { fontFamily: FONTS.accentMedium, color: t.status.bad, fontSize: t.fs(14) },
+  errorText: { color: t.text2, fontSize: t.fs(14), marginBottom: 14 },
   retryBtn: { backgroundColor: t.accent, borderRadius: 20, paddingVertical: 10, paddingHorizontal: 24 },
   retryBtnText: { color: t.surface, fontFamily: FONTS.accentMedium },
 });

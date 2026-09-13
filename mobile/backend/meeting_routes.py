@@ -156,6 +156,7 @@ def meeting_attendees(meeting_id):
             "username": display_name_for(uid),
             "color": generate_user_color(uid),
             "avatar_emoji": (get_user(uid) or {}).get("avatar_emoji") or "",
+            "avatar_face": (get_user(uid) or {}).get("avatar_face") or "",
             "profile_frame": (get_user(uid) or {}).get("profile_frame") or "none",
             "initial": (display_name_for(uid) or uid)[:1].upper(),
             "is_trusted": is_trusted(uid),

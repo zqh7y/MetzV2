@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { View, Text, Image, StyleSheet } from "react-native";
+import FaceAvatar from "./FaceAvatar";
 import { useTheme } from "../context/ThemeContext";
 import { FONTS } from "../styles/fonts";
 
@@ -36,11 +37,15 @@ export default function AvatarStack({ people = [], total = 0, size = 24 }) {
             dim,
             // The first one sits flush; the rest tuck under their neighbour.
             i === 0 && { marginStart: 0 },
-            !p.profile_picture && { backgroundColor: p.color || theme.accent },
+            // A drawn face brings its own background, so tinting behind it
+            // would only show as a rim at the edge of the circle.
+            !p.profile_picture && !p.avatar_face && { backgroundColor: p.color || theme.accent },
           ]}
         >
           {p.profile_picture ? (
             <Image source={{ uri: p.profile_picture }} style={[dim, styles.photo]} />
+          ) : p.avatar_face ? (
+            <FaceAvatar id={p.avatar_face} size={size} />
           ) : p.avatar_emoji ? (
             // Whatever someone picked as their avatar should be what everyone
             // sees, including here — an initial where an emoji was chosen looks

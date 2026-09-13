@@ -58,6 +58,7 @@ export function AuthProvider({ children }) {
           email: p.email,
           name: p.display_name || p.username,
           emoji: p.avatar_emoji,
+          face: p.avatar_face,
           color: p.profile_color,
           token: await loadStoredToken(),
         });

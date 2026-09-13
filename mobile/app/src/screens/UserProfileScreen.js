@@ -139,6 +139,7 @@ export default function UserProfileScreen({ route, navigation }) {
         <ProfileAvatar
           size={84}
           frame={user.profile_frame}
+          face={user.avatar_face}
           emoji={user.avatar_emoji}
           initials={user.username.slice(0, 2).toUpperCase()}
           color={user.profile_color || "#667eea"}
@@ -260,7 +261,7 @@ const makeStyles = (t) => StyleSheet.create({
   // keeps it readable on the pale end of the range without darkening the
   // artwork for everyone.
   name: {
-    fontSize: 23, fontFamily: FONTS.heading, color: "#fff",
+    fontSize: t.fs(23), fontFamily: FONTS.heading, color: "#fff",
     textShadowColor: "rgba(0,0,0,0.18)", textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
@@ -269,7 +270,7 @@ const makeStyles = (t) => StyleSheet.create({
   // A handle is a label, not a sentence — as loose text under the name it
   // read as a second, dimmer name. In a pill it is clearly an identifier.
   uid: {
-    fontSize: 11.5, color: "rgba(255,255,255,0.92)", fontFamily: FONTS.accentMedium,
+    fontSize: t.fs(11.5), color: "rgba(255,255,255,0.92)", fontFamily: FONTS.accentMedium,
     backgroundColor: "rgba(255,255,255,0.18)", overflow: "hidden",
     paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999,
     marginTop: 8,
@@ -282,19 +283,19 @@ const makeStyles = (t) => StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 14,
   },
   cardTitle: {
-    fontSize: 11, fontFamily: FONTS.bodySemi, color: t.text3,
+    fontSize: t.fs(11), fontFamily: FONTS.bodySemi, color: t.text3,
     textTransform: "uppercase", marginBottom: 10,
   },
   // A bio is a sentence, so it is set as body text on a card rather than as
   // centred white type over the hero artwork. Left-aligned for the same
   // reason: centring reads as a caption, and a caption is not what this is.
-  aboutText: { fontSize: 14.5, lineHeight: 21, color: t.text2, fontFamily: FONTS.body },
+  aboutText: { fontSize: t.fs(14.5), lineHeight: 21, color: t.text2, fontFamily: FONTS.body },
   aboutRule: { height: 1, backgroundColor: t.border, marginVertical: 12 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: {
     paddingHorizontal: 11, paddingVertical: 6, borderRadius: RADIUS.pill,
     backgroundColor: t.surface2, color: t.text2,
-    fontSize: 12.5, fontFamily: FONTS.bodySemi, overflow: "hidden",
+    fontSize: t.fs(12.5), fontFamily: FONTS.bodySemi, overflow: "hidden",
   },
   // The card already provides the outer gap; only the space between them.
   hostedItem: { marginBottom: 10 },
@@ -304,15 +305,15 @@ const makeStyles = (t) => StyleSheet.create({
     shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2,
   },
   activityRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8 },
-  activityIcon: { fontSize: 18 },
-  activityLabel: { fontSize: 11, color: t.text3, fontFamily: FONTS.bodySemi, textTransform: "uppercase" },
-  activityValue: { fontSize: 14, color: t.text, fontFamily: FONTS.bodySemi, marginTop: 2 },
-  errorText: { color: t.text2, fontSize: 14, marginBottom: 14 },
+  activityIcon: { fontSize: t.fs(18) },
+  activityLabel: { fontSize: t.fs(11), color: t.text3, fontFamily: FONTS.bodySemi, textTransform: "uppercase" },
+  activityValue: { fontSize: t.fs(14), color: t.text, fontFamily: FONTS.bodySemi, marginTop: 2 },
+  errorText: { color: t.text2, fontSize: t.fs(14), marginBottom: 14 },
   retryBtn: { backgroundColor: t.accent, borderRadius: 20, paddingVertical: 10, paddingHorizontal: 24 },
   retryBtnText: { color: t.surface, fontFamily: FONTS.accentMedium },
 
   safety: { marginTop: 18, marginHorizontal: 16 },
   safetyBtn: { paddingVertical: 13, alignItems: "center" },
-  safetyText: { fontSize: 13.5, color: t.text3, fontFamily: FONTS.bodySemi },
+  safetyText: { fontSize: t.fs(13.5), color: t.text3, fontFamily: FONTS.bodySemi },
   safetyTextOn: { color: t.status.bad },
 });

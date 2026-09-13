@@ -8,6 +8,7 @@ import { FONTS } from "../styles/fonts";
 import { RADIUS, SHADOW } from "../styles/theme";
 import { useI18n } from "../context/LocaleContext";
 import { Alert } from "./AppAlert";
+import FaceAvatar from "./FaceAvatar";
 
 /**
  * What happens when you tap "Log out".
@@ -86,10 +87,17 @@ export default function AccountSheet({ visible, onClose }) {
           <View style={styles.grabber} />
 
           <View style={styles.who}>
-            <View style={[styles.avatar, { backgroundColor: profile?.profile_color || theme.accent }]}>
-              <Text style={profile?.avatar_emoji ? styles.avatarEmoji : styles.avatarText}>
-                {profile?.avatar_emoji || initials}
-              </Text>
+            <View style={[
+              styles.avatar,
+              !profile?.avatar_face && { backgroundColor: profile?.profile_color || theme.accent },
+            ]}>
+              {profile?.avatar_face ? (
+                <FaceAvatar id={profile.avatar_face} size={42} />
+              ) : (
+                <Text style={profile?.avatar_emoji ? styles.avatarEmoji : styles.avatarText}>
+                  {profile?.avatar_emoji || initials}
+                </Text>
+              )}
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.whoName} numberOfLines={1}>{name}</Text>
@@ -113,10 +121,17 @@ export default function AccountSheet({ visible, onClose }) {
                     onPress={() => useAccount(account)}
                     onLongPress={() => handleForget(account)}
                   >
-                    <View style={[styles.savedAvatar, { backgroundColor: account.color || theme.accent }]}>
-                      <Text style={account.emoji ? styles.avatarEmoji : styles.savedAvatarText}>
-                        {account.emoji || (label || "?").slice(0, 2).toUpperCase()}
-                      </Text>
+                    <View style={[
+                      styles.savedAvatar,
+                      !account.face && { backgroundColor: account.color || theme.accent },
+                    ]}>
+                      {account.face ? (
+                        <FaceAvatar id={account.face} size={38} />
+                      ) : (
+                        <Text style={account.emoji ? styles.avatarEmoji : styles.savedAvatarText}>
+                          {account.emoji || (label || "?").slice(0, 2).toUpperCase()}
+                        </Text>
+                      )}
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.optionTitle} numberOfLines={1}>{label}</Text>
@@ -206,18 +221,18 @@ const makeStyles = (t) => StyleSheet.create({
     paddingBottom: 14, marginBottom: 6,
     borderBottomWidth: 1, borderBottomColor: t.border,
   },
-  avatar: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center" },
-  avatarText: { color: "#fff", fontFamily: FONTS.heading, fontSize: 15 },
-  avatarEmoji: { fontSize: 22 },
-  whoName: { fontSize: 15, fontFamily: FONTS.headingSemi, color: t.text },
-  whoEmail: { fontSize: 12.5, color: t.text3, marginTop: 1 },
+  avatar: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center", overflow: "hidden" },
+  avatarText: { color: "#fff", fontFamily: FONTS.heading, fontSize: t.fs(15) },
+  avatarEmoji: { fontSize: t.fs(22) },
+  whoName: { fontSize: t.fs(15), fontFamily: FONTS.headingSemi, color: t.text },
+  whoEmail: { fontSize: t.fs(12.5), color: t.text3, marginTop: 1 },
 
   saved: { paddingTop: 6, paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: t.border, marginBottom: 4 },
-  savedLabel: { fontSize: 10.5, fontFamily: FONTS.bodySemi, color: t.text3, letterSpacing: 0.6, marginTop: 4 },
-  savedAvatar: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" },
-  savedAvatarText: { color: "#fff", fontFamily: FONTS.heading, fontSize: 13 },
-  savedStale: { fontSize: 16, color: t.text3, paddingHorizontal: 4 },
-  savedHint: { fontSize: 11, color: t.text3, marginBottom: 8, marginTop: 2 },
+  savedLabel: { fontSize: t.fs(10.5), fontFamily: FONTS.bodySemi, color: t.text3, letterSpacing: 0.6, marginTop: 4 },
+  savedAvatar: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", overflow: "hidden" },
+  savedAvatarText: { color: "#fff", fontFamily: FONTS.heading, fontSize: t.fs(13) },
+  savedStale: { fontSize: t.fs(16), color: t.text3, paddingHorizontal: 4 },
+  savedHint: { fontSize: t.fs(11), color: t.text3, marginBottom: 8, marginTop: 2 },
 
   option: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 13 },
   optionPressed: { opacity: 0.6 },
@@ -226,15 +241,15 @@ const makeStyles = (t) => StyleSheet.create({
     alignItems: "center", justifyContent: "center", backgroundColor: t.accentSoft,
   },
   optionIconBad: { backgroundColor: t.status.badSoft },
-  optionIconText: { fontSize: 17, color: t.accentStrong },
+  optionIconText: { fontSize: t.fs(17), color: t.accentStrong },
   optionIconTextBad: { color: t.status.bad },
-  optionTitle: { fontSize: 14.5, fontFamily: FONTS.headingSemi, color: t.text },
+  optionTitle: { fontSize: t.fs(14.5), fontFamily: FONTS.headingSemi, color: t.text },
   optionTitleBad: { color: t.status.bad },
-  optionBody: { fontSize: 12.5, color: t.text3, marginTop: 1 },
+  optionBody: { fontSize: t.fs(12.5), color: t.text3, marginTop: 1 },
 
   cancel: {
     marginTop: 10, paddingVertical: 13, borderRadius: RADIUS.base,
     backgroundColor: t.surface2, alignItems: "center",
   },
-  cancelText: { fontSize: 14, fontFamily: FONTS.headingSemi, color: t.text2 },
+  cancelText: { fontSize: t.fs(14), fontFamily: FONTS.headingSemi, color: t.text2 },
 });

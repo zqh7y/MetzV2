@@ -14,6 +14,7 @@ import { useI18n } from "../context/LocaleContext";
 import { FONTS } from "../styles/fonts";
 import { RADIUS } from "../styles/theme";
 import ProfileAvatar from "../components/ProfileAvatar";
+import FaceAvatar, { FACE_IDS } from "../components/FaceAvatar";
 import { BACKGROUNDS, FRAMES, backgroundFor } from "../styles/profileLooks";
 
 /**
@@ -37,9 +38,6 @@ const TAGS = [
   "Tech", "Outdoors", "Gaming", "Social", "Fitness",
 ];
 
-const EMOJIS = ["😀", "😎", "🤓", "🥳", "🧑‍💻", "🎨", "🎧", "⚽", "🏔️",
-                "🌊", "🍕", "☕", "📚", "🎬", "🐱", "🐶", "🌸", "🚀"];
-
 export default function WelcomeScreen() {
   const { theme } = useTheme();
   const { t } = useI18n();
@@ -51,7 +49,7 @@ export default function WelcomeScreen() {
   const [interests, setInterests] = useState([]);
   const [frame, setFrame] = useState("none");
   const [background, setBackground] = useState("default");
-  const [emoji, setEmoji] = useState("");
+  const [face, setFace] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -83,7 +81,7 @@ export default function WelcomeScreen() {
       const role = await getIntroRole();
       await api.updateProfile({
         interests, profile_frame: frame, profile_background: background,
-        ...(emoji ? { avatar_emoji: emoji } : {}),
+        ...(face ? { avatar_face: face } : {}),
         ...(role ? { role } : {}),
         onboarded: true,
       });
@@ -109,7 +107,7 @@ export default function WelcomeScreen() {
         <ProfileAvatar
           size={96}
           frame={frame}
-          emoji={emoji}
+          face={face}
           initials={initials}
           color={profile?.profile_color}
         />
@@ -182,7 +180,7 @@ export default function WelcomeScreen() {
               {Object.keys(FRAMES).map((id) => (
                 <Pressable key={id} onPress={() => setFrame(id)} style={styles.swatchWrap}>
                   <View style={[styles.framePreview, frame === id && styles.swatchOn]}>
-                    <ProfileAvatar size={46} frame={id} emoji={emoji} initials={initials}
+                    <ProfileAvatar size={46} frame={id} face={face} initials={initials}
                                    color={profile?.profile_color} />
                   </View>
                   <Text style={styles.swatchLabel}>{t(FRAMES[id].labelKey)}</Text>
@@ -190,15 +188,17 @@ export default function WelcomeScreen() {
               ))}
             </View>
 
-            <Text style={styles.section}>{t("welcome.sectionEmoji")}</Text>
+            <Text style={styles.section}>{t("welcome.sectionAvatar")}</Text>
             <View style={styles.chips}>
-              {EMOJIS.map((e) => (
+              {FACE_IDS.map((id) => (
                 <Pressable
-                  key={e}
-                  onPress={() => setEmoji(emoji === e ? "" : e)}
-                  style={[styles.emojiChip, emoji === e && styles.chipOn]}
+                  key={id}
+                  // Tapping the chosen face again clears it, which is the only
+                  // way back to initials in a flow with no "none" option.
+                  onPress={() => setFace(face === id ? "" : id)}
+                  style={[styles.faceChip, face === id && styles.faceChipOn]}
                 >
-                  <Text style={styles.emojiText}>{e}</Text>
+                  <FaceAvatar id={id} size={44} />
                 </Pressable>
               ))}
             </View>
@@ -250,30 +250,33 @@ function Point({ emoji, text, styles }) {
 const makeStyles = (t) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.bg },
   hero: { alignItems: "center", paddingBottom: 26, gap: 10 },
-  heroName: { color: "#fff", fontSize: 18, fontFamily: FONTS.accent },
+  heroName: { color: "#fff", fontSize: t.fs(18), fontFamily: FONTS.accent },
   body: { flex: 1 },
-  title: { fontSize: 24, fontFamily: FONTS.accent, color: t.text, marginBottom: 8 },
-  sub: { fontSize: 15, fontFamily: FONTS.body, color: t.text2, lineHeight: 21, marginBottom: 18 },
-  counter: { fontSize: 12, fontFamily: FONTS.bodySemi, color: t.text3, marginBottom: 10 },
+  title: { fontSize: t.fs(24), fontFamily: FONTS.accent, color: t.text, marginBottom: 8 },
+  sub: { fontSize: t.fs(15), fontFamily: FONTS.body, color: t.text2, lineHeight: 21, marginBottom: 18 },
+  counter: { fontSize: t.fs(12), fontFamily: FONTS.bodySemi, color: t.text3, marginBottom: 10 },
   points: { gap: 14, marginTop: 4 },
   point: { flexDirection: "row", alignItems: "center", gap: 12 },
-  pointEmoji: { fontSize: 24 },
-  pointText: { flex: 1, fontSize: 15, fontFamily: FONTS.body, color: t.text2, lineHeight: 21 },
+  pointEmoji: { fontSize: t.fs(24) },
+  pointText: { flex: 1, fontSize: t.fs(15), fontFamily: FONTS.body, color: t.text2, lineHeight: 21 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   chip: {
     paddingHorizontal: 14, paddingVertical: 10, borderRadius: 999,
     backgroundColor: t.surface, borderWidth: 1, borderColor: t.border,
   },
   chipOn: { backgroundColor: t.accentSoft || t.surface, borderColor: t.accent },
-  chipText: { fontSize: 14, fontFamily: FONTS.bodySemi, color: t.text2 },
+  chipText: { fontSize: t.fs(14), fontFamily: FONTS.bodySemi, color: t.text2 },
   chipTextOn: { color: t.accent },
-  emojiChip: {
-    width: 46, height: 46, borderRadius: 14, alignItems: "center", justifyContent: "center",
-    backgroundColor: t.surface, borderWidth: 1, borderColor: t.border,
+  faceChip: {
+    // Round, and big enough for a 44px face plus the ring, so selecting one
+    // doesn't reflow the grid.
+    width: 52, height: 52, borderRadius: 26, alignItems: "center", justifyContent: "center",
+    backgroundColor: t.surface, borderWidth: 2, borderColor: "transparent",
+    overflow: "hidden",
   },
-  emojiText: { fontSize: 22 },
+  faceChipOn: { borderColor: t.accent },
   section: {
-    fontSize: 11, fontFamily: FONTS.bodySemi, color: t.text3,
+    fontSize: t.fs(11), fontFamily: FONTS.bodySemi, color: t.text3,
     textTransform: "uppercase", marginTop: 22, marginBottom: 10,
   },
   swatches: { flexDirection: "row", flexWrap: "wrap", gap: 14 },
@@ -284,8 +287,8 @@ const makeStyles = (t) => StyleSheet.create({
     backgroundColor: t.surface2 || t.surface, borderWidth: 2, borderColor: "transparent",
   },
   swatchOn: { borderColor: t.accent },
-  swatchLabel: { fontSize: 10, fontFamily: FONTS.body, color: t.text3, textAlign: "center" },
-  error: { marginTop: 16, color: t.danger || "#dc2626", fontFamily: FONTS.body, fontSize: 14 },
+  swatchLabel: { fontSize: t.fs(10), fontFamily: FONTS.body, color: t.text3, textAlign: "center" },
+  error: { marginTop: 16, color: t.danger || "#dc2626", fontFamily: FONTS.body, fontSize: t.fs(14) },
   footer: {
     paddingHorizontal: 20, paddingTop: 12, gap: 12,
     borderTopWidth: 1, borderTopColor: t.border, backgroundColor: t.surface,
@@ -295,11 +298,11 @@ const makeStyles = (t) => StyleSheet.create({
   dotOn: { backgroundColor: t.accent, width: 18 },
   actions: { flexDirection: "row", alignItems: "center", gap: 12 },
   skip: { paddingVertical: 14, paddingHorizontal: 12 },
-  skipText: { fontSize: 15, fontFamily: FONTS.bodySemi, color: t.text3 },
+  skipText: { fontSize: t.fs(15), fontFamily: FONTS.bodySemi, color: t.text3 },
   next: {
     flex: 1, backgroundColor: t.accent, borderRadius: RADIUS.md,
     paddingVertical: 15, alignItems: "center", justifyContent: "center",
   },
   nextBusy: { opacity: 0.7 },
-  nextText: { color: "#fff", fontSize: 16, fontFamily: FONTS.accent },
+  nextText: { color: "#fff", fontSize: t.fs(16), fontFamily: FONTS.accent },
 });

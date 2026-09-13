@@ -15,16 +15,17 @@ import Appear from "../components/Appear";
 import { Alert } from "../components/AppAlert";
 import { LinearGradient } from "expo-linear-gradient";
 import ProfileAvatar from "../components/ProfileAvatar";
+import FaceAvatar, { FACE_IDS } from "../components/FaceAvatar";
 import { BACKGROUNDS, FRAMES, backgroundFor } from "../styles/profileLooks";
 
-// Falls back only if the profile request fails; normally the server sends the
-// same list the web's edit page offers, so the two can't drift apart.
-const FALLBACK_EMOJIS = ["😀", "😎", "🤓", "🥳", "🌟", "🔥", "🌊", "🍕", "☕", "📚", "🎬", "🐱", "🐶", "🌸", "🚀"];
-
 /** What the server will actually store, so the form can compare like for like. */
-function normalise({ displayName, bio, emoji, frame, background, interests }) {
+function normalise({ displayName, bio, face, frame, background, interests }) {
   return {
-    display_name: displayName.trim(), bio: bio.trim(), avatar_emoji: emoji,
+    display_name: displayName.trim(), bio: bio.trim(), avatar_face: face,
+    // Faces replaced the emoji avatars, so saving here clears an emoji picked
+    // under the old picker. Without this, someone who chooses "initials" would
+    // still be shown their old emoji and have no way left to remove it.
+    avatar_emoji: "",
     profile_frame: frame, profile_background: background,
     // Compared as a string: two arrays with the same tags are never `!==`
     // equal, so the form would have thought it was dirty from the moment
@@ -65,7 +66,7 @@ export default function EditProfileScreen({ navigation, onDone, onDirtyChange })
 
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
-  const [emoji, setEmoji] = useState("");
+  const [face, setFace] = useState("");
   const [frame, setFrame] = useState("none");
   const [background, setBackground] = useState("default");
   const [interests, setInterests] = useState([]);
@@ -82,7 +83,13 @@ export default function EditProfileScreen({ navigation, onDone, onDirtyChange })
   // not fire on the goBack() that follows a successful save.
   const leaving = useRef(false);
 
-  const choices = profile?.emoji_choices?.length ? profile.emoji_choices : FALLBACK_EMOJIS;
+  // The server sends the ids it will accept and this app owns the drawings, so
+  // only ids in both can be offered: a face the server rejects would look like
+  // a save that silently didn't take.
+  const choices = useMemo(() => {
+    const allowed = profile?.face_choices;
+    return allowed?.length ? FACE_IDS.filter((id) => allowed.includes(id)) : FACE_IDS;
+  }, [profile]);
   const maxName = profile?.max_display_name || 32;
   const maxBio = profile?.max_bio || 160;
 
@@ -102,14 +109,14 @@ export default function EditProfileScreen({ navigation, onDone, onDirtyChange })
     const next = {
       displayName: profile.display_name || "",
       bio: profile.bio || "",
-      emoji: profile.avatar_emoji || "",
+      face: profile.avatar_face || "",
       frame: profile.profile_frame || "none",
       background: profile.profile_background || "default",
       interests: profile.interests || [],
     };
     setDisplayName(next.displayName);
     setBio(next.bio);
-    setEmoji(next.emoji);
+    setFace(next.face);
     setFrame(next.frame);
     setBackground(next.background);
     setInterests(next.interests);
@@ -121,11 +128,11 @@ export default function EditProfileScreen({ navigation, onDone, onDirtyChange })
     if (!profile) refreshProfile().finally(() => setLoading(false));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const current = normalise({ displayName, bio, emoji, frame, background, interests });
+  const current = normalise({ displayName, bio, face, frame, background, interests });
   const dirty = !!saved && (
     current.display_name !== saved.display_name
     || current.bio !== saved.bio
-    || current.avatar_emoji !== saved.avatar_emoji
+    || current.avatar_face !== saved.avatar_face
     || current.profile_frame !== saved.profile_frame
     || current.profile_background !== saved.profile_background
     || current.interests !== saved.interests
@@ -207,7 +214,7 @@ export default function EditProfileScreen({ navigation, onDone, onDirtyChange })
     if (!saved) return;
     setDisplayName(saved.display_name);
     setBio(saved.bio);
-    setEmoji(saved.avatar_emoji);
+    setFace(saved.avatar_face);
     setFrame(saved.profile_frame);
     setBackground(saved.profile_background);
     setInterests(saved.interests ? saved.interests.split(",").filter(Boolean) : []);
@@ -235,11 +242,11 @@ export default function EditProfileScreen({ navigation, onDone, onDirtyChange })
 
   const handleSurprise = useCallback(() => {
     if (!choices.length) return;
-    // Never hand back the emoji already showing — "surprise" that changes
+    // Never hand back the face already showing — "surprise" that changes
     // nothing reads as a broken button.
-    const pool = choices.filter((c) => c !== emoji);
-    setEmoji(pool[Math.floor(Math.random() * pool.length)] || choices[0]);
-  }, [choices, emoji]);
+    const pool = choices.filter((c) => c !== face);
+    setFace(pool[Math.floor(Math.random() * pool.length)] || choices[0]);
+  }, [choices, face]);
 
   if (loading) {
     return (
@@ -260,9 +267,13 @@ export default function EditProfileScreen({ navigation, onDone, onDirtyChange })
         {/* The only preview on screen, hosted or not — the profile hero is not
             behind this any more, it is replaced by it. */}
         <View style={styles.preview}>
-          <View style={[styles.avatar, { backgroundColor: profile?.profile_color || theme.accent }]}>
-            <Text style={emoji ? styles.avatarEmoji : styles.avatarText}>{emoji || initials}</Text>
-          </View>
+          {face ? (
+            <View style={styles.avatarFace}><FaceAvatar id={face} size={76} /></View>
+          ) : (
+            <View style={[styles.avatar, { backgroundColor: profile?.profile_color || theme.accent }]}>
+              <Text style={styles.avatarText}>{initials}</Text>
+            </View>
+          )}
           <Text style={styles.previewName}>{displayName.trim() || profile?.username || "Your name"}</Text>
           <Text style={styles.previewUid}>@{profile?.uid}</Text>
           <Text style={styles.previewBio}>{bio.trim() || "No bio yet."}</Text>
@@ -320,25 +331,27 @@ export default function EditProfileScreen({ navigation, onDone, onDirtyChange })
           <Text style={styles.hint}>People see this when they open your profile.</Text>
 
           <View style={styles.labelRow}>
-            <Text style={styles.label}>Avatar emoji</Text>
+            <Text style={styles.label}>Profile picture</Text>
             <Pressable onPress={handleSurprise} hitSlop={8}>
               <Text style={styles.surprise}>🎲  Surprise me</Text>
             </Pressable>
           </View>
-          <View style={styles.emojiWrap}>
+          <View style={styles.faceWrap}>
+            {/* Still an opt-out: not everyone wants a drawn face, and initials
+                were what the app showed before there was anything to pick. */}
             <Pressable
-              style={[styles.emojiBtn, !emoji && styles.emojiBtnActive]}
-              onPress={() => setEmoji("")}
+              style={[styles.faceBtn, !face && styles.faceBtnActive]}
+              onPress={() => setFace("")}
             >
-              <Text style={styles.emojiNone}>{initials}</Text>
+              <Text style={styles.faceNone}>{initials}</Text>
             </Pressable>
             {choices.map((option) => (
               <Pressable
                 key={option}
-                style={[styles.emojiBtn, emoji === option && styles.emojiBtnActive]}
-                onPress={() => setEmoji(option)}
+                style={[styles.faceBtn, face === option && styles.faceBtnActive]}
+                onPress={() => setFace(option)}
               >
-                <Text style={{ fontSize: 20 }}>{option}</Text>
+                <FaceAvatar id={option} size={44} />
               </Pressable>
             ))}
           </View>
@@ -393,7 +406,7 @@ export default function EditProfileScreen({ navigation, onDone, onDirtyChange })
             {Object.keys(FRAMES).map((id) => (
               <Pressable key={id} onPress={() => setFrame(id)} style={styles.lookItem}>
                 <View style={[styles.lookFrame, frame === id && styles.lookSelected]}>
-                  <ProfileAvatar size={44} frame={id} emoji={emoji} initials={initials} />
+                  <ProfileAvatar size={44} frame={id} face={face} initials={initials} />
                 </View>
                 <Text style={styles.lookLabel}>{t(FRAMES[id].labelKey)}</Text>
               </Pressable>
@@ -501,7 +514,7 @@ const makeStyles = (t) => StyleSheet.create({
     backgroundColor: t.bg, borderWidth: 1, borderColor: t.border,
   },
   tagChipOn: { backgroundColor: t.accentSoft, borderColor: t.accent },
-  tagChipText: { fontSize: 13, fontFamily: FONTS.bodySemi, color: t.text2 },
+  tagChipText: { fontSize: t.fs(13), fontFamily: FONTS.bodySemi, color: t.text2 },
   tagChipTextOn: { color: t.accentStrong },
   lookRow: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 4 },
   lookItem: { alignItems: "center", width: 68, gap: 6 },
@@ -511,21 +524,22 @@ const makeStyles = (t) => StyleSheet.create({
     backgroundColor: t.bg, borderWidth: 2, borderColor: "transparent",
   },
   lookSelected: { borderColor: t.accent },
-  lookLabel: { fontSize: 10, fontFamily: FONTS.body, color: t.text3, textAlign: "center" },
+  lookLabel: { fontSize: t.fs(10), fontFamily: FONTS.body, color: t.text3, textAlign: "center" },
   flex: { flex: 1, backgroundColor: t.bg },
   container: { flex: 1, backgroundColor: t.bg },
   centered: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: t.bg },
 
   preview: { alignItems: "center", paddingVertical: 18 },
   avatar: { width: 76, height: 76, borderRadius: 38, alignItems: "center", justifyContent: "center", ...SHADOW.s2 },
-  avatarText: { color: "#fff", fontFamily: FONTS.heading, fontSize: 24 },
-  avatarEmoji: { fontSize: 36 },
-  previewName: { marginTop: 10, fontSize: 18, fontFamily: FONTS.heading, color: t.text },
-  previewUid: { fontSize: 12, color: t.text3, marginTop: 2 },
-  previewBio: { marginTop: 6, fontSize: 13, color: t.text3, textAlign: "center", paddingHorizontal: 24 },
+  avatarText: { color: "#fff", fontFamily: FONTS.heading, fontSize: t.fs(24) },
+  // A face is drawn round already, so it needs the shadow but not the fill.
+  avatarFace: { borderRadius: 38, ...SHADOW.s2 },
+  previewName: { marginTop: 10, fontSize: t.fs(18), fontFamily: FONTS.heading, color: t.text },
+  previewUid: { fontSize: t.fs(12), color: t.text3, marginTop: 2 },
+  previewBio: { marginTop: 6, fontSize: t.fs(13), color: t.text3, textAlign: "center", paddingHorizontal: 24 },
   unsaved: {
     marginTop: 10,
-    fontSize: 11,
+    fontSize: t.fs(11),
     fontFamily: FONTS.accent,
     color: t.status.warn,
     backgroundColor: t.status.warnSoft,
@@ -546,7 +560,7 @@ const makeStyles = (t) => StyleSheet.create({
   lockedCard: { marginTop: 14 },
   labelRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   label: {
-    fontSize: 11,
+    fontSize: t.fs(11),
     fontFamily: FONTS.bodySemi,
     color: t.text3,
     textTransform: "uppercase",
@@ -555,10 +569,10 @@ const makeStyles = (t) => StyleSheet.create({
     marginBottom: 7,
   },
   labelFirst: { marginTop: 0 },
-  counter: { fontSize: 11, color: t.text3, marginTop: 7, fontFamily: FONTS.accentMedium },
+  counter: { fontSize: t.fs(11), color: t.text3, marginTop: 7, fontFamily: FONTS.accentMedium },
   counterWarn: { color: t.status.warn },
   counterBad: { color: t.status.bad },
-  surprise: { fontSize: 11.5, color: t.accentStrong, fontFamily: FONTS.bodySemi, marginTop: 7 },
+  surprise: { fontSize: t.fs(11.5), color: t.accentStrong, fontFamily: FONTS.bodySemi, marginTop: 7 },
   input: {
     backgroundColor: t.surface2,
     borderRadius: RADIUS.base,
@@ -566,25 +580,28 @@ const makeStyles = (t) => StyleSheet.create({
     borderColor: t.border,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    fontSize: 15,
+    fontSize: t.fs(15),
     color: t.text,
   },
   textarea: { height: 92 },
-  hint: { fontSize: 11.5, color: t.text3, marginTop: 6 },
+  hint: { fontSize: t.fs(11.5), color: t.text3, marginTop: 6 },
 
-  emojiWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  emojiBtn: {
-    width: 46,
-    height: 46,
-    borderRadius: RADIUS.base,
+  faceWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  faceBtn: {
+    // Wide enough for a 44px face plus the selection ring, so choosing one
+    // does not shift the grid.
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: t.surface2,
-    borderWidth: 1.5,
+    borderWidth: 2,
     borderColor: "transparent",
+    overflow: "hidden",
   },
-  emojiBtnActive: { borderColor: t.accent, backgroundColor: t.accentSoft },
-  emojiNone: { fontSize: 13, fontFamily: FONTS.accent, color: t.text2 },
+  faceBtnActive: { borderColor: t.accent },
+  faceNone: { fontSize: t.fs(13), fontFamily: FONTS.accent, color: t.text2 },
 
   readonlyRow: {
     flexDirection: "row",
@@ -598,11 +615,11 @@ const makeStyles = (t) => StyleSheet.create({
     marginBottom: 8,
   },
   readonlyBody: { flex: 1, marginEnd: 10 },
-  readonlyLabel: { fontSize: 10.5, color: t.text3, fontFamily: FONTS.bodySemi, textTransform: "uppercase", letterSpacing: 0.4 },
-  readonlyValue: { fontSize: 14, color: t.text2, marginTop: 2 },
-  lockBadge: { fontSize: 11, color: t.text3, fontFamily: FONTS.bodySemi },
+  readonlyLabel: { fontSize: t.fs(10.5), color: t.text3, fontFamily: FONTS.bodySemi, textTransform: "uppercase", letterSpacing: 0.4 },
+  readonlyValue: { fontSize: t.fs(14), color: t.text2, marginTop: 2 },
+  lockBadge: { fontSize: t.fs(11), color: t.text3, fontFamily: FONTS.bodySemi },
   copyBadge: {
-    fontSize: 11,
+    fontSize: t.fs(11),
     fontFamily: FONTS.accent,
     color: t.accentStrong,
     backgroundColor: t.accentSoft,
@@ -623,7 +640,7 @@ const makeStyles = (t) => StyleSheet.create({
     borderColor: t.accent,
   },
   noticeBad: { backgroundColor: t.surface, borderColor: t.status.bad },
-  noticeText: { fontSize: 13.5, color: t.accentStrong, fontFamily: FONTS.bodySemi },
+  noticeText: { fontSize: t.fs(13.5), color: t.accentStrong, fontFamily: FONTS.bodySemi },
   noticeTextBad: { color: t.status.bad },
 
   actions: { flexDirection: "row", gap: 10 },
@@ -644,7 +661,7 @@ const makeStyles = (t) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.border,
   },
-  revertText: { fontFamily: FONTS.accentMedium, fontSize: 14, color: t.text2 },
+  revertText: { fontFamily: FONTS.accentMedium, fontSize: t.fs(14), color: t.text2 },
   saveBtn: {
     flex: 1,
     borderRadius: RADIUS.base,
@@ -657,7 +674,7 @@ const makeStyles = (t) => StyleSheet.create({
   // Greyed rather than hidden: the button staying put is what makes "nothing
   // to save" readable, instead of the row shifting every time a field changes.
   saveBtnInert: { backgroundColor: t.surface3, shadowOpacity: 0, elevation: 0 },
-  saveText: { fontFamily: FONTS.accent, fontSize: 16, color: t.accentOn },
+  saveText: { fontFamily: FONTS.accent, fontSize: t.fs(16), color: t.accentOn },
   // White on the grey disabled fill is unreadable — the label has to dim too.
   saveTextInert: { color: t.text3 },
 });
