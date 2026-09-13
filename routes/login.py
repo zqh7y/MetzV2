@@ -1,8 +1,12 @@
 import os
+import time
 from flask import request, render_template, session, redirect, url_for
 import requests
-from data import register_user, is_banned
+from data import generate_user_id, get_user, is_banned
 from utils.auth_errors import friendly_auth_error
+from utils.email_utils import (
+    generate_verification_code, send_verification_email, EmailNotSent,
+)
 from utils.security import rate_limit_exceeded, client_ip
 
 API_KEY = os.environ["FIREBASE_API_KEY"]
@@ -32,7 +36,38 @@ def login_route():
         data = response.json()
 
         if "idToken" in data:
-            uid = register_user(email)
+            # Signing in must not create the account. screens/verify.py is what
+            # turns a verified email into a Metz account; calling register_user
+            # here as well made the code step optional — sign up, ignore the
+            # email, log in with the same details and you were through.
+            uid = generate_user_id(email)
+            if not get_user(uid):
+                # The password was right, so Firebase knows the address, but it
+                # was never verified here. Refusing outright would strand them,
+                # since signing up again only reports the address as taken — so
+                # issue a fresh code and send them to the verify page.
+                code = generate_verification_code()
+                session["pending_signup"] = {
+                    "email": email,
+                    "id_token": data["idToken"],
+                    "code": code,
+                    "issued_at": time.time(),
+                    "attempts": 0,
+                }
+                try:
+                    send_verification_email(email, code)
+                except EmailNotSent as exc:
+                    print(f"[Metz] verification email failed for {email}: {exc}", flush=True)
+                    return render_template(
+                        "verify.html", email=email,
+                        message="This account still needs verifying, and we couldn't "
+                                "send the code just now. Use resend to try again.",
+                    ), 502
+                return render_template(
+                    "verify.html", email=email,
+                    message="This account hasn't been verified yet — we've sent you a new code.",
+                )
+
             if is_banned(uid):
                 return render_template("login.html", message="This account has been banned.")
             session.permanent = True
