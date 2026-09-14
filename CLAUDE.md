@@ -104,6 +104,12 @@ progress bar that never fills.
   call the function. Flask routes can be exercised with `app.test_client()`.
 - The emulator has **no GPS fix** and `adb emu geo fix` does not work on it, so
   "you are here" cannot be verified there. Say so rather than claiming it works.
+- **Expo Go is not the shipped app.** A released APK can be installed straight
+  onto the emulator — `eas build:list --json` gives the artifact URL, then
+  `adb install -r`, and logcat is real. Worth doing whenever a report only
+  happens "in the app I downloaded": the blank map on Home was a native
+  renderer that Expo Go never loads, so no screenshot taken there could have
+  shown it. There is one map now, WebView and Leaflet, for that reason.
 
 ## Build and release
 
