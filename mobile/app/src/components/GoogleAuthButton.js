@@ -28,23 +28,25 @@ export default function GoogleAuthButton({ label, primary = false }) {
   // Expo Go is called out rather than hidden: hiding it reads as "not built
   // yet", and leaving it tappable walks into Google's own "Access blocked"
   // page, which blames the app for something no setting here can fix.
-  if (IS_EXPO_GO && GOOGLE_CONFIGURED) return <ExpoGoNotice />;
+  if (IS_EXPO_GO && GOOGLE_CONFIGURED) return <ExpoGoNotice primary={primary} />;
   if (!GOOGLE_AUTH_READY) return null;
   return <GoogleAuthButtonInner label={label} primary={primary} />;
 }
 
-function ExpoGoNotice() {
+function ExpoGoNotice({ primary }) {
   const { theme } = useTheme();
   const { t } = useI18n();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   return (
     <View>
-      <View style={styles.dividerRow}>
-        <View style={styles.rule} />
-        <Text style={styles.dividerText}>{t("common.or")}</Text>
-        <View style={styles.rule} />
-      </View>
-      <View style={[styles.button, styles.buttonInert]}>
+      {primary ? null : (
+        <View style={styles.dividerRow}>
+          <View style={styles.rule} />
+          <Text style={styles.dividerText}>{t("common.or")}</Text>
+          <View style={styles.rule} />
+        </View>
+      )}
+      <View style={[styles.button, primary && styles.buttonPrimary, styles.buttonInert]}>
         <View style={styles.badge}><Text style={styles.badgeText}>G</Text></View>
         <Text style={styles.label}>{t("common.continueWithGoogle")}</Text>
       </View>
