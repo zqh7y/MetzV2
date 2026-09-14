@@ -88,8 +88,6 @@ async function request(path, { method = "GET", body, auth = true } = {}) {
 
 export const api = {
   signup: (email, password) => request("/api/signup", { method: "POST", body: { email, password }, auth: false }),
-  verify: (email, code) => request("/api/verify", { method: "POST", body: { email, code }, auth: false }),
-  resendVerify: (email) => request("/api/verify/resend", { method: "POST", body: { email }, auth: false }),
   login: (email, password) => request("/api/login", { method: "POST", body: { email, password }, auth: false }),
   // Only the token goes up: the server reads the address out of it rather than
   // trusting one sent alongside. Which token exists depends on the platform —

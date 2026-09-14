@@ -53,7 +53,8 @@ export default {
 
   // ─── Sign up ─────────────────────────────────────────────────────────────
   "signup.title": "Create your account",
-  "signup.subtitle": "Takes a minute. We'll email you a code to confirm it's you.",
+  "signup.subtitle": "Takes a minute. You'll be signed in straight away.",
+  "signup.failed": "Couldn't create your account. Please try again.",
   "signup.haveAccount": "Already have an account?",
   "signup.logIn": "Log in",
   "signup.passwordPlaceholder": "At least 8 characters",

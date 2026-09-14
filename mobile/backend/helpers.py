@@ -13,13 +13,6 @@ from utils.tokens import verify_token
 
 FIREBASE_API_KEY = os.environ["FIREBASE_API_KEY"]  # same project as the web app
 
-# In-memory store for signups awaiting email verification, keyed by email.
-# (No server-side session/cookies here — the mobile client is stateless
-# between requests, so this plays the same role session["pending_signup"]
-# plays in the web app.)
-PENDING_SIGNUPS = {}
-
-
 # In development the old X-User-Id header still works so an existing dev
 # build keeps running; in production only a signed token is accepted.
 ALLOW_LEGACY_HEADER = os.environ.get("FLASK_ENV", "production").lower() == "development"

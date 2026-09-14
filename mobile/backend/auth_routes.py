@@ -1,55 +1,45 @@
-"""Signup / email-verify / login — same Firebase project and verification
-flow as the web app's screens/signup.py, screens/verify.py, screens/login.py,
-just returning JSON instead of redirecting."""
+"""Signup / login / logout for the app, against the same Firebase project the
+web app uses, returning JSON instead of redirecting.
 
-import hmac
+No email verification. The web app still has its code step; this one does not,
+deliberately — see signup() for what that step was actually buying and what it
+costs to drop it."""
+
 import os
-import time
 
 import requests
 from flask import Blueprint, request, jsonify
 
 from data import register_user, uid_for_email, token_version, revoke_tokens
 from utils.auth_errors import friendly_auth_error
-from utils.email_utils import (
-    generate_verification_code, send_verification_email, EmailNotSent,
-)
 from utils.security import rate_limit_exceeded, client_ip
 from utils.tokens import issue_token
 
-from helpers import FIREBASE_API_KEY, PENDING_SIGNUPS, current_uid
+from helpers import FIREBASE_API_KEY, current_uid
 
-DEV_MODE = os.environ.get("FLASK_ENV", "production").lower() == "development"
-CODE_TTL_SECONDS = 15 * 60
-MAX_CODE_ATTEMPTS = 6
 
 auth_bp = Blueprint("auth", __name__)
 
 
-def _delete_firebase_account(id_token, email):
-    """Undo a signup we could not finish.
-
-    Without this the address is taken forever by an account that was never
-    verified and nobody can sign in to: Firebase holds it, and every retry is
-    told it exists. Best effort — if the delete fails there is nothing further
-    to try from here, and it is logged so it can be cleared by hand.
-    """
-    try:
-        resp = requests.post(
-            f"https://identitytoolkit.googleapis.com/v1/accounts:delete?key={FIREBASE_API_KEY}",
-            json={"idToken": id_token},
-            timeout=10,
-        )
-        if resp.status_code != 200:
-            print(f"[Metz] could not roll back the Firebase account for {email}: "
-                  f"{resp.status_code} {resp.text[:200]}", flush=True)
-    except requests.RequestException as exc:
-        print(f"[Metz] could not roll back the Firebase account for {email}: {exc}",
-              flush=True)
-
-
 @auth_bp.route("/api/signup", methods=["POST"])
 def signup():
+    """Create the account and sign them straight in.
+
+    There is no email verification step any more. It cost a code, a screen, a
+    fifteen-minute window and a working mail provider, and what it bought was
+    proof that the person owns the address they typed.
+
+    What that proof was actually worth here: nothing in the app is sent to an
+    address, nobody's email is shown to anybody else, and a password reset goes
+    through Firebase, which mails the real owner regardless of what happened at
+    signup. So the address being unproven costs the app nothing and costs a
+    stranger nothing.
+
+    What it does allow is squatting — signing up as an address you do not own,
+    which leaves the real owner told "already in use" if they try later. That
+    is recoverable through the reset, and it is the trade being made
+    deliberately rather than by accident.
+    """
     body = request.get_json(force=True) or {}
     email = body.get("email", "")
     password = body.get("password", "")
@@ -65,52 +55,13 @@ def signup():
     if "idToken" not in fb_data:
         return jsonify({"error": friendly_auth_error(fb_data.get("error", {}).get("message"))}), 400
 
-    code = generate_verification_code()
-    PENDING_SIGNUPS[email] = {
-        "id_token": fb_data["idToken"],
-        "code": code,
-        "issued_at": time.time(),
-        "attempts": 0,
-    }
-    try:
-        send_verification_email(email, code)
-    except EmailNotSent as exc:
-        # Mail is down. The Firebase account already exists by this point —
-        # that call succeeded — so doing nothing leaves the person unable to
-        # continue and unable to start over either, because signing up again
-        # only gets "that address is taken". An account they cannot reach.
-        #
-        # This used to be answered by registering them as verified anyway,
-        # which handed a working account to an address nobody had proved they
-        # owned. Convenient while mail was unconfigured, and not something to
-        # ship: the verification step is the only thing standing between the
-        # app and anyone signing up as anyone.
-        #
-        # So the half-made account is undone instead. Deleting it in Firebase
-        # is what makes "try again later" true rather than a suggestion — with
-        # it gone, a second attempt behaves like a first one.
-        print(f"[Metz] verification email failed for {email}: {exc}", flush=True)
-        PENDING_SIGNUPS.pop(email, None)
-
-        if DEV_MODE:
-            # Development has no mail credentials by design, and stopping here
-            # would make the app unusable on a laptop. Never reached in
-            # production, where FLASK_ENV is not "development".
-            uid = register_user(email)
-            return jsonify({
-                "uid": uid,
-                "email": email,
-                "token": issue_token(uid, token_version(uid)),
-                "email_failed": True,
-            })
-
-        _delete_firebase_account(fb_data["idToken"], email)
-        return jsonify({
-            "error": "We couldn't send your verification email just now. "
-                     "Please try again in a few minutes.",
-        }), 503
-
-    return jsonify({"status": "pending_verification", "email": email})
+    # Firebase holds the credentials; this is the Metz account beside them.
+    uid = register_user(email)
+    return jsonify({
+        "uid": uid,
+        "email": email,
+        "token": issue_token(uid, token_version(uid)),
+    })
 
 
 @auth_bp.route("/api/logout", methods=["POST"])
@@ -130,60 +81,6 @@ def logout():
     if uid:
         revoke_tokens(uid)
     return jsonify({"status": "logged_out"})
-
-
-@auth_bp.route("/api/verify", methods=["POST"])
-def verify():
-    body = request.get_json(force=True) or {}
-    email = body.get("email", "")
-    entered_code = body.get("code", "")
-
-    pending = PENDING_SIGNUPS.get(email)
-    if not pending:
-        return jsonify({"error": "No pending signup for that email."}), 400
-
-    if time.time() - pending.get("issued_at", 0) > CODE_TTL_SECONDS:
-        PENDING_SIGNUPS.pop(email, None)
-        return jsonify({"error": "That code has expired. Please sign up again."}), 400
-
-    pending["attempts"] = pending.get("attempts", 0) + 1
-    if pending["attempts"] > MAX_CODE_ATTEMPTS:
-        PENDING_SIGNUPS.pop(email, None)
-        return jsonify({"error": "Too many incorrect codes. Please sign up again."}), 429
-
-    # "1234" used to be accepted from anyone, which made email verification
-    # optional for every account. It is a development convenience only.
-    matched = hmac.compare_digest(str(entered_code), str(pending["code"]))
-    if DEV_MODE and entered_code == "1234":
-        matched = True
-    if not matched:
-        return jsonify({"error": "That code didn't match."}), 400
-
-    uid = register_user(email)
-    PENDING_SIGNUPS.pop(email, None)
-    return jsonify({"uid": uid, "email": email, "token": issue_token(uid, token_version(uid))})
-
-
-@auth_bp.route("/api/verify/resend", methods=["POST"])
-def resend_verify():
-    body = request.get_json(force=True) or {}
-    email = body.get("email", "")
-    pending = PENDING_SIGNUPS.get(email)
-    if not pending:
-        return jsonify({"error": "No pending signup for that email."}), 400
-    if rate_limit_exceeded("api-resend:ip:" + client_ip(), 5, 3600):
-        return jsonify({"error": "Too many codes requested. Please wait a while."}), 429
-
-    code = generate_verification_code()
-    pending["code"] = code
-    pending["issued_at"] = time.time()
-    pending["attempts"] = 0
-    try:
-        send_verification_email(email, code)
-    except EmailNotSent as exc:
-        print(f"[Metz] verification resend failed for {email}: {exc}", flush=True)
-        return jsonify({"error": "We still couldn't send the code. Please try again shortly."}), 502
-    return jsonify({"status": "sent"})
 
 
 @auth_bp.route("/api/password/reset", methods=["POST"])
@@ -308,57 +205,10 @@ def login():
     if "idToken" not in fb_data:
         return jsonify({"error": friendly_auth_error(fb_data.get("error", {}).get("message"))}), 400
 
-    # Signing in must not create the account. /api/verify is what turns a
-    # verified email into a Metz account; login used to call register_user too,
-    # which made the whole code step optional — sign up, ignore the email, then
-    # log in with the same details and you were through with a full account.
-    # By address, not by derived id: ids are no longer recomputable from an
-    # email, because a collision gives the second holder a different one.
-    uid = uid_for_email(email)
-    if not uid:
-        # Firebase knows the address, so the password was right, but this
-        # account was never verified here. Rather than refusing and leaving
-        # them stuck — they cannot sign up again, Firebase already has the
-        # address — issue a fresh code and send them to the verify step.
-        code = generate_verification_code()
-        PENDING_SIGNUPS[email] = {
-            "id_token": fb_data["idToken"],
-            "code": code,
-            "issued_at": time.time(),
-            "attempts": 0,
-        }
-        try:
-            send_verification_email(email, code)
-        except EmailNotSent as exc:
-            print(f"[Metz] verification email failed for {email}: {exc}", flush=True)
-            PENDING_SIGNUPS.pop(email, None)
-
-            if DEV_MODE:
-                # A laptop has no mail credentials by design, so without this
-                # there is no way to reach an account while working on the app.
-                uid = register_user(email)
-                return jsonify({
-                    "uid": uid,
-                    "email": email,
-                    "token": issue_token(uid, token_version(uid)),
-                    "email_failed": True,
-                })
-
-            # Production must not create the account here. Firebase will hand
-            # out credentials for an address without ever checking that the
-            # person owns it, so "the password was right" is not evidence of
-            # anything — registering on that basis is the same unverified-signup
-            # hole that /api/signup had, reached through the login door.
-            return jsonify({
-                "error": "This account still needs verifying, and we couldn't "
-                         "send the code just now. Please try again in a few minutes.",
-                "status": "pending_verification",
-                "email": email,
-            }), 503
-        return jsonify({
-            "error": "This account hasn't been verified yet — we've sent a new code to your email.",
-            "status": "pending_verification",
-            "email": email,
-        }), 403
-
+    # Firebase has already checked the password, so this address is theirs as
+    # far as this app can tell. An account it has never seen before is made
+    # here rather than refused: with verification gone there is no other step
+    # that would create it, and refusing would lock out anybody who registered
+    # with Firebase but never finished.
+    uid = uid_for_email(email) or register_user(email)
     return jsonify({"uid": uid, "email": email, "token": issue_token(uid, token_version(uid))})

@@ -56,7 +56,8 @@ export default {
 
   // ─── Sign up ─────────────────────────────────────────────────────────────
   "signup.title": "Erstelle dein Konto",
-  "signup.subtitle": "Dauert eine Minute. Wir schicken dir einen Code per E-Mail, um zu bestätigen, dass du es bist.",
+  "signup.subtitle": "Dauert eine Minute. Du bist sofort angemeldet.",
+  "signup.failed": "Konto konnte nicht erstellt werden. Bitte versuche es erneut.",
   "signup.haveAccount": "Du hast schon ein Konto?",
   "signup.logIn": "Anmelden",
   "signup.passwordPlaceholder": "Mindestens 8 Zeichen",

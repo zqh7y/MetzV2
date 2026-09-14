@@ -58,7 +58,8 @@ export default {
 
   // ─── Sign up ─────────────────────────────────────────────────────────────
   "signup.title": "פתיחת חשבון",
-  "signup.subtitle": "לוקח דקה. נשלח לכם קוד באימייל כדי לוודא שזה אתם.",
+  "signup.subtitle": "לוקח דקה. נכנסים מיד.",
+  "signup.failed": "לא הצלחנו ליצור את החשבון. נסו שוב.",
   "signup.haveAccount": "כבר יש לכם חשבון?",
   "signup.logIn": "התחברות",
   "signup.passwordPlaceholder": "לפחות 8 תווים",

@@ -16,7 +16,6 @@ import { LocaleProvider, useI18n } from "./src/context/LocaleContext";
 import { LocationProvider } from "./src/context/LocationContext";
 import LoginScreen from "./src/screens/LoginScreen";
 import SignupScreen from "./src/screens/SignupScreen";
-import VerifyScreen from "./src/screens/VerifyScreen";
 import ForgotPasswordScreen from "./src/screens/ForgotPasswordScreen";
 import HomeScreen from "./src/screens/HomeScreen";
 import WelcomeScreen from "./src/screens/WelcomeScreen";
@@ -55,7 +54,6 @@ function AuthNavigator({ showIntro }) {
       <AuthStack.Screen name="Intro" component={IntroScreen} />
       <AuthStack.Screen name="Login" component={LoginScreen} />
       <AuthStack.Screen name="Signup" component={SignupScreen} />
-      <AuthStack.Screen name="Verify" component={VerifyScreen} />
       <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
     </AuthStack.Navigator>
   );
