@@ -19,6 +19,7 @@ and verified on every request. The old "trust whatever uid the client sends"
 model let anyone impersonate any user, including admins.
 """
 
+import hmac
 import os
 import sys
 
@@ -208,6 +209,86 @@ def terms():
     return _legal("terms.html")
 
 
+@app.route("/delete-account", methods=["GET", "POST"])
+def delete_account_page():
+    """Delete an account from the open web, with no app installed.
+
+    Play requires this separately from the in-app button: somebody who has
+    uninstalled the app, or never had a working one, still has to be able to
+    get rid of their data, and a page that only explains how to do it inside
+    the app does not satisfy that for them.
+
+    It really deletes rather than filing a request, because a request is a
+    promise somebody has to keep by hand and this does not need one.
+
+    The password is the whole security of it. Without it the page would delete
+    any account whose address you could guess, so a wrong one is refused the
+    same way signing in would be — and the rate limits below are what stop the
+    page being used to guess.
+    """
+    from utils.security import rate_limit_exceeded, client_ip
+    from data import generate_user_id, uid_for_email, delete_own_account
+    from utils.auth_errors import friendly_auth_error
+    from helpers import FIREBASE_API_KEY
+    import requests as http
+
+    contact = os.environ.get("CONTACT_EMAIL", "ytevil68@gmail.com")
+
+    def page(**extra):
+        return render_template("delete_account.html", contact_email=contact, **extra)
+
+    if request.method == "GET":
+        return page()
+
+    email = (request.form.get("email") or "").strip()
+    password = request.form.get("password") or ""
+    if not email or not password:
+        return page(email=email, error="Enter your email and password."), 400
+
+    # Two buckets, the same shape the reset endpoint uses: one stops a single
+    # account being hammered, the other stops one host working through a list.
+    if (rate_limit_exceeded("web-delete:email:" + email.lower(), 5, 3600)
+            or rate_limit_exceeded("web-delete:ip:" + client_ip(), 10, 3600)):
+        return page(email=email, error="Too many attempts. Try again later."), 429
+
+    # Firebase owns the password, so it is the thing that says this is you.
+    try:
+        answer = http.post(
+            f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword"
+            f"?key={FIREBASE_API_KEY}",
+            json={"email": email, "password": password, "returnSecureToken": True},
+            timeout=10,
+        ).json()
+    except http.RequestException:
+        return page(email=email, error="Couldn't reach the sign-in service. Try again shortly."), 502
+
+    if "idToken" not in answer:
+        return page(
+            email=email,
+            error=friendly_auth_error((answer.get("error") or {}).get("message")),
+        ), 400
+
+    uid = uid_for_email(email) or generate_user_id(email)
+    delete_own_account(uid)
+
+    # And the credentials, so the address is genuinely free afterwards. Last,
+    # because the Metz account is the part the person asked about — if this
+    # fails they are still deleted here, and the log says what was left behind.
+    try:
+        gone = http.post(
+            f"https://identitytoolkit.googleapis.com/v1/accounts:delete?key={FIREBASE_API_KEY}",
+            json={"idToken": answer["idToken"]},
+            timeout=10,
+        )
+        if gone.status_code != 200:
+            print(f"[Metz] sign-in record left behind for {email}: "
+                  f"{gone.status_code} {gone.text[:200]}", flush=True)
+    except http.RequestException as exc:
+        print(f"[Metz] sign-in record left behind for {email}: {exc}", flush=True)
+
+    return page(deleted=True, email=email)
+
+
 # ─── The share link ─────────────────────────────────────────────────────────
 # An organiser posts /m/<id> to Instagram or a group chat and anyone tapping it
 # gets the meeting on one page and can say they are coming, with no account.
@@ -378,6 +459,42 @@ def _do_share_join(meeting_id):
         secure=IS_PRODUCTION, httponly=True,
     )
     return response
+
+
+@app.route("/api/tasks/cron", methods=["GET", "POST"])
+def cron():
+    """Something for an outside clock to call every few minutes.
+
+    Two jobs, and the dull one is the important one.
+
+    **Staying awake.** The free plan stops the service after about fifteen idle
+    minutes and the next request pays roughly twenty seconds for the boot. That
+    lands on whoever opens the app first after a quiet spell — which, for an app
+    nobody has heard of yet, is most people's only impression of it. Being
+    called every ten minutes means there is no quiet spell.
+
+    **Work that happens on a calendar rather than in response to anybody.**
+    Reminders about a meeting you joined are not here: those are scheduled on
+    the phone, precisely because they must not depend on this being called. What
+    is here is the daily summary for the people running things, which nothing
+    else would ever produce.
+
+    Guarded by a shared secret rather than a login, because the caller is a cron
+    service with no account. Without CRON_SECRET set the endpoint refuses
+    everything rather than running open to the internet — an unauthenticated
+    job that sends notifications is a way to make this app send notifications.
+    """
+    secret = os.environ.get("CRON_SECRET", "")
+    offered = (
+        request.headers.get("X-Cron-Secret")
+        or request.args.get("secret")
+        or ""
+    )
+    if not secret or not hmac.compare_digest(offered, secret):
+        return jsonify({"error": "not found"}), 404
+
+    from tasks import run_due_tasks
+    return jsonify(run_due_tasks())
 
 
 @app.route("/api/health")
