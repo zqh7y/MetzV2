@@ -53,19 +53,28 @@ To test backend logic, stub `psycopg` and import `data` (see "Verifying" below).
 Firebase for credentials; the API then issues its own HMAC token
 (`utils/tokens.py`, `uid|expiry`, 30 days) sent as `Authorization: Bearer`.
 
-- **Email signup is broken in production.** `GMAIL_ADDRESS` /
-  `GMAIL_APP_PASSWORD` are not set on Render, so `/api/signup` returns 502.
-  Only the owner can fix that. Verify with a POST before assuming otherwise.
-- **Google sign-in works only in a real build.** Expo Go's redirect is
-  `exp://…`, which Google rejects outright ("Access blocked, Error 400"). This
-  is not fixable in config. The app detects Expo Go and greys the button out.
+- **There is no email verification.** Removed on the owner's instruction:
+  signup creates the account and returns a session, and login adopts a Firebase
+  account that has no Metz account yet. The accepted cost is squatting — an
+  address you do not own can be taken — and the recovery is Firebase's password
+  reset, which mails the real owner. The *web* app still has its code step.
+- **Mail goes out over Resend, not SMTP.** Render blocks outbound SMTP
+  entirely, so Gmail can never work from there: the failure is
+  `OSError: [Errno 101] Network is unreachable`, which looks nothing like a
+  mail problem. `RESEND_API_KEY` is the live path; `GMAIL_*` is kept for hosts
+  that permit SMTP. Only password resets send mail now.
+- **Google sign-in works, and needed a setting outside this repo.** Expo Go
+  cannot do it at all (its `exp://` redirect is rejected), so the button is
+  greyed out there. In a real build it failed with "Access blocked … Error 400:
+  invalid_request", whose detail panel says **"Custom URI scheme is not enabled
+  for your Android client"** — a toggle on the Android OAuth client in Google
+  *Cloud* Console, which the Firebase console does not expose. The signing
+  SHA-1 also belongs on the Firebase Android app, but that was not the cause.
+  Read the detail panel before changing anything; the visible error names
+  neither.
 - On Android the Google flow is **code + exchange**, so `expo-auth-session`
   answers twice — first with only `code`, then with the tokens. Do not treat
   the first answer as a failure.
-- **Uncommitted on purpose:** a fix in `mobile/backend/auth_routes.py` making
-  login refuse unverified accounts. It is held back because it would demand a
-  verification code the server currently cannot send. **Ship it only after the
-  Gmail variables are set.**
 
 ## What exists
 
@@ -116,16 +125,18 @@ and confirming `versionCode` before the first upload.
 ## Next missions, roughly in order
 
 **1 — Blocked on the owner. Ask, do not work around.**
-- `GMAIL_ADDRESS` / `GMAIL_APP_PASSWORD` on Render. Until then `/api/signup`
-  returns 502 and Google is the only way in. Confirm with a real POST.
-- Once those are set: ship the held-back login fix in
-  `mobile/backend/auth_routes.py` (and `routes/login.py`, already written).
-  It makes login refuse accounts that never verified.
+- `CRON_SECRET` on Render, plus a free external cron calling
+  `/api/tasks/cron?secret=…` every ten minutes. Until then the service sleeps
+  after fifteen idle minutes — the ~22s wake-up lands on whoever opens the app
+  first — and the daily digests never run. The endpoint answers 404 with the
+  variable unset, deliberately.
 - `--workers 1` on Render. Until then two processes can delete each other's
   rows. Check this before investigating any "data vanished" report.
 
 **2 — Never actually observed working. Do not claim otherwise.**
-- Google sign-in end to end. Impossible in Expo Go; needs a fresh APK.
+- Push notifications arriving on a device. The server side is tested and the
+  token round-trip works, but no push has been seen landing. Expo Go cannot
+  receive them at all, so proving it needs a real build.
 - The "you are here" marker. The emulator will not produce a GPS fix.
 - `useAutoRefresh`'s 20/25/30s interval. Focus refetch has been seen; the
   timer has not. Proving it means changing data from outside the app and
