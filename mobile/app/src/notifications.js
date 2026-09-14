@@ -2,6 +2,7 @@ import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
 import Constants from "expo-constants";
+import { isRunningInExpoGo } from "expo";
 
 import { api } from "./api";
 
@@ -78,8 +79,17 @@ export async function hasPermission() {
  */
 export async function registerForPush() {
   try {
-    if (!Device.isDevice) return null;
+    // Permission first, and unconditionally, because the local reminders want
+    // it too — Expo Go can raise those perfectly well even though it can never
+    // receive a push. Skipping straight past this on the way to an early
+    // return would leave development with no reminders at all.
     if (!(await requestPermission())) return null;
+
+    // Only the token is impossible here. Expo Go stopped brokering one on
+    // Android with SDK 53; asked anyway it warns rather than failing quietly.
+    // Detected with the library's own check so the two cannot disagree.
+    if (isRunningInExpoGo()) return null;
+    if (!Device.isDevice) return null;
 
     const projectId =
       Constants.expoConfig?.extra?.eas?.projectId
