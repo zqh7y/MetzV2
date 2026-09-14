@@ -3,7 +3,6 @@ import {
   View, Text, FlatList, StyleSheet, TextInput, ActivityIndicator,
   RefreshControl, Animated, PanResponder, TouchableOpacity, Pressable, useWindowDimensions,
 } from "react-native";
-import { Map, Camera, GeoJSONSource, Layer, UserLocation, MAPS_AVAILABLE } from "../components/MapShim";
 import WebMap from "../components/WebMap";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
@@ -26,10 +25,7 @@ import { useTheme } from "../context/ThemeContext";
 import { RADIUS, SHADOW, markerColorFor } from "../styles/theme";
 import { useI18n } from "../context/LocaleContext";
 
-const DEFAULT_CENTER = [35.2137, 31.7683]; // [lng, lat] — MapLibre order
-// Reuse a fontstack the basemap already ships glyphs for, or labels don't draw.
-const LABEL_FONT = ["Montserrat Medium", "Open Sans Bold", "Noto Sans Regular",
-                    "HanWangHeiLight Regular", "NanumBarunGothic Regular"];
+const DEFAULT_CENTER = [35.2137, 31.7683]; // [lng, lat], the order WebMap takes
 // Sheet height left visible at "peek" — enough to clear the tab bar and still
 // show the title and search box above it.
 const PEEK_VISIBLE = 215;
@@ -123,20 +119,11 @@ export default function HomeScreen({ navigation, route }) {
   // searches. Explore owns the toggle; this only mirrors it for the placeholder.
   const [exploreMode, setExploreMode] = useState("meetings");
 
-  // Pins and clusters follow the accent, the way the web's refreshMapAccent()
-  // recolours them when the accent preference changes.
-  const clusterColor = useMemo(
-    () => ["step", ["get", "point_count"], theme.accent, 10, theme.accentStrong, 30, theme.accentDeep],
-    [theme]
-  );
-
   const [meetings, setMeetings] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const cameraRef = useRef(null);
-  const sourceRef = useRef(null);
   const webMapRef = useRef(null);
 
   // ─── Data ──────────────────────────────────────────────────────────────
@@ -235,24 +222,6 @@ export default function HomeScreen({ navigation, route }) {
   // whether anything a marker renders has moved.
   const stableMarkers = useMemo(() => plottable, [markerKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const geojson = useMemo(() => ({
-    type: "FeatureCollection",
-    features: stableMarkers.map((m) => ({
-      type: "Feature",
-      id: m.id,
-      properties: {
-        id: m.id,
-        title: m.title,
-        kind: m.type === "OnlineMeeting" ? "online" : "inperson",
-        // Carried as feature properties so the paint/layout expressions below
-        // can read them per marker instead of colouring the whole layer.
-        emoji: m.emoji || "",
-        color: markerColorFor(m.id),
-      },
-      geometry: { type: "Point", coordinates: [m.lng, m.lat] },
-    })),
-  }), [stableMarkers]);
-
   // ─── Bottom sheet ──────────────────────────────────────────────────────
   // Three snap points; the map stays full-screen behind and is told via camera
   // padding which slice of itself is actually visible.
@@ -335,13 +304,6 @@ export default function HomeScreen({ navigation, route }) {
     },
   }), [tops, sheetState, snapTo, translateY]);
 
-  const mapPadding = useMemo(() => ({
-    top: 20,
-    left: 20,
-    right: 20,
-    bottom: Math.min(screenH - tops[sheetState], screenH * 0.6),
-  }), [screenH, tops, sheetState]);
-
   // The sheet itself stays tall (so dragging never exposes a gap below it),
   // but the list viewport is sized to the strip that is actually on screen —
   // otherwise the end of the list would sit below the bottom of the display
@@ -367,29 +329,10 @@ export default function HomeScreen({ navigation, route }) {
   );
 
   // ─── Map interaction ───────────────────────────────────────────────────
-  async function handlePinPress(event) {
-    const feature = event?.nativeEvent?.features?.[0];
-    if (!feature) return;
-
-    if (feature.properties?.cluster) {
-      const zoom = await sourceRef.current?.getClusterExpansionZoom(feature.properties.cluster_id);
-      cameraRef.current?.easeTo({
-        center: feature.geometry.coordinates,
-        zoom: (zoom ?? 12) + 0.2,
-        duration: 600,
-      });
-      return;
-    }
-
-    const meeting = meetings.find((m) => m.id === feature.properties?.id);
-    if (meeting) navigation.navigate("MeetingDetail", { meeting });
-  }
-
   const focusMeeting = useCallback((meeting) => {
     if (meeting.lat && meeting.lng) {
       snapTo("peek"); // otherwise the sheet covers the pin
-      const camera = MAPS_AVAILABLE ? cameraRef.current : webMapRef.current;
-      camera?.flyTo({ center: [meeting.lng, meeting.lat], zoom: 15, duration: 900 });
+      webMapRef.current?.flyTo({ center: [meeting.lng, meeting.lat], zoom: 15 });
     }
     navigation.navigate("MeetingDetail", { meeting });
   }, [snapTo, navigation]);
@@ -446,13 +389,11 @@ export default function HomeScreen({ navigation, route }) {
 
   const centreOnMe = useCallback((zoom) => {
     if (!myPosition) return;
-    const camera = MAPS_AVAILABLE ? cameraRef.current : webMapRef.current;
     const next = zoom ?? Math.max(zoomRef.current, 14);
     zoomRef.current = next;
-    camera?.flyTo({
+    webMapRef.current?.flyTo({
       center: [myPosition.longitude, myPosition.latitude],
       zoom: next,
-      duration: 700,
     });
   }, [myPosition]);
 
@@ -470,14 +411,9 @@ export default function HomeScreen({ navigation, route }) {
     centreOnMe();
   }, [centreOnMe]);
 
+  // The map reads its own live zoom, so it takes the step rather than a target.
   const handleZoom = useCallback((delta) => {
-    if (MAPS_AVAILABLE) {
-      zoomRef.current = Math.max(2, Math.min(19, zoomRef.current + delta));
-      cameraRef.current?.zoomTo(zoomRef.current, 300);
-    } else {
-      // The WebView reads its own live zoom, so it needs the step, not a target.
-      webMapRef.current?.zoomBy(delta);
-    }
+    webMapRef.current?.zoomBy(delta);
   }, []);
 
   // ─── Nearby list: ordered by distance, grouped by whether there is one ──
@@ -592,124 +528,21 @@ export default function HomeScreen({ navigation, route }) {
 
   return (
     <View style={styles.container}>
-      {!MAPS_AVAILABLE ? (
-        <WebMap
-          ref={webMapRef}
-          style={StyleSheet.absoluteFill}
-          theme={theme}
-          center={DEFAULT_CENTER}
-          zoom={11}
-          markers={webMarkers}
-          me={me}
-          onMarkerPress={(id) => {
-            const meeting = meetings.find((m) => m.id === id);
-            if (meeting) navigation.navigate("MeetingDetail", { meeting });
-          }}
-          onUserPan={() => setFollowing(false)}
-          onZoomChange={(z) => { zoomRef.current = z; }}
-        />
-      ) : (
-      <Map style={StyleSheet.absoluteFill} mapStyle={theme.mapStyle} attribution compass logo={false}>
-        <Camera
-          ref={cameraRef}
-          initialViewState={{ center: DEFAULT_CENTER, zoom: 11 }}
-          padding={mapPadding}
-        />
-        <UserLocation animated />
-
-        <GeoJSONSource
-          id="meetings"
-          ref={sourceRef}
-          data={geojson}
-          cluster
-          clusterRadius={55}
-          clusterMaxZoom={14}
-          onPress={handlePinPress}
-        >
-          <Layer
-            id="cluster-glow"
-            type="circle"
-            filter={["has", "point_count"]}
-            paint={{
-              "circle-color": clusterColor,
-              "circle-radius": ["step", ["get", "point_count"], 26, 10, 32, 30, 38],
-              "circle-opacity": 0.25,
-              "circle-blur": 0.6,
-            }}
-          />
-          <Layer
-            id="clusters"
-            type="circle"
-            filter={["has", "point_count"]}
-            paint={{
-              "circle-color": clusterColor,
-              "circle-radius": ["step", ["get", "point_count"], 18, 10, 23, 30, 28],
-              "circle-stroke-width": 3,
-              "circle-stroke-color": theme.surface,
-            }}
-          />
-          <Layer
-            id="cluster-count"
-            type="symbol"
-            filter={["has", "point_count"]}
-            layout={{
-              "text-field": ["get", "point_count_abbreviated"],
-              "text-font": LABEL_FONT,
-              "text-size": 13,
-            }}
-            paint={{ "text-color": theme.accentOn }}
-          />
-          <Layer
-            id="meeting-pins"
-            type="circle"
-            filter={["!", ["has", "point_count"]]}
-            paint={{
-              // Per-feature now: the colour comes from the marker's own
-              // property rather than one value painted across the layer.
-              "circle-color": ["get", "color"],
-              // Wide enough to sit an emoji inside without it overhanging.
-              "circle-radius": 16,
-              "circle-stroke-width": 3,
-              "circle-stroke-color": theme.surface,
-            }}
-          />
-          <Layer
-            id="meeting-emoji"
-            type="symbol"
-            filter={["!", ["has", "point_count"]]}
-            layout={{
-              "text-field": ["get", "emoji"],
-              "text-size": 16,
-              // Emoji are drawn from the font stack the style already loads;
-              // allowing overlap keeps a glyph pinned to its circle instead of
-              // being dropped when two markers are close.
-              "text-allow-overlap": true,
-              "text-ignore-placement": true,
-            }}
-          />
-          <Layer
-            id="meeting-labels"
-            type="symbol"
-            filter={["!", ["has", "point_count"]]}
-            layout={{
-              "text-field": ["get", "title"],
-              "text-font": LABEL_FONT,
-              "text-size": 11.5,
-              "text-anchor": "top",
-              // Pushed down to clear the larger emoji circle above it.
-              "text-offset": [0, 1.7],
-              "text-max-width": 9,
-              "text-optional": true,
-            }}
-            paint={{
-              "text-color": theme.mapLabel,
-              "text-halo-color": theme.mapLabelHalo,
-              "text-halo-width": 1.6,
-            }}
-          />
-        </GeoJSONSource>
-      </Map>
-      )}
+      <WebMap
+        ref={webMapRef}
+        style={StyleSheet.absoluteFill}
+        theme={theme}
+        center={DEFAULT_CENTER}
+        zoom={11}
+        markers={webMarkers}
+        me={me}
+        onMarkerPress={(id) => {
+          const meeting = meetings.find((m) => m.id === id);
+          if (meeting) navigation.navigate("MeetingDetail", { meeting });
+        }}
+        onUserPan={() => setFollowing(false)}
+        onZoomChange={(z) => { zoomRef.current = z; }}
+      />
 
       {/* Anchored to `end`, the opposite edge from the Metz pill, so the two
             never collide — including in Hebrew and Arabic where the pill moves

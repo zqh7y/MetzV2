@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, Pressable, StyleSheet, Modal, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Map, Camera, Marker, MAPS_AVAILABLE } from "./MapShim";
 import WebMap from "./WebMap";
 import { useTheme } from "../context/ThemeContext";
 import { useI18n } from "../context/LocaleContext";
@@ -33,7 +32,6 @@ export default function MapPickerSheet({ visible, initialPin, center, zoom, onCa
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
   const [pin, setPin] = useState(initialPin || null);
-  const cameraRef = useRef(null);
   const webMapRef = useRef(null);
 
   // Opening starts from whatever the form already has, not from the last pin
@@ -55,38 +53,15 @@ export default function MapPickerSheet({ visible, initialPin, center, zoom, onCa
         </View>
 
         <View style={styles.mapArea}>
-          {MAPS_AVAILABLE ? (
-            <Map
-              style={StyleSheet.absoluteFill}
-              mapStyle={theme.mapStyle}
-              logo={false}
-              attribution
-              onPress={(e) => {
-                const [lng, lat] = e.nativeEvent.lngLat;
-                setPin({ latitude: lat, longitude: lng });
-              }}
-            >
-              <Camera
-                ref={cameraRef}
-                initialViewState={{
-                  center: pin ? [pin.longitude, pin.latitude] : center,
-                  zoom: pin ? 14 : zoom,
-                }}
-              />
-              {pin ? <Marker lngLat={[pin.longitude, pin.latitude]} /> : null}
-            </Map>
-          ) : (
-            <WebMap
-              ref={webMapRef}
-              style={StyleSheet.absoluteFill}
-              theme={theme}
-              center={pin ? [pin.longitude, pin.latitude] : center}
-              zoom={pin ? 14 : zoom}
-              pin={pin ? { lat: pin.latitude, lng: pin.longitude } : null}
-              onMapPress={setPin}
-            />
-          )}
-        </View>
+          <WebMap
+            ref={webMapRef}
+            style={StyleSheet.absoluteFill}
+            theme={theme}
+            center={pin ? [pin.longitude, pin.latitude] : center}
+            zoom={pin ? 14 : zoom}
+            pin={pin ? { lat: pin.latitude, lng: pin.longitude } : null}
+            onMapPress={setPin}
+          />        </View>
 
         <View style={[styles.footer, { paddingBottom: insets.bottom + 14 }]}>
           <Text style={styles.hint} numberOfLines={1}>

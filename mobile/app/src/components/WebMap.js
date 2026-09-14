@@ -3,15 +3,23 @@ import { StyleSheet, View } from "react-native";
 import { WebView } from "react-native-webview";
 
 /**
- * A map that needs no native module.
+ * The app's only map: Leaflet inside a WebView.
  *
- * MapLibre only exists in a dev build, so in Expo Go the map screens had
- * nothing to show. Leaflet inside a WebView renders anywhere react-native-webview
- * runs — which includes Expo Go — at the cost of talking to the map over
- * postMessage instead of props.
+ * It began as the fallback for Expo Go, which has no native modules, while a
+ * real build drew the same screens with native MapLibre. Keeping both was a
+ * mistake twice over — the same map had to be written twice, in two languages,
+ * and the one we looked at every day in development was never the one that
+ * shipped. That is how a released build reached a phone with nothing but a
+ * blank rectangle where the map should be: MapLibre could not get an EGL
+ * config out of the device, drew nothing, and no screenshot taken in Expo Go
+ * could ever have shown it.
  *
- * Coordinates are [lng, lat] on the React Native side, matching the MapLibre
- * code this stands in for; Leaflet wants [lat, lng], so every crossing point
+ * A WebView is the one renderer every Android build already has. It is not the
+ * faster of the two, and at this app's size that has never been the thing worth
+ * optimising for.
+ *
+ * Coordinates are [lng, lat] on the React Native side, the order the rest of
+ * the app and OSRM both use; Leaflet wants [lat, lng], so every crossing point
  * flips them rather than leaving two conventions loose in the same file.
  */
 
@@ -25,11 +33,6 @@ import { WebView } from "react-native-webview";
  * rastertiles/voyager, light_all and dark_all alike. Dark went on looking
  * fine for a while only because the WebView still had clean tiles cached from
  * before they changed the rules.
- *
- * Only their *raster* tiles are affected: the vector tiles behind
- * theme.mapStyle come back clean, so the native MapLibre map in a real build
- * is untouched and stays on CARTO. This is the fallback path — WebView and
- * Leaflet — which is what Expo Go and anything without the native module gets.
  *
  * Esri's Canvas basemaps are the replacement: no key, and a genuine
  * light/dark pair, which matters because the appearance setting promises the

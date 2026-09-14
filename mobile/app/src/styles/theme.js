@@ -52,8 +52,6 @@ const LIGHT = {
   text3: "#98a1ad",
   navBg: "#1c1c2e",
   accentOn: "#ffffff",
-  // MapLibre basemap, matched to the web's swapBasemap()
-  mapStyle: "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
   mapLabel: "#3c4663",
   mapLabelHalo: "rgba(255,255,255,0.92)",
 };
@@ -69,7 +67,6 @@ const DARK = {
   text3: "#737d8b",
   navBg: "#0b0e14",
   accentOn: "#ffffff",
-  mapStyle: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
   mapLabel: "#c8d0dc",
   mapLabelHalo: "rgba(10,13,18,0.92)",
 };

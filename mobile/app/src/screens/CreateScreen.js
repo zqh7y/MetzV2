@@ -5,7 +5,6 @@ import {
 } from "react-native";
 import * as Location from "expo-location";
 import { LinearGradient } from "expo-linear-gradient";
-import { Map, Camera, Marker, MAPS_AVAILABLE } from "../components/MapShim";
 import WebMap from "../components/WebMap";
 import MapPickerSheet from "../components/MapPickerSheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -23,7 +22,7 @@ import { useI18n } from "../context/LocaleContext";
 import { localizedTag } from "../i18n/vocab";
 import { Alert } from "../components/AppAlert";
 
-const CENTER = [35.2137, 31.7683]; // [lng, lat] — MapLibre order
+const CENTER = [35.2137, 31.7683]; // [lng, lat], the order WebMap takes
 
 // How long to wait for a GPS fix before giving up on it.
 const LOCATE_TIMEOUT_MS = 12000;
@@ -199,7 +198,6 @@ export default function CreateScreen({ navigation }) {
   // from under a thumb because a re-render happened to land at 19:00:01.
   const quick = useMemo(() => quickTimes(new Date()), []);
 
-  const cameraRef = useRef(null);
   const webMapRef = useRef(null);
   const [locating, setLocating] = useState(false);
 
@@ -240,8 +238,7 @@ export default function CreateScreen({ navigation }) {
       }
       const next = { latitude: fix.coords.latitude, longitude: fix.coords.longitude };
       setPin(next);
-      const camera = MAPS_AVAILABLE ? cameraRef.current : webMapRef.current;
-      camera?.flyTo({ center: [next.longitude, next.latitude], zoom: 15, duration: 700 });
+      webMapRef.current?.flyTo({ center: [next.longitude, next.latitude], zoom: 15 });
     } catch (e) {
       Alert.alert(t("create.locationFailed"), e.message || "");
     } finally {
@@ -449,33 +446,15 @@ export default function CreateScreen({ navigation }) {
                 pointerEvents="box-only"
                 onPress={() => setMapOpen(true)}
               >
-                {MAPS_AVAILABLE ? (
-                  <Map
-                    style={styles.map}
-                    mapStyle={theme.mapStyle}
-                    logo={false}
-                    attribution
-                    onPress={(e) => {
-                      // MapLibre reports coordinates as [lng, lat]
-                      const [lng, lat] = e.nativeEvent.lngLat;
-                      setPin({ latitude: lat, longitude: lng });
-                    }}
-                  >
-                    <Camera ref={cameraRef} initialViewState={{ center: CENTER, zoom: 6.5 }} />
-                    {pin ? <Marker lngLat={[pin.longitude, pin.latitude]} /> : null}
-                  </Map>
-                ) : (
-                  <WebMap
-                    ref={webMapRef}
-                    style={styles.map}
-                    theme={theme}
-                    center={CENTER}
-                    zoom={6.5}
-                    pin={pin ? { lat: pin.latitude, lng: pin.longitude } : null}
-                    onMapPress={setPin}
-                  />
-                )}
-              </Pressable>
+                <WebMap
+                  ref={webMapRef}
+                  style={styles.map}
+                  theme={theme}
+                  center={CENTER}
+                  zoom={6.5}
+                  pin={pin ? { lat: pin.latitude, lng: pin.longitude } : null}
+                  onMapPress={setPin}
+                />              </Pressable>
               <Pressable style={styles.mapOpen} onPress={() => setMapOpen(true)}>
                 <Text style={styles.mapOpenText}>{`🗺  ${t("create.pickOnMap")}`}</Text>
               </Pressable>

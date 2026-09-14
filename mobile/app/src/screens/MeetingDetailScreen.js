@@ -368,13 +368,6 @@ ${url}`,
           <Text style={styles.sectionTitle}>{`📍 ${t("detail.where")}`}</Text>
           {meeting.location ? <Text style={styles.body}>{meeting.location}</Text> : null}
 
-          {/*
-            Always the WebView map here, not the MapShim branch the other
-            screens use. The route is drawn as Leaflet polylines inside that
-            document; the native MapLibre path would need its own line layers
-            to match, and it is unreachable in Expo Go anyway. Worth revisiting
-            if a dev build ever becomes the primary target.
-          */}
           <View style={styles.mapWrap}>
             <WebMap
               style={styles.map}
