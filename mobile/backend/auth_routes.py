@@ -78,9 +78,16 @@ def save_push_token():
     uid = current_uid()
     if not uid:
         return jsonify({"error": "unauthorized"}), 401
-    token = (request.get_json(force=True) or {}).get("token", "")
-    if not token:
-        return jsonify({"error": "no token"}), 400
+    token = ((request.get_json(force=True) or {}).get("token") or "").strip()
+    # Shape-checked rather than taken as given. Two reasons: a stored string
+    # that is not a push token is a row that can never do anything, and the
+    # field is otherwise somewhere to park arbitrary text on an account. It
+    # also narrows registering a token belonging to somebody else's phone —
+    # which would route this account's notifications to their device — to
+    # people who already have one, since nothing here ever discloses one.
+    if not (token.startswith(("ExponentPushToken[", "ExpoPushToken["))
+            and token.endswith("]") and len(token) <= 200):
+        return jsonify({"error": "not a push token"}), 400
     set_push_token(uid, token)
     return jsonify({"status": "saved"})
 
