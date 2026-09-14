@@ -204,8 +204,24 @@ export default function HomeDrawer({
     return () => sub.remove();
   }, [open, onClose]);
 
-  // Off-screen is to the left in LTR and to the right in RTL.
-  const hidden = I18nManager.isRTL ? width + 8 : -(width + 8);
+  // Far enough that it is off the screen whichever way it actually moved.
+  //
+  // This used to be `isRTL ? +width : -width` — the drawer's own width, in the
+  // direction RTL was expected to need. It hid correctly in Expo Go and left
+  // about a third of the panel sitting on the left of a real build in Hebrew
+  // or Arabic. Two things have to agree for that sum to work: which edge
+  // `start: 0` resolves to, and which way a positive translateX moves. A
+  // standalone Android build applies a true RTL layout direction and Expo Go
+  // does not, so they agree in one and disagree in the other, and the panel
+  // ends up short of the edge by exactly the amount they differ.
+  //
+  // Moving it by more than the whole screen takes the guess out: from any
+  // anchor, in either direction, the panel clears the display completely. The
+  // slide is the screen's width instead of the panel's, so on a phone it
+  // travels perhaps a fifth further in the same time — not perceptible, and
+  // worth it to have one number that cannot be wrong. On a much wider screen
+  // than a phone it would be, which is the one case to revisit.
+  const hidden = -(screenW + 8);
   const translateX = slide.interpolate({
     inputRange: [0, 1],
     outputRange: [hidden, 0],
