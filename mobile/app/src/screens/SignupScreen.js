@@ -9,7 +9,7 @@ import AuthStrength from "../components/AuthStrength";
 import AuthAlt from "../components/AuthAlt";
 import GoogleAuthButton from "../components/GoogleAuthButton";
 import { useAuth } from "../context/AuthContext";
-import { GOOGLE_CONFIGURED } from "../config";
+import { GOOGLE_AUTH_READY, IS_EXPO_GO } from "../config";
 import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
 
@@ -19,12 +19,7 @@ export default function SignupScreen({ navigation }) {
   const { t } = useI18n();
   const { theme } = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
-  // Open from the start only when nothing at all would be above it. In Expo Go
-  // the Google button is replaced by a greyed notice explaining why it cannot
-  // work there — that is still something on screen, and the link below it is
-  // still a way through, so the form stays folded and development sees the
-  // same shape everyone else does.
-  const [showEmail, setShowEmail] = useState(!GOOGLE_CONFIGURED);
+  const [showEmail, setShowEmail] = useState(!GOOGLE_AUTH_READY || IS_EXPO_GO);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -68,10 +63,9 @@ export default function SignupScreen({ navigation }) {
           choices, and the point of the change is that one of them is the way
           in and the other is for people who will not use it.
 
-          It starts open only when no client id is configured at all, because
-          then the button renders nothing and this link would be alone on the
-          screen. Expo Go keeps it folded: the greyed notice says why Google is
-          unavailable there and this link is still right underneath it. */}
+          It starts open whenever Google cannot be offered — no client id, or
+          Expo Go, which cannot do Google at all. A screen whose only visible
+          action is one this build cannot perform is a dead end. */}
       {showEmail ? null : (
         <Pressable onPress={() => setShowEmail(true)} style={styles.emailToggle}>
           <Text style={styles.emailToggleText}>{t("common.useEmailInstead")}</Text>
