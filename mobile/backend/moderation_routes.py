@@ -16,6 +16,7 @@ from data import (
 )
 
 from helpers import current_uid, require_admin
+import push
 
 moderation_bp = Blueprint("moderation", __name__)
 
@@ -42,6 +43,9 @@ def report():
     )
     if not result:
         return jsonify({"error": "Couldn't file that report. Check what you selected."}), 400
+
+    push.content_reported(
+        body.get("target_type", ""), body.get("target_id", ""), body.get("reason", ""))
 
     # The reporter is not told whether this is their first report about the
     # thing or a duplicate — either way the honest answer is "it's with us".

@@ -5,6 +5,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { api } from "../api";
+import { syncMeetingReminders } from "../notifications";
 import useAutoRefresh from "../hooks/useAutoRefresh";
 import ReliabilityCard from "../components/ReliabilityCard";
 import Appear from "../components/Appear";
@@ -56,7 +57,15 @@ export default function ActivityScreen({ navigation }) {
   const load = useCallback(() => {
     setFailed(false);
     api.getActivity()
-      .then(setData)
+      .then((view) => {
+        setData(view);
+        // The device's reminders are a cache of what the server says you are
+        // going to, and it drifts — meetings get cancelled, times change,
+        // somebody joins on another phone. Rebuilt from the list rather than
+        // patched event by event, because the list is short and a rebuild
+        // cannot get out of step.
+        syncMeetingReminders(view?.coming_up || []);
+      })
       .catch(() => setFailed(true))
       .finally(() => { setLoading(false); setRefreshing(false); });
   }, []);

@@ -48,7 +48,8 @@
       "expo-font",
       "@maplibre/maplibre-react-native",
       "@react-native-community/datetimepicker",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-notifications"
     ]
   }
 }

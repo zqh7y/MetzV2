@@ -10,7 +10,10 @@ import os
 import requests
 from flask import Blueprint, request, jsonify
 
-from data import register_user, uid_for_email, token_version, revoke_tokens
+from data import (
+    register_user, uid_for_email, token_version, revoke_tokens,
+    set_push_token, clear_push_token,
+)
 from utils.auth_errors import friendly_auth_error
 from utils.security import rate_limit_exceeded, client_ip
 from utils.tokens import issue_token
@@ -64,6 +67,39 @@ def signup():
     })
 
 
+@auth_bp.route("/api/push/token", methods=["POST"])
+def save_push_token():
+    """Remember where to push for the signed-in account.
+
+    Sent by the app after it has a token, which is every launch — Expo can
+    reissue one at any time, and a stale one is a device that silently stops
+    hearing anything.
+    """
+    uid = current_uid()
+    if not uid:
+        return jsonify({"error": "unauthorized"}), 401
+    token = (request.get_json(force=True) or {}).get("token", "")
+    if not token:
+        return jsonify({"error": "no token"}), 400
+    set_push_token(uid, token)
+    return jsonify({"status": "saved"})
+
+
+@auth_bp.route("/api/push/token", methods=["DELETE"])
+def drop_push_token():
+    """Stop pushing to this account's devices — signing out.
+
+    All of them rather than the one asking: the app drops its session at the
+    same moment and cannot prove which token was its own afterwards, and
+    leaving a stale one is how somebody keeps getting another person's
+    notifications on a shared phone.
+    """
+    uid = current_uid()
+    if uid:
+        clear_push_token(uid)
+    return jsonify({"status": "cleared"})
+
+
 @auth_bp.route("/api/logout", methods=["POST"])
 def logout():
     """End every session for the calling account, not just this device.
@@ -80,6 +116,8 @@ def logout():
     uid = current_uid()
     if uid:
         revoke_tokens(uid)
+        # A device that is no longer signed in must stop hearing about it.
+        clear_push_token(uid)
     return jsonify({"status": "logged_out"})
 
 

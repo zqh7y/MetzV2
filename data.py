@@ -2165,6 +2165,62 @@ def register_user(email):
     return uid
 
 
+# ── Push notifications ──────────────────────────────────────────────────────
+# Expo brokers the delivery, so the server holds a token per device rather than
+# anything from Google or Apple. https://exp.host/--/api/v2/push/send takes a
+# batch and answers per message.
+EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send"
+
+
+def set_push_token(uid, token):
+    """Remember where to push for this account.
+
+    A list, not a value: one person signs in on a phone and a tablet, and the
+    reminder that matters is the one on whichever they are holding. Bounded, so
+    a device that is reinstalled repeatedly cannot grow the row without limit —
+    the oldest goes first, which is the one least likely still to exist.
+    """
+    user = USERS_DB.get(uid)
+    if not user or not token:
+        return False
+    tokens = [t for t in (user.get("push_tokens") or []) if t != token]
+    tokens.append(token)
+    user["push_tokens"] = tokens[-MAX_PUSH_TOKENS_PER_USER:]
+    save_data()
+    return True
+
+
+def clear_push_token(uid, token=None):
+    """Forget one device, or all of them. Called when somebody signs out."""
+    user = USERS_DB.get(uid)
+    if not user:
+        return False
+    if token:
+        user["push_tokens"] = [t for t in (user.get("push_tokens") or []) if t != token]
+    else:
+        user["push_tokens"] = []
+    save_data()
+    return True
+
+
+MAX_PUSH_TOKENS_PER_USER = 5
+
+
+def push_tokens_for(uids):
+    """Every device belonging to these accounts, de-duplicated."""
+    seen = []
+    for uid in uids:
+        for token in (USERS_DB.get(uid) or {}).get("push_tokens") or []:
+            if token not in seen:
+                seen.append(token)
+    return seen
+
+
+def admin_uids():
+    """Everyone who should hear about reports and meetings awaiting review."""
+    return [uid for uid in USERS_DB if is_admin(uid)]
+
+
 def token_version(uid):
     """Which generation of tokens this account currently accepts."""
     return int((USERS_DB.get(uid) or {}).get("token_version", 0))

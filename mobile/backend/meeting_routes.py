@@ -19,6 +19,7 @@ from utils.models import (
 )
 
 from helpers import current_uid, serialize_meeting, share_url_for
+import push
 
 # Reuse the web's own threshold parsing and validation rather than writing a
 # second set of rules that could drift from it.
@@ -111,6 +112,10 @@ def create_meeting():
 
     add_meeting(new_meeting, creator_uid=uid, visibility=visibility)
     record = MEETINGS_DB.get(new_meeting.id, {})
+    # Only when it is actually held: a trusted organiser's meeting goes live
+    # immediately and there is nothing for a moderator to do.
+    if new_meeting.status == "pending":
+        push.meeting_awaiting_review(new_meeting.id)
     return jsonify({
         "id": new_meeting.id,
         "status": new_meeting.status,
@@ -131,6 +136,10 @@ def join_meeting(meeting_id):
     result = toggle_join_meeting(uid, meeting_id, pledge=True, confirm_bail=True)
     if result is None:
         return jsonify({"error": "not found"}), 404
+    # Only on the way in. Leaving is not news the organiser can act on, and a
+    # notification for it would read as a reprimand.
+    if uid in (MEETINGS_DB.get(meeting_id, {}).get("joined_uids") or []):
+        push.meeting_joined(meeting_id, uid)
     result["joined_preview"] = get_joined_users_preview(MEETINGS_DB[meeting_id].get("joined_uids", []))
     return jsonify(result)
 
@@ -263,6 +272,8 @@ def create_comment(meeting_id):
     comment = add_comment(meeting_id, uid, text)
     if not comment:
         return jsonify({"error": "Could not post comment."}), 400
+    # After the write, so a failure to notify cannot lose the comment.
+    push.meeting_comment(meeting_id, uid, text)
     return jsonify(_serialize_comment(comment, meeting, uid)), 201
 
 

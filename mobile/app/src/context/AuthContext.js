@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
 import { api, loadStoredUid, loadStoredToken, setSession } from "../api";
+import { registerForPush, unregisterPush } from "../notifications";
 import {
   listAccounts, rememberAccount, clearAccountToken, forgetAccount, canSwitchTo,
 } from "../accounts";
@@ -29,6 +30,11 @@ export function AuthProvider({ children }) {
       if (stored) {
         setUid(stored);
         await refreshProfile();
+        // Every launch, not just the first: Expo can reissue a push token
+        // whenever it likes, and a device whose token the server no longer has
+        // stops hearing anything without ever saying so. Not awaited — the app
+        // must open at the same speed whether or not this succeeds.
+        registerForPush();
       }
       await reloadAccounts();
       setBooting(false);
@@ -78,6 +84,9 @@ export function AuthProvider({ children }) {
     // account entirely if that request failed.
     rememberAccount({ uid: newUid, token }).then(reloadAccounts);
     refreshProfile();
+    // Signing in is the first moment there is an account to attach a device
+    // to, and the moment someone is most likely to grant the permission.
+    registerForPush();
   }
 
   /**
@@ -96,11 +105,13 @@ export function AuthProvider({ children }) {
   function signOut({ next, keepSession = false } = {}) {
     const leaving = uid;
 
-    // Tell the server to stop honouring this account's tokens. Not awaited and
-    // failure is ignored on purpose: signing out must happen on the phone even
-    // with no connection, and nothing below depends on the answer. Skipped when
-    // switching, which keeps the other account's session alive by design.
+    // Tell the server to stop honouring this account's tokens, and to stop
+    // pushing to this device. Neither is awaited and failure is ignored on
+    // purpose: signing out must happen on the phone even with no connection,
+    // and nothing below depends on the answer. Skipped when switching, which
+    // keeps the other account's session alive by design.
     if (leaving && !keepSession) {
+      unregisterPush();
       api.logout().catch(() => {});
     }
 

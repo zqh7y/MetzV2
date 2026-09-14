@@ -106,6 +106,11 @@ export const api = {
   // Ends every session for this account, not just this device — see
   // utils/tokens.py. Best effort: the local session is dropped either way.
   logout: () => request("/api/logout", { method: "POST" }),
+  // Where to push for this account. Re-sent on every launch: Expo can
+  // reissue a token at any time, and a stale one is a device that has gone
+  // quiet without anybody noticing.
+  savePushToken: (token) => request("/api/push/token", { method: "POST", body: { token } }),
+  clearPushToken: () => request("/api/push/token", { method: "DELETE" }),
   getMeetings: () => request("/api/meetings"),
   // One meeting as it stands now, rather than as the card had it when the
   // listing was fetched — an online call's link opens on a clock.

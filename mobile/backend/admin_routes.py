@@ -11,6 +11,7 @@ from data import (
 )
 
 from helpers import current_uid, require_admin, serialize_meeting
+import push
 
 admin_bp = Blueprint("admin", __name__)
 
@@ -29,13 +30,19 @@ def admin_pending():
 @admin_bp.route("/api/admin/meetings/<int:meeting_id>/approve", methods=["POST"])
 def admin_approve(meeting_id):
     if approve_meeting(meeting_id, current_uid()):
+        push.meeting_decided(meeting_id, approved=True)
         return jsonify({"status": "approved"})
     return jsonify({"error": "forbidden"}), 403
 
 
 @admin_bp.route("/api/admin/meetings/<int:meeting_id>/decline", methods=["POST"])
 def admin_decline(meeting_id):
+    # Copied before the call, because declining deletes the record and the
+    # message names the meeting — but only sent once the delete has actually
+    # happened, which is also what proves the caller was allowed to do it.
+    snapshot = dict(MEETINGS_DB.get(meeting_id) or {})
     if decline_meeting(meeting_id, current_uid()):
+        push.meeting_decided(meeting_id, approved=False, record=snapshot)
         return jsonify({"status": "declined"})
     return jsonify({"error": "forbidden"}), 403
 

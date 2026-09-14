@@ -24,6 +24,7 @@ import { fetchRoute, formatRoute } from "../utils/route";
 import { useI18n } from "../context/LocaleContext";
 import { Alert } from "../components/AppAlert";
 import FaceAvatar from "../components/FaceAvatar";
+import { scheduleMeetingReminders, cancelMeetingReminders } from "../notifications";
 
 // Mirrors the web's /meeting/<id> page: a tinted hero, then the details in
 // bordered sections on the neutral background.
@@ -243,6 +244,12 @@ ${url}`,
       const result = await api.joinMeeting(meeting.id);
       const nowJoined = typeof result?.joined === "boolean" ? result.joined : !leaving;
       setJoined(nowJoined);
+
+      // The reminders live on the phone, so they are set and dropped here
+      // rather than waiting on anything from the server. A waitlisted place is
+      // not a place, so it gets no reminder until it becomes one.
+      if (nowJoined && !result?.waitlisted) scheduleMeetingReminders(meeting);
+      else cancelMeetingReminders(meeting.id);
 
       // A full meeting queues you instead of rejecting you, and that is neither
       // "you're in" nor "you left" — saying either would be wrong.
