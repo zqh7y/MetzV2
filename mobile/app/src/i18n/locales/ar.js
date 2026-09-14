@@ -40,7 +40,6 @@ export default {
   "common.retry": "إعادة المحاولة",
   "common.loading": "جارٍ التحميل…",
   "common.back": "رجوع",
-  "common.useEmailInstead": "استخدم البريد بدلًا من ذلك",
   "common.continueWithGoogle": "المتابعة باستخدام Google",
   "common.googleExpoGoNote": "يعمل فقط في التطبيق المثبَّت — Google ترفض إعادة توجيه Expo Go.",
   "common.delete": "حذف",

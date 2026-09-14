@@ -35,7 +35,6 @@ export default {
   "common.retry": "Nochmal",
   "common.loading": "Lädt…",
   "common.back": "Zurück",
-  "common.useEmailInstead": "Stattdessen E-Mail verwenden",
   "common.continueWithGoogle": "Mit Google fortfahren",
   "common.googleExpoGoNote": "Funktioniert nur in der installierten App — Google lehnt die Weiterleitung von Expo Go ab.",
   "common.delete": "Löschen",

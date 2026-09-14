@@ -4,7 +4,6 @@ import AnimatedPressable from "./AnimatedPressable";
 import useGoogleSignIn from "../hooks/useGoogleSignIn";
 import { GOOGLE_AUTH_READY, GOOGLE_CONFIGURED, IS_EXPO_GO } from "../config";
 import { FONTS } from "../styles/fonts";
-import { SHADOW } from "../styles/theme";
 import { useTheme } from "../context/ThemeContext";
 import { useI18n } from "../context/LocaleContext";
 
@@ -19,7 +18,7 @@ import { useI18n } from "../context/LocaleContext";
  * Outlined rather than filled, unlike AuthButton, so it reads as the second
  * way in rather than competing with the form's own submit.
  */
-export default function GoogleAuthButton({ label, primary = false }) {
+export default function GoogleAuthButton({ label }) {
   // The gate is here, outside the component that owns the hook, because
   // useGoogleSignIn cannot be called conditionally and the provider inside it
   // *throws during render* when this platform's client id is missing. Checking
@@ -30,7 +29,7 @@ export default function GoogleAuthButton({ label, primary = false }) {
   // page, which blames the app for something no setting here can fix.
   if (IS_EXPO_GO && GOOGLE_CONFIGURED) return <ExpoGoNotice />;
   if (!GOOGLE_AUTH_READY) return null;
-  return <GoogleAuthButtonInner label={label} primary={primary} />;
+  return <GoogleAuthButtonInner label={label} />;
 }
 
 function ExpoGoNotice() {
@@ -53,7 +52,7 @@ function ExpoGoNotice() {
   );
 }
 
-function GoogleAuthButtonInner({ label, primary }) {
+function GoogleAuthButtonInner({ label }) {
   const { theme } = useTheme();
   const { t } = useI18n();
   const styles = useMemo(() => makeStyles(theme), [theme]);
@@ -63,19 +62,14 @@ function GoogleAuthButtonInner({ label, primary }) {
 
   return (
     <View>
-      {/* The divider introduces an alternative. As the first thing offered
-          there is nothing to be an alternative to, so it only appears when
-          this is following something else. */}
-      {primary ? null : (
-        <View style={styles.dividerRow}>
-          <View style={styles.rule} />
-          <Text style={styles.dividerText}>{t("common.or")}</Text>
-          <View style={styles.rule} />
-        </View>
-      )}
+      <View style={styles.dividerRow}>
+        <View style={styles.rule} />
+        <Text style={styles.dividerText}>{t("common.or")}</Text>
+        <View style={styles.rule} />
+      </View>
 
       <AnimatedPressable onPress={signIn} disabled={busy} scaleTo={0.985}>
-        <View style={[styles.button, primary && styles.buttonPrimary, busy && styles.buttonInert]}>
+        <View style={[styles.button, busy && styles.buttonInert]}>
           {busy ? (
             <ActivityIndicator color={theme.text2} size="small" />
           ) : (
@@ -84,9 +78,7 @@ function GoogleAuthButtonInner({ label, primary }) {
                 <Text style={styles.badgeText}>G</Text>
               </View>
               {/* Login passes nothing and gets the default wording. */}
-              <Text style={[styles.label, primary && styles.labelPrimary]}>
-                {label || t("common.continueWithGoogle")}
-              </Text>
+              <Text style={styles.label}>{label || t("common.continueWithGoogle")}</Text>
             </>
           )}
         </View>
@@ -115,16 +107,6 @@ const makeStyles = (t) => StyleSheet.create({
     backgroundColor: t.surface,
     minHeight: 50,
   },
-  // Leading the screen rather than sitting under a form, so it needs the
-  // presence a primary button has. Google's own guidance keeps the surface
-  // white with their mark on it, so the weight comes from size and lift
-  // instead of from filling it with the app's accent.
-  buttonPrimary: {
-    paddingVertical: 16,
-    minHeight: 56,
-    borderWidth: 1.5,
-    ...SHADOW.s2,
-  },
   buttonInert: { opacity: 0.6 },
   // Google's own mark is a licensed asset, so this is a plain lettermark in
   // their blue rather than a redrawn copy of it.
@@ -136,7 +118,6 @@ const makeStyles = (t) => StyleSheet.create({
   },
   badgeText: { color: "#4285f4", fontFamily: FONTS.heading, fontSize: t.fs(13), lineHeight: 16 },
   label: { color: t.text, fontFamily: FONTS.headingSemi, fontSize: t.fs(15) },
-  labelPrimary: { fontSize: t.fs(16) },
   note: { fontSize: t.fs(12), color: t.text3, marginTop: 8, textAlign: "center" },
   error: { color: t.status.bad, fontSize: t.fs(12.5), marginTop: 8, textAlign: "center" },
 });
