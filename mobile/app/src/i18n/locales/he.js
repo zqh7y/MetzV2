@@ -37,6 +37,7 @@ export default {
   "common.retry": "נסה שוב",
   "common.loading": "טוען…",
   "common.back": "חזרה",
+  "common.useEmailInstead": "להתחבר עם אימייל",
   "common.continueWithGoogle": "המשך עם Google",
   "common.googleExpoGoNote": "עובד רק באפליקציה המותקנת — Google דוחה את ההפניה של Expo Go.",
   "common.delete": "מחיקה",

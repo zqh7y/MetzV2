@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
+import { Pressable, Text, StyleSheet } from "react-native";
 import { api } from "../api";
 import { useI18n } from "../context/LocaleContext";
 import AuthLayout from "../components/AuthLayout";
@@ -8,11 +9,17 @@ import AuthStrength from "../components/AuthStrength";
 import AuthAlt from "../components/AuthAlt";
 import GoogleAuthButton from "../components/GoogleAuthButton";
 import { useAuth } from "../context/AuthContext";
+import { GOOGLE_AUTH_READY, IS_EXPO_GO } from "../config";
+import { FONTS } from "../styles/fonts";
+import { useTheme } from "../context/ThemeContext";
 
 // Copy, field order and button labels track templates/signup.html.
 export default function SignupScreen({ navigation }) {
   const { signIn } = useAuth();
   const { t } = useI18n();
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
+  const [showEmail, setShowEmail] = useState(!GOOGLE_AUTH_READY || IS_EXPO_GO);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -47,6 +54,26 @@ export default function SignupScreen({ navigation }) {
         />
       }
     >
+      {/* The way in, first and on its own. Google has already proved the
+          address, which is the one thing signing up here cannot check. */}
+      <GoogleAuthButton label={t("signup.google")} primary />
+
+      {/* Email is the fallback, so it stays behind a tap. Not hidden as a
+          matter of taste: leaving both on screen makes them read as equal
+          choices, and the point of the change is that one of them is the way
+          in and the other is for people who will not use it.
+
+          It starts open whenever Google cannot be offered — no client id, or
+          Expo Go, which cannot do Google at all. A screen whose only visible
+          action is one this build cannot perform is a dead end. */}
+      {showEmail ? null : (
+        <Pressable onPress={() => setShowEmail(true)} style={styles.emailToggle}>
+          <Text style={styles.emailToggleText}>{t("common.useEmailInstead")}</Text>
+        </Pressable>
+      )}
+
+      {showEmail ? (
+      <>
       <AuthField
         label={t("common.email")}
         icon="mail"
@@ -56,7 +83,9 @@ export default function SignupScreen({ navigation }) {
         autoComplete="email"
         autoCapitalize="none"
         autoCorrect={false}
-        autoFocus
+        // No autoFocus: the field is revealed rather than present on arrival,
+        // and raising a keyboard over a screen somebody has not asked to type
+        // on hides the Google button they were looking at.
         value={email}
         onChangeText={setEmail}
       />
@@ -82,9 +111,17 @@ export default function SignupScreen({ navigation }) {
         onPress={handleSignup}
         loading={loading}
       />
-      {/* Google has already proved the address, so this route skips the
-          emailed code entirely — no inbox, no 4 digits, no waiting. */}
-      <GoogleAuthButton label={t("signup.google")} />
+      </>
+      ) : null}
     </AuthLayout>
   );
 }
+
+const makeStyles = (t) => StyleSheet.create({
+  emailToggle: { paddingVertical: 14, alignItems: "center" },
+  emailToggleText: {
+    color: t.text2, fontSize: t.fs(14), fontFamily: FONTS.bodySemi,
+    textDecorationLine: "underline",
+  },
+});
+

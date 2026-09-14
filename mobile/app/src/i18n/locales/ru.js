@@ -36,6 +36,7 @@ export default {
   "common.retry": "Повторить",
   "common.loading": "Загрузка…",
   "common.back": "Назад",
+  "common.useEmailInstead": "Войти по почте",
   "common.continueWithGoogle": "Продолжить с Google",
   "common.googleExpoGoNote": "Работает только в установленном приложении — Google отклоняет перенаправление Expo Go.",
   "common.delete": "Удалить",
