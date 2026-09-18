@@ -20,6 +20,7 @@ import { useTheme } from "../context/ThemeContext";
 import { RADIUS, SHADOW } from "../styles/theme";
 import { useI18n } from "../context/LocaleContext";
 import { localizedTag } from "../i18n/vocab";
+import { placeNameFor } from "../utils/placeName";
 import { Alert } from "../components/AppAlert";
 
 const CENTER = [35.2137, 31.7683]; // [lng, lat], the order WebMap takes
@@ -201,6 +202,41 @@ export default function CreateScreen({ navigation }) {
   const webMapRef = useRef(null);
   const [locating, setLocating] = useState(false);
 
+  // What the geocoder last wrote into the box. The organiser's own words must
+  // survive moving the pin — someone who typed "Sacher Park, by the fountain"
+  // has said something the geocoder cannot, and overwriting it with a street
+  // name would be worse than leaving the box empty. So the name is only filled
+  // in when the box is untouched, or still holds the last thing we put there.
+  const autoName = useRef("");
+  // Which lookup is current. Two pins dropped in quick succession answer in
+  // whatever order the geocoder feels like, and the first one must not land
+  // after the second.
+  const namingSeq = useRef(0);
+  // The box's live value, readable after an await. A geocoder round trip is
+  // long enough for someone to have started typing into it, and the captured
+  // value from when the pin was dropped would not know that.
+  const typedName = useRef("");
+  useEffect(() => { typedName.current = locationName; }, [locationName]);
+
+  /**
+   * Drop the pin, then go and find out what the place is called.
+   *
+   * Used by every route to a pin — the picker, the preview, and "use my
+   * location" — so that naming the spot is part of choosing it rather than
+   * something bolted onto one of the three.
+   */
+  const applyPin = useCallback(async (next) => {
+    setPin(next);
+    const seq = ++namingSeq.current;
+    const name = await placeNameFor(next);
+    if (seq !== namingSeq.current) return; // a newer pin won
+    if (!name) return;
+    const current = typedName.current;
+    if (current.trim() && current !== autoName.current) return;
+    autoName.current = name;
+    setLocationName(name);
+  }, []);
+
   /**
    * Drop the pin where the organiser is standing.
    *
@@ -208,9 +244,9 @@ export default function CreateScreen({ navigation }) {
    * meant pinching your way down to it. Most meetings are made somewhere near
    * where they will happen, which makes this one tap instead.
    *
-   * It only fills the pin. The address box stays for the organiser to write,
-   * because the server wants a name a person can read and coordinates are not
-   * that — see the note on `missing` above.
+   * The address box fills itself from whatever the geocoder calls the spot,
+   * and stays editable — the server wants a name a person can read, and a pair
+   * of decimals is not that. See the note on `missing` above.
    */
   const handleUseMyLocation = useCallback(async () => {
     if (locating) return;
@@ -237,14 +273,14 @@ export default function CreateScreen({ navigation }) {
         return;
       }
       const next = { latitude: fix.coords.latitude, longitude: fix.coords.longitude };
-      setPin(next);
+      applyPin(next);
       webMapRef.current?.flyTo({ center: [next.longitude, next.latitude], zoom: 15 });
     } catch (e) {
       Alert.alert(t("create.locationFailed"), e.message || "");
     } finally {
       setLocating(false);
     }
-  }, [locating, t]);
+  }, [locating, t, applyPin]);
 
   const ready = missing.length === 0 && !linkInvalid;
 
@@ -453,8 +489,9 @@ export default function CreateScreen({ navigation }) {
                   center={CENTER}
                   zoom={6.5}
                   pin={pin ? { lat: pin.latitude, lng: pin.longitude } : null}
-                  onMapPress={setPin}
-                />              </Pressable>
+                  onMapPress={applyPin}
+                />
+              </Pressable>
               <Pressable style={styles.mapOpen} onPress={() => setMapOpen(true)}>
                 <Text style={styles.mapOpenText}>{`🗺  ${t("create.pickOnMap")}`}</Text>
               </Pressable>
@@ -467,7 +504,7 @@ export default function CreateScreen({ navigation }) {
                 onCancel={() => setMapOpen(false)}
                 onConfirm={(picked) => {
                   setMapOpen(false);
-                  setPin(picked);
+                  applyPin(picked);
                 }}
               />
 
