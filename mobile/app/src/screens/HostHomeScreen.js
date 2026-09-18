@@ -43,11 +43,13 @@ export default function HostHomeScreen({ navigation }) {
           <Text style={styles.variant}>Host</Text>
         </View>
 
+        {/* Your face, opening your account — there is no profile page to send
+            anyone to, and everything that was on it is in Settings. */}
         <Pressable
-          onPress={() => navigation.navigate("Profile")}
+          onPress={() => navigation.navigate("Settings")}
           style={styles.avatarTap}
           accessibilityRole="button"
-          accessibilityLabel={t("nav.myProfile")}
+          accessibilityLabel={t("nav.settings")}
         >
           {profile?.avatar_face ? (
             <FaceAvatar id={profile.avatar_face} size={34} />

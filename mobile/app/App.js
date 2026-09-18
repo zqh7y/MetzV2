@@ -29,6 +29,7 @@ import HostDashboardScreen from "./src/screens/HostDashboardScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
 import HostAuthScreen from "./src/screens/HostAuthScreen";
 import HostHomeScreen from "./src/screens/HostHomeScreen";
+import EditProfileScreen from "./src/screens/EditProfileScreen";
 import AdminPendingScreen from "./src/screens/AdminPendingScreen";
 import MeetingDetailScreen from "./src/screens/MeetingDetailScreen";
 import UserProfileScreen from "./src/screens/UserProfileScreen";
@@ -78,15 +79,29 @@ function HostAuthNavigator() {
 }
 
 /**
- * Host's three screens, plus the two the create flow has to land on.
+ * Host's two screens, plus the places they lead.
  *
- * MeetingCreated is the share-link step — the reason this app exists — and
- * MeetingInsights is where a row on the dashboard goes. Neither is a fourth
- * destination; both are reached from one of the three and come back to it.
+ * There is no Profile here. Once the light app had taken off it everything it
+ * cannot do, what was left was an avatar and two buttons that both went
+ * somewhere else — and Settings already held all of it: the address you signed
+ * in with, the edit form, the way out, and deletion. A screen whose whole job
+ * is to forward you to another screen is a tap, not a destination, so the
+ * avatar in Host's top bar opens Settings directly.
+ *
+ * That makes the edit form a route again, which is how it started: it takes an
+ * optional `onDone`, and without one it saves and pops like any other screen.
+ * The full app still hosts it inside Profile, where a back gesture has a
+ * profile to fall back to.
  *
  * Everything else the full app registers is deliberately absent: no map, no
- * Explore, no inbox, no moderation. A screen that is not registered here is
- * not in the bundle, which is most of why the light app is light.
+ * Explore, no inbox, no moderation.
+ *
+ * Not registering them makes Host simple; it does not make it small. Metro does
+ * not tree-shake, so every screen imported at the top of this file is in both
+ * bundles whether or not a navigator can reach it. Cutting the weight took
+ * native work — one architecture instead of four, R8, and dropping the dev
+ * client that was quietly shipping ML Kit — not this. Splitting the bundles
+ * too would need separate entry files, and the JS is 2MB of a 25MB app.
  */
 function HostNavigator() {
   const { theme } = useTheme();
@@ -115,8 +130,8 @@ function HostNavigator() {
         component={MeetingInsightsScreen}
         options={{ title: t("nav.insights") }}
       />
-      <RootStack.Screen name="Profile" component={ProfileScreen} options={{ title: t("nav.myProfile") }} />
       <RootStack.Screen name="Settings" component={SettingsScreen} options={{ title: t("nav.settings") }} />
+      <RootStack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: t("nav.editProfile") }} />
     </RootStack.Navigator>
   );
 }

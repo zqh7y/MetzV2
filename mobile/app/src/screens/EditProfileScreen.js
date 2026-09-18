@@ -276,8 +276,12 @@ export default function EditProfileScreen({ navigation, onDone, onDirtyChange })
             </View>
           )}
           <Text style={styles.previewName}>{displayName.trim() || profile?.username || "Your name"}</Text>
-          <Text style={styles.previewUid}>@{profile?.uid}</Text>
-          <Text style={styles.previewBio}>{bio.trim() || "No bio yet."}</Text>
+          {/* Both are previews of fields Host does not offer — a handle for a
+              search it does not have, and a bio it cannot write. */}
+          {IS_HOST ? null : (<>
+            <Text style={styles.previewUid}>@{profile?.uid}</Text>
+            <Text style={styles.previewBio}>{bio.trim() || "No bio yet."}</Text>
+          </>)}
           {dirty ? (
             <Appear offset={6} duration={200}>
               <Text style={styles.unsaved}>Unsaved changes</Text>
@@ -438,6 +442,9 @@ export default function EditProfileScreen({ navigation, onDone, onDirtyChange })
             <Text style={styles.lockBadge}>🔒 Locked</Text>
           </View>
 
+          {/* Its own hint says what it is for, and Find People is not in the
+              light app. Copying an id nobody can look up is a dead end. */}
+          {IS_HOST ? null : (<>
           <Pressable style={styles.readonlyRow} onPress={handleCopyUid}>
             <View style={styles.readonlyBody}>
               <Text style={styles.readonlyLabel}>User ID</Text>
@@ -454,6 +461,7 @@ export default function EditProfileScreen({ navigation, onDone, onDirtyChange })
             </Text>
           </Pressable>
           <Text style={styles.hint}>Share your ID so people can find you in Find People.</Text>
+          </>)}
         </View>
     </>
   );

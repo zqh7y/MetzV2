@@ -285,9 +285,15 @@ export default function SettingsScreen({ navigation }) {
           <Row styles={styles} label={t("settings.role")} value={role} />
         </>)}
 
-        {/* The form lives inside Profile now, so this asks Profile to open on
-            it rather than pushing a screen that no longer exists. */}
-        <Pressable style={styles.action} onPress={() => navigation.navigate("Profile", { edit: true })}>
+        {/* The full app hosts the form inside Profile, so this asks Profile to
+            open on it. Host has no Profile — the form is a route there, the
+            way it was before Profile took it in. */}
+        <Pressable
+          style={styles.action}
+          onPress={() => (IS_HOST
+            ? navigation.navigate("EditProfile")
+            : navigation.navigate("Profile", { edit: true }))}
+        >
           <Text style={styles.actionText}>{`✏️  ${t("nav.editProfile")}`}</Text>
           <Text style={styles.chevron}>›</Text>
         </Pressable>
