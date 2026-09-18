@@ -6,6 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { ACCENTS, RADIUS, SHADOW } from "../styles/theme";
 import { FONTS } from "../styles/fonts";
+import { IS_HOST } from "../variant";
 import { useI18n, SYSTEM } from "../context/LocaleContext";
 import { LANGUAGES } from "../i18n";
 import { Alert } from "../components/AppAlert";
@@ -104,6 +105,12 @@ export default function SettingsScreen({ navigation }) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
+      {/* Everything from here to the language picker is comfort, not
+          organising. Metz Host is three screens and a form; a theme, an
+          accent, a text scale and a motion preference are four decisions to
+          make before posting a meeting, and none of them help post it.
+          Appearance still follows the phone's own light/dark setting. */}
+      {IS_HOST ? null : (<>
       <Section styles={styles} title={`🎨 ${t("settings.appearance")}`} hint={t("settings.appearanceHint")}>
         <View style={styles.row}>
           {THEME_CHOICES.map((option) => (
@@ -171,9 +178,13 @@ export default function SettingsScreen({ navigation }) {
           onChange={(v) => setPref("motion", v)}
         />
       </Section>
+      </>)}
       {/* The intro asked this before there was an account to keep it on. A
           wrong tap at sign-up should not be permanent, and someone who joined
           to attend and started organising should be able to say so. */}
+      {/* "What are you here to do" has one answer in an app that can only
+          do one of them. */}
+      {IS_HOST ? null : (<>
       <Section
         styles={styles}
         title={`🎯 ${t("settings.hereTo")}`}
@@ -212,6 +223,7 @@ export default function SettingsScreen({ navigation }) {
           </>
         ) : null}
       </Section>
+      </>)}
 
       <Section
         styles={styles}
@@ -265,8 +277,13 @@ export default function SettingsScreen({ navigation }) {
 
       <Section styles={styles} title={`👤 ${t("settings.account")}`}>
         <Row styles={styles} label={t("settings.signedInAs")} value={profile?.email || "—"} />
-        <Row styles={styles} label={t("settings.userId")} value={profile?.uid || "—"} />
-        <Row styles={styles} label={t("settings.role")} value={role} />
+        {/* The uid is for Find People and the role is for moderation, and
+            Host has neither. The address you signed in with is the one thing
+            here worth being able to check. */}
+        {IS_HOST ? null : (<>
+          <Row styles={styles} label={t("settings.userId")} value={profile?.uid || "—"} />
+          <Row styles={styles} label={t("settings.role")} value={role} />
+        </>)}
 
         {/* The form lives inside Profile now, so this asks Profile to open on
             it rather than pushing a screen that no longer exists. */}
@@ -276,9 +293,12 @@ export default function SettingsScreen({ navigation }) {
         </Pressable>
       </Section>
 
+      {/* Nothing left to reset once the preferences above are gone. */}
+      {IS_HOST ? null : (<>
       <Pressable style={styles.secondary} onPress={confirmReset}>
         <Text style={styles.secondaryText}>{`↺  ${t("settings.resetTitle")}`}</Text>
       </Pressable>
+      </>)}
 
       <Pressable style={styles.logout} onPress={confirmLogout}>
         <Text style={styles.logoutText}>{t("account.logOut")}</Text>

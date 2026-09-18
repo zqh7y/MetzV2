@@ -278,6 +278,10 @@ export default function ProfileScreen({ navigation, route }) {
       {/* The heading follows the contents. Titling a card "About" when the
           only thing in it is a row of tags describes something that is not
           there, and left a label sitting over a lot of nothing. */}
+      {/* A bio and a row of interests are how somebody browsing decides to
+          follow you. Nobody browses in Host — it has no Explore, no profiles
+          but your own, and no way in except a link you sent yourself. */}
+      {IS_HOST ? null : (
       <Appear delay={90}>
         <View style={styles.interestsCard}>
           <Text style={styles.interestsTitle}>
@@ -303,6 +307,7 @@ export default function ProfileScreen({ navigation, route }) {
           ) : null}
         </View>
       </Appear>
+      )}
 
       {/* My Meetings — the old Joined tab, folded in here.
           Absent from Host twice over: it lists meetings you joined rather than

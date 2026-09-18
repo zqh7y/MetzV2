@@ -15,6 +15,7 @@ import Appear from "../components/Appear";
 import { Alert } from "../components/AppAlert";
 import { LinearGradient } from "expo-linear-gradient";
 import ProfileAvatar from "../components/ProfileAvatar";
+import { IS_HOST } from "../variant";
 import FaceAvatar, { FACE_IDS } from "../components/FaceAvatar";
 import { BACKGROUNDS, FRAMES, backgroundFor } from "../styles/profileLooks";
 
@@ -312,6 +313,7 @@ export default function EditProfileScreen({ navigation, onDone, onDirtyChange })
           />
           <Text style={styles.hint}>Leave empty to go back to {profile?.username}.</Text>
 
+          {IS_HOST ? null : (<>
           <View style={styles.labelRow}>
             <Text style={styles.label}>Bio</Text>
             <Text style={[styles.counter, bioTone === "warn" && styles.counterWarn, bioTone === "bad" && styles.counterBad]}>
@@ -329,6 +331,7 @@ export default function EditProfileScreen({ navigation, onDone, onDirtyChange })
             placeholderTextColor={theme.text3}
           />
           <Text style={styles.hint}>People see this when they open your profile.</Text>
+          </>)}
 
           <View style={styles.labelRow}>
             <Text style={styles.label}>Profile picture</Text>
@@ -359,6 +362,12 @@ export default function EditProfileScreen({ navigation, onDone, onDirtyChange })
 
         {/* The same two choices the welcome flow offers, so someone who
             skipped it there is not stuck with the default forever. */}
+        {/* Interests feed discovery, backgrounds and frames dress a profile
+            other people come and look at. Host has neither: the only profile
+            it can open is your own, and nobody arrives at a meeting by
+            browsing its organiser. Your name and face still matter — they
+            are what attendees see against the meeting you posted. */}
+        {IS_HOST ? null : (<>
         <View style={styles.field}>
           <Text style={styles.label}>{t("userProfile.interests")}</Text>
           <View style={styles.lookRow}>
@@ -413,6 +422,7 @@ export default function EditProfileScreen({ navigation, onDone, onDirtyChange })
             ))}
           </View>
         </View>
+        </>)}
 
         {/* What the server will not let anyone change — shown rather than
             omitted, so it is clear these are fixed rather than missing. The
