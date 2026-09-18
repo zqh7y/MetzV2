@@ -56,7 +56,9 @@ export default function HostAuthScreen() {
 
   return (
     <AuthLayout title={t("host.title")} subtitle={t("host.subtitle")} error={error}>
-      <GoogleAuthButton />
+      {/* No divider: "or" is a comparison, and this is the first thing on
+          the screen — there is nothing above it to be an alternative to. */}
+      <GoogleAuthButton divider={false} />
 
       {/* Accounts this phone has already used, still holding a live session.
           Worth as much here as in the full app: the fastest sign-in is the one

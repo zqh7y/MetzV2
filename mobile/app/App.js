@@ -30,6 +30,7 @@ import ProfileScreen from "./src/screens/ProfileScreen";
 import HostAuthScreen from "./src/screens/HostAuthScreen";
 import HostHomeScreen from "./src/screens/HostHomeScreen";
 import EditProfileScreen from "./src/screens/EditProfileScreen";
+import MeetingQuestionsScreen from "./src/screens/MeetingQuestionsScreen";
 import AdminPendingScreen from "./src/screens/AdminPendingScreen";
 import MeetingDetailScreen from "./src/screens/MeetingDetailScreen";
 import UserProfileScreen from "./src/screens/UserProfileScreen";
@@ -132,6 +133,14 @@ function HostNavigator() {
       />
       <RootStack.Screen name="Settings" component={SettingsScreen} options={{ title: t("nav.settings") }} />
       <RootStack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: t("nav.editProfile") }} />
+      {/* The full app shows the discussion inside the meeting page; Host has
+          no meeting page, and an organiser who cannot answer a question has
+          been shown a number and denied the only thing to do about it. */}
+      <RootStack.Screen
+        name="MeetingQuestions"
+        component={MeetingQuestionsScreen}
+        options={{ title: t("detail.discussion") }}
+      />
     </RootStack.Navigator>
   );
 }

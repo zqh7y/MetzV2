@@ -735,4 +735,6 @@ export default {
   "host.subtitle": "انشر شيئاً، أرسل الرابط، وشاهد من سيأتي.",
   "host.newMeeting": "لقاء جديد",
   "host.devSignIn": "الدخول بالبريد (للتطوير فقط)",
+  "share.yourLink": "رابطك",
+  "share.button": "مشاركة",
 };

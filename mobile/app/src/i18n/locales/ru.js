@@ -702,4 +702,6 @@ export default {
   "host.subtitle": "Разместите, отправьте ссылку, смотрите кто придёт.",
   "host.newMeeting": "Новая встреча",
   "host.devSignIn": "Войти по почте (только разработка)",
+  "share.yourLink": "Ваша ссылка",
+  "share.button": "Поделиться",
 };

@@ -13,16 +13,19 @@ import Appear from "../components/Appear";
 import CountUp from "../components/CountUp";
 import { formatWhen } from "../utils/time";
 import { IS_HOST } from "../variant";
+import { ShareLinkCard } from "../components/ShareLink";
 
 /**
- * Both ways out of this screen lead to MeetingDetail, which Metz Host does not
- * register — it is the full app's screen, with the map, the discussion and the
- * join flow on it, and pulling it into the light app would undo the point of
- * the light app. So in Host these stay as the figures they are: still worth
- * reading, no longer a tap that goes nowhere. Answering a question means
- * opening the meeting in Metz, or following the share link.
+ * Opening the meeting itself is the full app's screen — the map, the attendee
+ * list, joining and reporting — so in Host the title is a heading rather than
+ * a link. The questions row is different: it is the one thing on this page an
+ * organiser is expected to act on, so Host sends it to its own discussion
+ * screen instead of taking the tap away.
  */
-const openable = (navigation, id) => (IS_HOST ? undefined : () => navigation.navigate("MeetingDetail", { meeting: { id } }));
+const openMeeting = (navigation, id) => (IS_HOST ? undefined : () => navigation.navigate("MeetingDetail", { meeting: { id } }));
+const openQuestions = (navigation, id) => () => (IS_HOST
+  ? navigation.navigate("MeetingQuestions", { meetingId: id })
+  : navigation.navigate("MeetingDetail", { meeting: { id } }));
 
 /**
  * How one meeting is actually doing, for the person running it.
@@ -101,12 +104,27 @@ export default function MeetingInsightsScreen({ route, navigation }) {
         />
       }
     >
-      <Pressable style={styles.head} onPress={openable(navigation, data.id)} disabled={IS_HOST}>
+      <Pressable style={styles.head} onPress={openMeeting(navigation, data.id)} disabled={IS_HOST}>
         <Text style={styles.title} numberOfLines={2}>
           {data.emoji ? `${data.emoji}  ` : ""}{data.title}
         </Text>
         <Text style={styles.when}>{formatWhen(data.time)}</Text>
       </Pressable>
+
+      {/* Everything below this counts what the link did — who opened it, how
+          many of them came from it. Reading that and having no way to send it
+          again was the gap: the screen reported on an action it would not let
+          you take. It sits above the figures because sending it is the thing
+          you would do about them. */}
+      <Appear offset={-4}>
+        <ShareLinkCard
+          shareUrl={data.share_url}
+          meetingId={data.id}
+          title={data.title}
+          note={pending ? t("created.linkPending") : null}
+          style={styles.share}
+        />
+      </Appear>
 
       {/* A meeting waiting on review is not on the map and its link 404s, and
           an organiser watching a flat zero deserves to know that is why. */}
@@ -192,11 +210,10 @@ export default function MeetingInsightsScreen({ route, navigation }) {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>{t("insights.youTitle")}</Text>
           {/* Two rows, and both are things only the organiser can clear. */}
-          <Pressable style={styles.todo} onPress={openable(navigation, data.id)} disabled={IS_HOST}>
+          <Pressable style={styles.todo} onPress={openQuestions(navigation, data.id)}>
             <Text style={styles.todoValue}>{data.questions}</Text>
             <Text style={styles.todoLabel}>{t("insights.questions")}</Text>
-            {/* No chevron where there is nowhere to go. */}
-            {IS_HOST ? null : <Text style={styles.chevron}>›</Text>}
+            <Text style={styles.chevron}>›</Text>
           </Pressable>
           {data.is_over ? (
             <View style={styles.todo}>
@@ -254,6 +271,7 @@ function Split({ styles, theme, fromLink, fromApp, t }) {
 }
 
 const makeStyles = (t) => StyleSheet.create({
+  share: { marginBottom: 14 },
   container: { flex: 1, backgroundColor: t.bg },
   centered: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: t.bg },
   errorText: { color: t.text2, fontSize: t.fs(14), marginBottom: 14 },

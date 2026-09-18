@@ -686,4 +686,6 @@ export default {
   "host.subtitle": "Stell etwas ein, schick den Link, sieh wer kommt.",
   "host.newMeeting": "Neues Treffen",
   "host.devSignIn": "Mit E-Mail anmelden (nur Entwicklung)",
+  "share.yourLink": "Dein Link",
+  "share.button": "Teilen",
 };

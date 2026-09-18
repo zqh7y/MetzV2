@@ -18,7 +18,7 @@ import { useI18n } from "../context/LocaleContext";
  * Outlined rather than filled, unlike AuthButton, so it reads as the second
  * way in rather than competing with the form's own submit.
  */
-export default function GoogleAuthButton({ label }) {
+export default function GoogleAuthButton({ label, divider = true }) {
   // The gate is here, outside the component that owns the hook, because
   // useGoogleSignIn cannot be called conditionally and the provider inside it
   // *throws during render* when this platform's client id is missing. Checking
@@ -27,22 +27,24 @@ export default function GoogleAuthButton({ label }) {
   // Expo Go is called out rather than hidden: hiding it reads as "not built
   // yet", and leaving it tappable walks into Google's own "Access blocked"
   // page, which blames the app for something no setting here can fix.
-  if (IS_EXPO_GO && GOOGLE_CONFIGURED) return <ExpoGoNotice />;
+  if (IS_EXPO_GO && GOOGLE_CONFIGURED) return <ExpoGoNotice divider={divider} />;
   if (!GOOGLE_AUTH_READY) return null;
-  return <GoogleAuthButtonInner label={label} />;
+  return <GoogleAuthButtonInner label={label} divider={divider} />;
 }
 
-function ExpoGoNotice() {
+function ExpoGoNotice({ divider }) {
   const { theme } = useTheme();
   const { t } = useI18n();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   return (
     <View>
-      <View style={styles.dividerRow}>
-        <View style={styles.rule} />
-        <Text style={styles.dividerText}>{t("common.or")}</Text>
-        <View style={styles.rule} />
-      </View>
+      {divider ? (
+        <View style={styles.dividerRow}>
+          <View style={styles.rule} />
+          <Text style={styles.dividerText}>{t("common.or")}</Text>
+          <View style={styles.rule} />
+        </View>
+      ) : null}
       <View style={[styles.button, styles.buttonInert]}>
         <View style={styles.badge}><Text style={styles.badgeText}>G</Text></View>
         <Text style={styles.label}>{t("common.continueWithGoogle")}</Text>
@@ -52,7 +54,7 @@ function ExpoGoNotice() {
   );
 }
 
-function GoogleAuthButtonInner({ label }) {
+function GoogleAuthButtonInner({ label, divider }) {
   const { theme } = useTheme();
   const { t } = useI18n();
   const styles = useMemo(() => makeStyles(theme), [theme]);
@@ -62,11 +64,13 @@ function GoogleAuthButtonInner({ label }) {
 
   return (
     <View>
-      <View style={styles.dividerRow}>
-        <View style={styles.rule} />
-        <Text style={styles.dividerText}>{t("common.or")}</Text>
-        <View style={styles.rule} />
-      </View>
+      {divider ? (
+        <View style={styles.dividerRow}>
+          <View style={styles.rule} />
+          <Text style={styles.dividerText}>{t("common.or")}</Text>
+          <View style={styles.rule} />
+        </View>
+      ) : null}
 
       <AnimatedPressable onPress={signIn} disabled={busy} scaleTo={0.985}>
         <View style={[styles.button, busy && styles.buttonInert]}>

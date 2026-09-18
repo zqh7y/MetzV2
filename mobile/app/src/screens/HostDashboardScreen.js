@@ -12,6 +12,7 @@ import { RADIUS, SHADOW } from "../styles/theme";
 import Appear from "../components/Appear";
 import CountUp from "../components/CountUp";
 import { formatWhen } from "../utils/time";
+import { ShareButton } from "../components/ShareLink";
 
 /**
  * Everything you have run, in one place.
@@ -156,6 +157,10 @@ export default function HostDashboardScreen({ navigation }) {
               <Stat styles={styles} value={m.views} label={t("hostDash.opens")} />
               <Stat styles={styles} value={m.going} label={t("hostDash.names")} />
               <Stat styles={styles} value={m.from_link} label={t("hostDash.viaLink")} />
+              {/* On the row rather than only inside, because "send this to a
+                  few more people" is the commonest thing to want from a list
+                  of your meetings, and it was three taps away. */}
+              <ShareButton shareUrl={m.share_url} meetingId={m.id} title={m.title} style={styles.rowShare} />
             </View>
           </Pressable>
         </Appear>
@@ -239,6 +244,7 @@ const makeStyles = (t) => StyleSheet.create({
   badgeQuiet: { color: t.text3, backgroundColor: t.surface2 },
   rowWhen: { fontSize: t.fs(12.5), color: t.text3, marginTop: 3 },
   rowStats: { flexDirection: "row", marginTop: 12, gap: 22 },
+  rowShare: { marginStart: "auto" },
   stat: { flexDirection: "row", alignItems: "baseline", gap: 5 },
   statValue: { fontFamily: FONTS.accent, fontSize: t.fs(16), color: t.text },
   statLabel: { fontSize: t.fs(11), color: t.text3 },

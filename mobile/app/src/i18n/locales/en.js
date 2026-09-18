@@ -691,4 +691,6 @@ export default {
   "host.subtitle": "Put something up, send the link, see who is coming.",
   "host.newMeeting": "New meeting",
   "host.devSignIn": "Sign in with email (development only)",
+  "share.yourLink": "Your link",
+  "share.button": "Share",
 };

@@ -1,16 +1,15 @@
 import React, { useCallback, useMemo, useState } from "react";
 import {
-  View, Text, StyleSheet, ScrollView, Pressable, Share,
+  View, Text, StyleSheet, ScrollView, Pressable,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as Clipboard from "expo-clipboard";
 
 import { useTheme } from "../context/ThemeContext";
 import { useI18n } from "../context/LocaleContext";
 import { FONTS } from "../styles/fonts";
 import { RADIUS, SHADOW } from "../styles/theme";
 import Appear from "../components/Appear";
-import { API_BASE_URL as SHARE_BASE_URL } from "../config";
+import { useMeetingShare } from "../components/ShareLink";
 
 const STEPS = ["share", "track", "next"];
 
@@ -43,29 +42,13 @@ export default function MeetingCreatedScreen({ route, navigation }) {
   const pending = status === "pending";
 
   const [step, setStep] = useState(0);
-  const [copied, setCopied] = useState(false);
 
-  const url = shareUrl || `${SHARE_BASE_URL}/m/${meetingId}`;
-
-  const handleCopy = useCallback(async () => {
-    try {
-      await Clipboard.setStringAsync(url);
-      setCopied(true);
-    } catch (e) {
-      setCopied(false);
-    }
-    setTimeout(() => setCopied(false), 1800);
-  }, [url]);
-
-  const handleShare = useCallback(async () => {
-    try {
-      // The title travels with the link: a bare URL in a group chat says
-      // nothing until somebody taps it, and never unfurls on some services.
-      await Share.share({ message: `${title}\n${url}`, url, title });
-    } catch (e) {
-      // Dismissing the sheet lands here on some Androids; nothing failed.
-    }
-  }, [title, url]);
+  // Copy and share were written out here, and again wherever else the link
+  // appeared. One implementation now, in components/ShareLink — the title
+  // travels with the link because a bare URL in a group chat says nothing
+  // until somebody taps it.
+  const { url, copied, copy: handleCopy, share: handleShare } =
+    useMeetingShare({ shareUrl, meetingId, title });
 
   const finish = useCallback(() => navigation.navigate("Home"), [navigation]);
 

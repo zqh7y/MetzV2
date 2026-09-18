@@ -699,4 +699,6 @@ export default {
   "host.subtitle": "פרסמו משהו, שלחו את הקישור, וראו מי מגיע.",
   "host.newMeeting": "מפגש חדש",
   "host.devSignIn": "התחברות באימייל (פיתוח בלבד)",
+  "share.yourLink": "הקישור שלך",
+  "share.button": "שיתוף",
 };
