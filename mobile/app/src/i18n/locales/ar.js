@@ -741,4 +741,5 @@ export default {
   "sister.metzBody": "يعرض Metz على الخريطة ما يحدث بالقرب منك، والانضمام بلمسة واحدة.",
   "sister.hostLead": "تنظّم لقاءاتك بنفسك؟",
   "sister.hostBody": "Metz Host تطبيق أصغر لهذا فقط: انشر، أرسل الرابط، وشاهد من سيأتي.",
+  "sister.get": "احصل على",
 };

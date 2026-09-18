@@ -692,4 +692,5 @@ export default {
   "sister.metzBody": "Metz muestra en un mapa lo que pasa cerca de ti, y te apuntas con un toque.",
   "sister.hostLead": "¿Organizas tus propios encuentros?",
   "sister.hostBody": "Metz Host es una app más pequeña solo para eso: publica, envía el enlace y mira quién viene.",
+  "sister.get": "Descarga",
 };

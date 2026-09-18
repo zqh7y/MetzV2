@@ -9,6 +9,7 @@ import { FONTS } from "../styles/fonts";
 import { RADIUS, SHADOW } from "../styles/theme";
 import BrandMark from "../components/BrandMark";
 import FaceAvatar from "../components/FaceAvatar";
+import SisterAppLink from "../components/SisterAppLink";
 import HostDashboardScreen from "./HostDashboardScreen";
 
 /**
@@ -41,6 +42,11 @@ export default function HostHomeScreen({ navigation }) {
           {/* Says which of the two apps this is, without competing with the
               name — the launcher icon and the store listing carry that job. */}
           <Text style={styles.variant}>Host</Text>
+          {/* Beside the wordmark, so the other app is the second thing on the
+              screen rather than something found at the bottom of Settings.
+              Small on purpose: it has to be noticed, not competed with — the
+              button this app exists for is the one at the bottom. */}
+          <SisterAppLink compact />
         </View>
 
         {/* Your face, opening your account — there is no profile page to send

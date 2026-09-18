@@ -46,7 +46,7 @@ const APPS = {
 // Each app points at the one it is not.
 const OTHER = IS_HOST ? APPS.metz : APPS.host;
 
-export default function SisterAppLink({ style }) {
+export default function SisterAppLink({ style, compact = false }) {
   const { theme } = useTheme();
   const { t } = useI18n();
   const styles = useMemo(() => makeStyles(theme), [theme]);
@@ -65,6 +65,23 @@ export default function SisterAppLink({ style }) {
       .catch(() => {});
   }
 
+  // Compact: a pill beside the wordmark, where it is the second thing on the
+  // screen rather than something found at the bottom of Settings. It says the
+  // other app exists and nothing else — the explaining is Settings' job.
+  if (compact) {
+    return (
+      <Pressable
+        style={({ pressed }) => [styles.pill, pressed && styles.pressed, style]}
+        onPress={open}
+        accessibilityRole="link"
+        accessibilityLabel={`${t("sister.get")} ${OTHER.name}`}
+        hitSlop={8}
+      >
+        <Text style={styles.pillText}>{`${t("sister.get")} ${OTHER.name}  ↗`}</Text>
+      </Pressable>
+    );
+  }
+
   return (
     <Pressable
       style={({ pressed }) => [styles.card, pressed && styles.pressed, style]}
@@ -75,7 +92,7 @@ export default function SisterAppLink({ style }) {
       {/* The same mark, in the other app's clothes — it is the same product,
           and two unrelated-looking icons would suggest otherwise. */}
       <View style={styles.markWrap}>
-        <BrandMark size={26} color={theme.accent} bg={theme.surface2} />
+        <BrandMark size={26} color={theme.accent} bg={theme.surface} />
       </View>
 
       <View style={styles.body}>
@@ -91,21 +108,31 @@ const makeStyles = (t) => StyleSheet.create({
   card: {
     flexDirection: "row",
     gap: 14,
-    alignItems: "flex-start",
-    backgroundColor: t.surface,
+    alignItems: "center",
+    // Tinted rather than bordered. Among a column of white cards a bordered
+    // one reads as another section of the page and is skipped with them; the
+    // accent tint is the only thing on the screen that is not a card, which is
+    // what makes it the thing you notice.
+    backgroundColor: t.accentSoft,
     borderRadius: RADIUS.lg,
-    borderWidth: 1,
-    borderColor: t.border,
     padding: 16,
   },
   pressed: { opacity: 0.8 },
   markWrap: {
     width: 44, height: 44, borderRadius: RADIUS.base,
-    backgroundColor: t.surface2,
+    backgroundColor: t.surface,
     alignItems: "center", justifyContent: "center",
   },
   body: { flex: 1 },
-  lead: { fontFamily: FONTS.heading, fontSize: t.fs(15), color: t.text },
+  lead: { fontFamily: FONTS.heading, fontSize: t.fs(15), color: t.accentDeep || t.accentStrong },
   text: { fontSize: t.fs(13), color: t.text2, marginTop: 4, lineHeight: t.fs(19) },
-  action: { fontFamily: FONTS.accent, fontSize: t.fs(13), color: t.accent, marginTop: 10 },
+  action: { fontFamily: FONTS.accent, fontSize: t.fs(13), color: t.accentStrong, marginTop: 8 },
+
+  pill: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: RADIUS.pill,
+    backgroundColor: t.accentSoft,
+  },
+  pillText: { fontFamily: FONTS.accent, fontSize: t.fs(11.5), color: t.accentStrong },
 });
