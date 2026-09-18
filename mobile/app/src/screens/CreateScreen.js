@@ -21,6 +21,7 @@ import { RADIUS, SHADOW } from "../styles/theme";
 import { useI18n } from "../context/LocaleContext";
 import { localizedTag } from "../i18n/vocab";
 import { placeNameFor } from "../utils/placeName";
+import { ONLINE_MEETINGS } from "../features";
 import { Alert } from "../components/AppAlert";
 
 const CENTER = [35.2137, 31.7683]; // [lng, lat], the order WebMap takes
@@ -413,7 +414,13 @@ export default function CreateScreen({ navigation }) {
           theme={theme}
           delay={160}
         >
-          {/* .type-toggle — two equal options, icon beside label */}
+          {/* .type-toggle — two equal options, icon beside label.
+              Hidden while online meetings are off: a choice between one thing
+              and a thing that does not exist is not a choice, and leaving it
+              visible-but-disabled advertises a feature nobody can use. With
+              the toggle gone `type` stays on its "inperson" default, so
+              everything below behaves as it always did. */}
+          {ONLINE_MEETINGS ? (
           <View style={styles.typeRow}>
             <Pressable
               style={[styles.typeBtn, !isOnline && styles.typeBtnActive]}
@@ -430,6 +437,7 @@ export default function CreateScreen({ navigation }) {
               <Text style={[styles.typeText, isOnline && styles.typeTextActive]}>{t("common.online")}</Text>
             </Pressable>
           </View>
+          ) : null}
 
           {isOnline ? (
             <>

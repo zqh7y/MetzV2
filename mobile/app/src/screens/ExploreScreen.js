@@ -14,6 +14,7 @@ import { useTheme } from "../context/ThemeContext";
 import { RADIUS } from "../styles/theme";
 import { useI18n } from "../context/LocaleContext";
 import { localizedTag } from "../i18n/vocab";
+import { ONLINE_MEETINGS } from "../features";
 
 /**
  * Every open meeting, filtered — a port of templates/explore.html.
@@ -36,11 +37,14 @@ import { localizedTag } from "../i18n/vocab";
  *   - `onResults` hands the matching rows back up so the pins on the map can
  *     narrow to them.
  */
-const KINDS = [
+// With online meetings off, "All" and "In person" would filter to the same set
+// and "Online" to nothing at all — three chips offering one result between
+// them. The whole row goes rather than two thirds of it.
+const KINDS = ONLINE_MEETINGS ? [
   { id: "all", labelKey: "explore.typeAll" },
   { id: "inperson", labelKey: "common.inPerson" },
   { id: "online", labelKey: "common.online" },
-];
+] : [];
 
 const WHENS = [
   { id: "any", labelKey: "explore.whenAny" },
@@ -330,16 +334,21 @@ export default function ExplorePane({ navigation, search = "", listHeight, onRes
 
         {!onPeople && showFilters ? (
           <View style={styles.panel}>
-            <FlatList
-              horizontal
-              data={KINDS}
-              keyExtractor={(k) => k.id}
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.chipRow}
-              renderItem={({ item }) => (
-                <Chip active={kind === item.id} label={t(item.labelKey)} onPress={() => setKind(item.id)} />
-              )}
-            />
+            {/* An empty list still draws its container, which would leave a
+                band of padding above the date chips where the kinds used to
+                be. */}
+            {KINDS.length ? (
+              <FlatList
+                horizontal
+                data={KINDS}
+                keyExtractor={(k) => k.id}
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.chipRow}
+                renderItem={({ item }) => (
+                  <Chip active={kind === item.id} label={t(item.labelKey)} onPress={() => setKind(item.id)} />
+                )}
+              />
+            ) : null}
 
             <FlatList
               horizontal
