@@ -97,6 +97,31 @@ android {
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
     }
+
+    // Two apps out of one project. Play identifies an app by its application
+    // id and nothing else, so this is what makes Metz and Metz Host two
+    // listings rather than one app overwriting the other on the same phone.
+    //
+    // The JS half of the split is EXPO_PUBLIC_METZ_APP, set per EAS profile —
+    // see src/variant.js. Both halves have to agree, which is why each profile
+    // in eas.json sets the env var and the gradle task together.
+    flavorDimensions "app"
+    productFlavors {
+        full {
+            dimension "app"
+            applicationId 'com.metz.app'
+            resValue "string", "app_name", "Metz"
+            manifestPlaceholders = [metzScheme: "metz"]
+        }
+        host {
+            dimension "app"
+            applicationId 'com.metz.host'
+            resValue "string", "app_name", "Metz Host"
+            // The deep-link scheme has to differ too: two apps registering
+            // metz:// would make every link a chooser dialog.
+            manifestPlaceholders = [metzScheme: "metzhost"]
+        }
+    }
     signingConfigs {
         debug {
             storeFile file('debug.keystore')

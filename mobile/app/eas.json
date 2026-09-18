@@ -6,16 +6,43 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "android": { "gradleCommand": ":app:assembleFullDebug" }
     },
+
     "preview": {
       "distribution": "internal",
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleFullRelease"
       }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "android": { "gradleCommand": ":app:bundleFullRelease" }
+    },
+
+    "preview-host": {
+      "distribution": "internal",
+      "env": { "EXPO_PUBLIC_METZ_APP": "host" },
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleHostRelease"
+      }
+    },
+    "production-host": {
+      "autoIncrement": true,
+      "env": { "EXPO_PUBLIC_METZ_APP": "host" },
+      "android": { "gradleCommand": ":app:bundleHostRelease" }
+    },
+
+    "preview-host-arm64": {
+      "distribution": "internal",
+      "env": { "EXPO_PUBLIC_METZ_APP": "host" },
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleHostRelease -PreactNativeArchitectures=arm64-v8a"
+      }
     }
   },
   "submit": {
