@@ -2,6 +2,8 @@
 screens/home.py, screens/create.py, screens/swipe.py, screens/joined.py from
 the web app, reusing the exact same data.py functions."""
 
+import re
+
 from flask import Blueprint, request, jsonify
 
 from data import (
@@ -80,6 +82,20 @@ def create_meeting():
     max_attendees = parse_count(body.get("max_attendees", ""))
     join_deadline = (body.get("join_deadline") or "").strip()
 
+    # The three questions every meeting that omits them gets asked anyway.
+    # All optional, and all sanitised rather than validated into a shape: an
+    # end time that is not "HH:MM" and an age that is not a number are dropped,
+    # because refusing the whole meeting over "sevenish" would be worse than
+    # not knowing when it ends.
+    ends_at = (body.get("ends_at") or "").strip()
+    if not re.fullmatch(r"[0-2]?\d:[0-5]\d", ends_at or ""):
+        ends_at = ""
+    cost = sanitize_html((body.get("cost") or "").strip())[:40]
+    try:
+        min_age = max(0, min(120, int(body.get("min_age") or 0)))
+    except (TypeError, ValueError):
+        min_age = 0
+
     errors = validate_meeting_data(title, description, time, meeting_type,
                                     location_name=location_name, link=link)
     errors += validate_threshold(min_attendees, max_attendees, join_deadline, time)
@@ -101,6 +117,7 @@ def create_meeting():
             location=location_name, lat=lat, lng=lng, emoji=emoji, tags=tags_in,
             min_attendees=min_attendees, max_attendees=max_attendees,
             join_deadline=join_deadline,
+            ends_at=ends_at, cost=cost, min_age=min_age,
         )
     else:
         new_meeting = OnlineMeeting(
@@ -108,6 +125,7 @@ def create_meeting():
             link=link, emoji=emoji, tags=tags_in,
             min_attendees=min_attendees, max_attendees=max_attendees,
             join_deadline=join_deadline,
+            ends_at=ends_at, cost=cost, min_age=min_age,
         )
 
     add_meeting(new_meeting, creator_uid=uid, visibility=visibility)

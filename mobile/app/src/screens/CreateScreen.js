@@ -158,6 +158,11 @@ export default function CreateScreen({ navigation }) {
   const [maxAttendees, setMaxAttendees] = useState("");
   const [joinDeadline, setJoinDeadline] = useState("");
 
+  // The three questions a meeting gets asked when it does not answer them.
+  const [endsAt, setEndsAt] = useState("");   // "HH:MM", blank = not said
+  const [cost, setCost] = useState("");
+  const [minAge, setMinAge] = useState("");
+
   useEffect(() => {
     api.getTags().then(setAllTags).catch(() => {});
   }, []);
@@ -299,8 +304,15 @@ export default function CreateScreen({ navigation }) {
         // Sent only when the organiser actually asked for a minimum, so an
         // ordinary meeting isn't silently given a threshold of 4.
         min_attendees: needsMinimum ? minAttendees : 0,
-        max_attendees: needsMinimum ? maxAttendees : "",
+        // Capacity used to be sent only alongside a minimum, which meant a
+        // meeting for eight with no minimum — a dinner, a car, a studio — could
+        // not be described at all. The model always kept the two apart; only
+        // the form tied them together.
+        max_attendees: maxAttendees,
         join_deadline: needsMinimum ? joinDeadline : "",
+        ends_at: endsAt,
+        cost,
+        min_age: minAge,
         visibility: isPrivate ? "private" : "public",
       };
       const res = await api.createMeeting(payload);
@@ -559,6 +571,22 @@ export default function CreateScreen({ navigation }) {
           </View>
 
           <DateTimeField value={time} onChange={setTime} minimumDate={new Date()} />
+
+          {/* The first thing anyone asks about an event they are deciding on:
+              a start says when to arrive, not whether it is an hour or all
+              evening. Optional, and a time of day rather than a second date —
+              an evening that runs past midnight is still one evening. */}
+          <Text style={styles.label}>{t("create.endsAt")}</Text>
+          <TextInput
+            style={styles.input}
+            value={endsAt}
+            onChangeText={setEndsAt}
+            placeholder={t("create.endsAtPlaceholder")}
+            placeholderTextColor={theme.text3}
+            keyboardType="numbers-and-punctuation"
+            maxLength={5}
+          />
+          <Text style={styles.hint}>{t("create.endsAtHint")}</Text>
         </Section>
 
         <Section
@@ -639,21 +667,23 @@ export default function CreateScreen({ navigation }) {
                 minimumDate={new Date()}
               />
               <Text style={styles.hint}>{t("create.deadlineHint")}</Text>
-
-              <Text style={styles.label}>{t("create.maximumOptional")}</Text>
-              <TextInput
-                style={styles.input}
-                value={maxAttendees}
-                onChangeText={setMaxAttendees}
-                keyboardType="number-pad"
-                placeholder={t("create.noLimit")}
-                placeholderTextColor={theme.text3}
-              />
-              <Text style={styles.hint}>
-                {t("create.waitlistHint")}
-              </Text>
             </Appear>
           ) : null}
+
+          {/* Outside the block above, because a cap and a minimum are opposite
+              questions: "it is off unless six come" and "there is room for
+              eight" have nothing to do with each other, and tying them meant
+              you could not ask the second without answering the first. */}
+          <Text style={styles.label}>{t("create.maximumOptional")}</Text>
+          <TextInput
+            style={styles.input}
+            value={maxAttendees}
+            onChangeText={setMaxAttendees}
+            keyboardType="number-pad"
+            placeholder={t("create.noLimit")}
+            placeholderTextColor={theme.text3}
+          />
+          <Text style={styles.hint}>{t("create.waitlistHint")}</Text>
         </Section>
 
         <Section
@@ -665,6 +695,34 @@ export default function CreateScreen({ navigation }) {
           theme={theme}
           delay={310}
         >
+          {/* Cost and age both go here rather than beside the location,
+              because neither changes where or when it is — they change whether
+              a given person can come, which is what this section is for. */}
+          <Text style={styles.label}>{t("create.cost")}</Text>
+          <TextInput
+            style={styles.input}
+            value={cost}
+            onChangeText={setCost}
+            placeholder={t("create.costPlaceholder")}
+            placeholderTextColor={theme.text3}
+            maxLength={40}
+          />
+          {/* Free text rather than a number and a currency dropdown: "₪20",
+              "free", "bring cash for pizza" are all things organisers say, and
+              the app has no reason to understand any of them, only show them. */}
+          <Text style={styles.hint}>{t("create.costHint")}</Text>
+
+          <Text style={styles.label}>{t("create.minAge")}</Text>
+          <TextInput
+            style={styles.input}
+            value={minAge}
+            onChangeText={(v) => setMinAge(v.replace(/[^0-9]/g, "").slice(0, 3))}
+            keyboardType="number-pad"
+            placeholder={t("create.minAgePlaceholder")}
+            placeholderTextColor={theme.text3}
+          />
+          <Text style={styles.hint}>{t("create.minAgeHint")}</Text>
+
           <View style={styles.labelRow}>
             <Text style={styles.label}>{t("create.interests")}</Text>
             {tags.length ? <Text style={styles.counter}>{t("create.tagsPicked", { count: tags.length })}</Text> : null}

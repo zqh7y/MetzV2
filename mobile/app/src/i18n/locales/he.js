@@ -706,4 +706,13 @@ export default {
   "sister.hostLead": "מארגנים מפגשים בעצמכם?",
   "sister.hostBody": "Metz Host היא אפליקציה קטנה בדיוק לזה: לפרסם, לשלוח את הקישור, ולראות מי מגיע.",
   "sister.get": "הורידו",
+  "create.endsAt": "מסתיים ב (לא חובה)",
+  "create.endsAtPlaceholder": "21:00",
+  "create.endsAtHint": "שעת ההתחלה אומרת מתי להגיע. זה אומר אם לפנות את כל הערב.",
+  "create.cost": "עלות (לא חובה)",
+  "create.costPlaceholder": "חינם",
+  "create.costHint": "כתבו איך שאתם אומרים — \"20 ₪\", \"חינם\", \"תביאו מזומן לפיצה\".",
+  "create.minAge": "גיל מינימלי (לא חובה)",
+  "create.minAgePlaceholder": "כל אחד",
+  "create.minAgeHint": "מוצג כ-18+. השאירו ריק אם כל אחד יכול להגיע.",
 };

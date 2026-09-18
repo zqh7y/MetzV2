@@ -284,11 +284,26 @@ ${url}`,
         </Text>
         <Text style={styles.title}>{meeting.title}</Text>
         <View style={styles.whenRow}>
-          <Text style={styles.time}>🕐 {meeting.time}</Text>
+          {/* The end time rides with the start rather than sitting in a row of
+              its own: "19:00 – 21:00" is one fact, and splitting it makes the
+              reader assemble it. */}
+          <Text style={styles.time}>
+            🕐 {meeting.time}{meeting.ends_at ? ` – ${meeting.ends_at}` : ""}
+          </Text>
           {/* The web pairs the absolute time with a relative one, so you can
               tell at a glance whether this is tonight or next month. */}
           <Text style={styles.countdown}>{formatTimeUntil(meeting.time)}</Text>
         </View>
+        {/* Cost and age only when they were answered. Both decide whether
+            somebody can come at all, so they sit in the hero with the time
+            rather than further down with the description. */}
+        {meeting.cost || meeting.min_age ? (
+          <View style={styles.factRow}>
+            {meeting.cost ? <Text style={styles.fact}>{`💰  ${meeting.cost}`}</Text> : null}
+            {meeting.min_age ? <Text style={styles.fact}>{`${meeting.min_age}+`}</Text> : null}
+          </View>
+        ) : null}
+
         <View style={styles.row}>
           <Text style={styles.creator}>👤 {meeting.creator_username}</Text>
           {meeting.creator_is_trusted ? <TrustBadge /> : null}
@@ -668,6 +683,17 @@ ${url}`,
 }
 
 const makeStyles = (t) => StyleSheet.create({
+  factRow: { flexDirection: "row", gap: 8, marginTop: 8, flexWrap: "wrap" },
+  fact: {
+    fontFamily: FONTS.accentMedium,
+    fontSize: t.fs(12.5),
+    color: "#fff",
+    backgroundColor: "rgba(255,255,255,0.22)",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    overflow: "hidden",
+  },
   container: { flex: 1, backgroundColor: t.bg },
   content: { padding: 16, paddingBottom: 40 },
 

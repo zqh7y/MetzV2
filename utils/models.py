@@ -33,7 +33,8 @@ class Meeting:
     def __init__(self, id, title, description, time,
                  creator_uid=None, creator_username=None, joined_uids=None, emoji=None, tags=None, status=None,
                  min_attendees=0, max_attendees=0, join_deadline="", commit_status=None, waitlist_uids=None,
-                 attendance=None, late_bails=None, comments=None, guests=None):
+                 attendance=None, late_bails=None, comments=None, guests=None,
+                 ends_at="", cost="", min_age=0):
         self.id = id
         self.title = title
         self.description = description
@@ -45,6 +46,26 @@ class Meeting:
         self.tags = tags or []
         # "approved" meetings are publicly visible; "pending" ones await admin review.
         self.status = status or "approved"
+
+        # ── The three things people ask in the comments ───────────────────
+        # Each of these was already being asked on every meeting that did not
+        # answer it, which is how they earned a field rather than a line in the
+        # description: a question in the thread needs the organiser awake, and
+        # the answer is then buried under whatever was said next.
+        #
+        # ends_at is "HH:MM" and not a full timestamp: it is read as "same day
+        # unless it is earlier than the start, in which case the next morning",
+        # which covers an evening that runs past midnight without asking anyone
+        # to pick a second date.
+        self.ends_at = ends_at or ""
+        # Free text, not a number. "20" means nothing without a currency, and a
+        # currency field is a dropdown nobody wants — "₪20", "free", "£5 at the
+        # door" and "bring cash for pizza" are all things organisers say, and
+        # the app has no reason to understand any of them, only to show them.
+        self.cost = (cost or "").strip()
+        # 0 = anyone. A number rather than free text so it can be filtered on
+        # later and shown consistently as "18+" in seven languages.
+        self.min_age = max(0, int(min_age or 0))
 
         # ── Threshold ("this only happens if enough people join") ──────────
         self.min_attendees = int(min_attendees or 0)
@@ -130,6 +151,9 @@ class Meeting:
             "emoji": self.emoji,
             "tags": self.tags,
             "status": self.status,
+            "ends_at": self.ends_at,
+            "cost": self.cost,
+            "min_age": self.min_age,
             "min_attendees": self.min_attendees,
             "max_attendees": self.max_attendees,
             "join_deadline": self.join_deadline,
@@ -299,6 +323,11 @@ def meeting_from_dict(data):
         comments=data.get("comments", []),
         # Meetings created before the share link existed simply have none.
         guests=data.get("guests", []),
+        # Meetings created before these were asked for simply do not answer
+        # them, and every screen treats an empty one as "not said".
+        ends_at=data.get("ends_at", ""),
+        cost=data.get("cost", ""),
+        min_age=data.get("min_age", 0),
     )
     if data.get("type") == "InPersonMeeting":
         return InPersonMeeting(

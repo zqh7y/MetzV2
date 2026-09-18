@@ -698,4 +698,13 @@ export default {
   "sister.hostLead": "Running your own meetings?",
   "sister.hostBody": "Metz Host is a smaller app just for that: post it, send the link, see who is coming.",
   "sister.get": "Get",
+  "create.endsAt": "Ends at (optional)",
+  "create.endsAtPlaceholder": "21:00",
+  "create.endsAtHint": "A start says when to arrive. This says whether to keep the evening free.",
+  "create.cost": "Cost (optional)",
+  "create.costPlaceholder": "Free",
+  "create.costHint": "Write it however you say it — \"₪20\", \"free\", \"bring cash for pizza\".",
+  "create.minAge": "Minimum age (optional)",
+  "create.minAgePlaceholder": "Anyone",
+  "create.minAgeHint": "Shown as 18+ on the meeting. Leave empty if anyone can come.",
 };

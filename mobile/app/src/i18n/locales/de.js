@@ -693,4 +693,13 @@ export default {
   "sister.hostLead": "Veranstaltest du selbst?",
   "sister.hostBody": "Metz Host ist eine kleinere App nur dafür: einstellen, Link schicken, sehen wer kommt.",
   "sister.get": "Hol dir",
+  "create.endsAt": "Endet um (optional)",
+  "create.endsAtPlaceholder": "21:00",
+  "create.endsAtHint": "Der Beginn sagt, wann man da sein soll. Das hier sagt, ob der Abend frei bleiben muss.",
+  "create.cost": "Kosten (optional)",
+  "create.costPlaceholder": "Kostenlos",
+  "create.costHint": "Schreib es so, wie du es sagst — \"20 €\", \"kostenlos\", \"Bargeld für Pizza\".",
+  "create.minAge": "Mindestalter (optional)",
+  "create.minAgePlaceholder": "Alle",
+  "create.minAgeHint": "Wird als 18+ angezeigt. Leer lassen, wenn alle kommen dürfen.",
 };

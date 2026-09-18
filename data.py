@@ -512,6 +512,12 @@ def public_meeting(meeting_id):
         # First names only. Someone forwarding a link to a group chat has not
         # agreed to their full name being on a public page.
         "guest_names": [g.get("name", "").split(" ")[0] for g in guests][-12:],
+        # Answered on the poster because they are what somebody in a group
+        # chat needs before tapping Join, and there is nobody to ask here —
+        # the share page has no discussion on it.
+        "ends_at": record.get("ends_at") or "",
+        "cost": record.get("cost") or "",
+        "min_age": record.get("min_age") or 0,
         "min_attendees": record.get("min_attendees") or 0,
         "max_attendees": record.get("max_attendees") or 0,
         "spots_left": (

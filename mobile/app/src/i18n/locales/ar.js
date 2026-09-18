@@ -742,4 +742,13 @@ export default {
   "sister.hostLead": "تنظّم لقاءاتك بنفسك؟",
   "sister.hostBody": "Metz Host تطبيق أصغر لهذا فقط: انشر، أرسل الرابط، وشاهد من سيأتي.",
   "sister.get": "احصل على",
+  "create.endsAt": "ينتهي في (اختياري)",
+  "create.endsAtPlaceholder": "21:00",
+  "create.endsAtHint": "وقت البدء يقول متى تصل. هذا يقول إن كان عليك إفراغ المساء كله.",
+  "create.cost": "التكلفة (اختياري)",
+  "create.costPlaceholder": "مجاناً",
+  "create.costHint": "اكتبها كما تقولها — \"20 ₪\"، \"مجاناً\"، \"أحضر نقداً للبيتزا\".",
+  "create.minAge": "العمر الأدنى (اختياري)",
+  "create.minAgePlaceholder": "الجميع",
+  "create.minAgeHint": "يظهر كـ 18+. اتركه فارغاً إذا كان بإمكان الجميع الحضور.",
 };
