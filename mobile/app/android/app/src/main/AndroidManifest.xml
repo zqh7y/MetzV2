@@ -20,6 +20,21 @@
       <category android:name="android.intent.category.BROWSABLE"/>
       <data android:scheme="https"/>
     </intent>
+    <!-- Metz and Metz Host each offer a way into the other. On Android 11+
+         canOpenURL() answers false for any scheme not declared here, even when
+         the app holding it is installed, so without these the link would always
+         fall through to the store — including for someone who already has it.
+         Both are listed rather than one per flavour: it is two lines, and a
+         flavour-specific manifest for it would be a build file to keep in step
+         for no benefit. -->
+    <intent>
+      <action android:name="android.intent.action.VIEW"/>
+      <data android:scheme="metz"/>
+    </intent>
+    <intent>
+      <action android:name="android.intent.action.VIEW"/>
+      <data android:scheme="metzhost"/>
+    </intent>
   </queries>
   <!-- The API is reached over plain HTTP on the LAN while it runs on a laptop
        rather than a host with a certificate. Android 9+ blocks cleartext in

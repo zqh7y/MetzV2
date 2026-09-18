@@ -737,4 +737,8 @@ export default {
   "host.devSignIn": "الدخول بالبريد (للتطوير فقط)",
   "share.yourLink": "رابطك",
   "share.button": "مشاركة",
+  "sister.metzLead": "تبحث عن مكان تذهب إليه؟",
+  "sister.metzBody": "يعرض Metz على الخريطة ما يحدث بالقرب منك، والانضمام بلمسة واحدة.",
+  "sister.hostLead": "تنظّم لقاءاتك بنفسك؟",
+  "sister.hostBody": "Metz Host تطبيق أصغر لهذا فقط: انشر، أرسل الرابط، وشاهد من سيأتي.",
 };

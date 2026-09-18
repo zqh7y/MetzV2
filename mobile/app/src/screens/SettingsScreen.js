@@ -7,6 +7,7 @@ import { useTheme } from "../context/ThemeContext";
 import { ACCENTS, RADIUS, SHADOW } from "../styles/theme";
 import { FONTS } from "../styles/fonts";
 import { IS_HOST } from "../variant";
+import SisterAppLink from "../components/SisterAppLink";
 import { useI18n, SYSTEM } from "../context/LocaleContext";
 import { LANGUAGES } from "../i18n";
 import { Alert } from "../components/AppAlert";
@@ -306,6 +307,13 @@ export default function SettingsScreen({ navigation }) {
       </Pressable>
       </>)}
 
+      {/* The other half of the product. Metz finds you something to go to,
+          Metz Host puts one on; somebody with one and wanting the other has no
+          way to learn it exists, because two Play listings do not introduce
+          themselves. Below the account and above the way out — it is a thing
+          about this app, not a thing about your meetings. */}
+      <SisterAppLink style={styles.sister} />
+
       <Pressable style={styles.logout} onPress={confirmLogout}>
         <Text style={styles.logoutText}>{t("account.logOut")}</Text>
       </Pressable>
@@ -418,6 +426,7 @@ function Row({ label, value, styles }) {
 }
 
 const makeStyles = (t) => StyleSheet.create({
+  sister: { marginBottom: 14 },
   sample: {
     fontSize: t.fs(15), lineHeight: t.fs(22), color: t.text2,
     fontFamily: FONTS.body, marginTop: 12,

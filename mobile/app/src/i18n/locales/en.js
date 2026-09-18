@@ -693,4 +693,8 @@ export default {
   "host.devSignIn": "Sign in with email (development only)",
   "share.yourLink": "Your link",
   "share.button": "Share",
+  "sister.metzLead": "Looking for something to go to?",
+  "sister.metzBody": "Metz shows what is happening near you on a map, and lets you join in a tap.",
+  "sister.hostLead": "Running your own meetings?",
+  "sister.hostBody": "Metz Host is a smaller app just for that: post it, send the link, see who is coming.",
 };

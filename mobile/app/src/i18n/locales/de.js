@@ -688,4 +688,8 @@ export default {
   "host.devSignIn": "Mit E-Mail anmelden (nur Entwicklung)",
   "share.yourLink": "Dein Link",
   "share.button": "Teilen",
+  "sister.metzLead": "Auf der Suche nach etwas?",
+  "sister.metzBody": "Metz zeigt auf einer Karte, was in deiner Nähe passiert — Mitmachen mit einem Tipp.",
+  "sister.hostLead": "Veranstaltest du selbst?",
+  "sister.hostBody": "Metz Host ist eine kleinere App nur dafür: einstellen, Link schicken, sehen wer kommt.",
 };

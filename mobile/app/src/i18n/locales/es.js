@@ -688,4 +688,8 @@ export default {
   "host.devSignIn": "Entrar con correo (solo desarrollo)",
   "share.yourLink": "Tu enlace",
   "share.button": "Compartir",
+  "sister.metzLead": "¿Buscas algo a lo que ir?",
+  "sister.metzBody": "Metz muestra en un mapa lo que pasa cerca de ti, y te apuntas con un toque.",
+  "sister.hostLead": "¿Organizas tus propios encuentros?",
+  "sister.hostBody": "Metz Host es una app más pequeña solo para eso: publica, envía el enlace y mira quién viene.",
 };

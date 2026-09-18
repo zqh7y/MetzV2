@@ -701,4 +701,8 @@ export default {
   "host.devSignIn": "התחברות באימייל (פיתוח בלבד)",
   "share.yourLink": "הקישור שלך",
   "share.button": "שיתוף",
+  "sister.metzLead": "מחפשים לאן ללכת?",
+  "sister.metzBody": "Metz מראה על מפה מה קורה לידכם, ואפשר להצטרף בלחיצה.",
+  "sister.hostLead": "מארגנים מפגשים בעצמכם?",
+  "sister.hostBody": "Metz Host היא אפליקציה קטנה בדיוק לזה: לפרסם, לשלוח את הקישור, ולראות מי מגיע.",
 };
