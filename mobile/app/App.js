@@ -10,6 +10,7 @@ import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from "@expo-goog
 import { SpaceGrotesk_500Medium, SpaceGrotesk_700Bold } from "@expo-google-fonts/space-grotesk";
 import { FONTS } from "./src/styles/fonts";
 
+import { IS_HOST } from "./src/variant";
 import { AuthProvider, useAuth } from "./src/context/AuthContext";
 import { ThemeProvider, useTheme } from "./src/context/ThemeContext";
 import { LocaleProvider, useI18n } from "./src/context/LocaleContext";
@@ -26,6 +27,8 @@ import MeetingCreatedScreen from "./src/screens/MeetingCreatedScreen";
 import MeetingInsightsScreen from "./src/screens/MeetingInsightsScreen";
 import HostDashboardScreen from "./src/screens/HostDashboardScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
+import HostAuthScreen from "./src/screens/HostAuthScreen";
+import HostHomeScreen from "./src/screens/HostHomeScreen";
 import AdminPendingScreen from "./src/screens/AdminPendingScreen";
 import MeetingDetailScreen from "./src/screens/MeetingDetailScreen";
 import UserProfileScreen from "./src/screens/UserProfileScreen";
@@ -56,6 +59,65 @@ function AuthNavigator({ showIntro }) {
       <AuthStack.Screen name="Signup" component={SignupScreen} />
       <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
     </AuthStack.Navigator>
+  );
+}
+
+/**
+ * Metz Host: one way in, and it is Google.
+ *
+ * No intro, no signup, no password reset — a Host account is made by signing
+ * in with Google, and the three screens behind this are the whole app. See
+ * HostAuthScreen for why an email form still exists in development.
+ */
+function HostAuthNavigator() {
+  return (
+    <AuthStack.Navigator screenOptions={{ headerShown: false, animation: "slide_from_right" }}>
+      <AuthStack.Screen name="Login" component={HostAuthScreen} />
+    </AuthStack.Navigator>
+  );
+}
+
+/**
+ * Host's three screens, plus the two the create flow has to land on.
+ *
+ * MeetingCreated is the share-link step — the reason this app exists — and
+ * MeetingInsights is where a row on the dashboard goes. Neither is a fourth
+ * destination; both are reached from one of the three and come back to it.
+ *
+ * Everything else the full app registers is deliberately absent: no map, no
+ * Explore, no inbox, no moderation. A screen that is not registered here is
+ * not in the bundle, which is most of why the light app is light.
+ */
+function HostNavigator() {
+  const { theme } = useTheme();
+  const { t } = useI18n();
+
+  return (
+    <RootStack.Navigator
+      screenOptions={{
+        animation: "slide_from_right",
+        headerStyle: { backgroundColor: theme.surface },
+        headerTintColor: theme.text,
+        headerTitleStyle: { fontFamily: FONTS.heading, fontSize: 17 },
+        headerShadowVisible: false,
+        contentStyle: { backgroundColor: theme.bg },
+      }}
+    >
+      <RootStack.Screen name="Home" component={HostHomeScreen} options={{ headerShown: false }} />
+      <RootStack.Screen name="Create" component={CreateScreen} options={{ title: "" }} />
+      <RootStack.Screen
+        name="MeetingCreated"
+        component={MeetingCreatedScreen}
+        options={{ title: "", headerBackVisible: false, gestureEnabled: false }}
+      />
+      <RootStack.Screen
+        name="MeetingInsights"
+        component={MeetingInsightsScreen}
+        options={{ title: t("nav.insights") }}
+      />
+      <RootStack.Screen name="Profile" component={ProfileScreen} options={{ title: t("nav.myProfile") }} />
+      <RootStack.Screen name="Settings" component={SettingsScreen} options={{ title: t("nav.settings") }} />
+    </RootStack.Navigator>
   );
 }
 
@@ -218,9 +280,11 @@ function Root() {
           already done it. */}
       {uid
         ? (profile && profile.onboarded === false
-            ? <WelcomeScreen />
-            : <MainNavigator key={uid} />)
-        : <AuthNavigator showIntro={showIntro} />}
+            // Host skips the welcome flow: it asks what someone came here to
+            // find, and a Host account came here to post, not to look.
+            ? (IS_HOST ? <HostNavigator key={uid} /> : <WelcomeScreen />)
+            : (IS_HOST ? <HostNavigator key={uid} /> : <MainNavigator key={uid} />))
+        : (IS_HOST ? <HostAuthNavigator /> : <AuthNavigator showIntro={showIntro} />)}
     </NavigationContainer>
   );
 }

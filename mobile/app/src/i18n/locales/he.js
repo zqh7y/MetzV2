@@ -694,4 +694,9 @@ export default {
   "explore.noPeople": "אף אחד לא מתאים",
   "explore.findPeopleHint": "הקלידו שם, אימייל או מזהה כדי למצוא מישהו.",
   "explore.mostActive": "הכי פעילים",
+  // ─── Metz Host, the light app ───────────────────────────────────────────
+  "host.title": "לארגן מפגש",
+  "host.subtitle": "פרסמו משהו, שלחו את הקישור, וראו מי מגיע.",
+  "host.newMeeting": "מפגש חדש",
+  "host.devSignIn": "התחברות באימייל (פיתוח בלבד)",
 };

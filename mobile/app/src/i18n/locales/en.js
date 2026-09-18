@@ -686,4 +686,9 @@ export default {
   "explore.noPeople": "No one matches that",
   "explore.findPeopleHint": "Type a name, email or ID to find someone.",
   "explore.mostActive": "Most active",
+  // ─── Metz Host, the light app ───────────────────────────────────────────
+  "host.title": "Host a meetup",
+  "host.subtitle": "Put something up, send the link, see who is coming.",
+  "host.newMeeting": "New meeting",
+  "host.devSignIn": "Sign in with email (development only)",
 };
