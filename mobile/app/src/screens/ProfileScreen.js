@@ -7,6 +7,7 @@ import { useAuth } from "../context/AuthContext";
 import TrustBadge from "../components/TrustBadge";
 import ReliabilityCard from "../components/ReliabilityCard";
 import MeetingCard from "../components/MeetingCard";
+import { IS_HOST } from "../variant";
 import Appear from "../components/Appear";
 import AccountSheet from "../components/AccountSheet";
 import EditProfileForm from "./EditProfileScreen";
@@ -211,8 +212,9 @@ export default function ProfileScreen({ navigation, route }) {
         </View>
         <Text style={styles.email}>{profile.email}</Text>
         {/* The uid is how people find each other in Find People, so it belongs
-            on the profile rather than only in search results. */}
-        <Text style={styles.heroUid}>@{profile.uid}</Text>
+            on the profile rather than only in search results. Host has no way
+            to look anyone up, so it would be an identifier for nothing. */}
+        {IS_HOST ? null : <Text style={styles.heroUid}>@{profile.uid}</Text>}
 
         {/* Editing your profile used to be the fourth of six identical grey
             buttons at the very bottom, under Find People. It is the thing
@@ -252,6 +254,10 @@ export default function ProfileScreen({ navigation, route }) {
           Trusted and Moderator stay, as the roles they always were: granted by
           a person, shown when held, never presented as something to work
           towards. */}
+      {/* Turning up is what this card measures, and Metz Host cannot join a
+          meeting — there is no screen for it. A show-up rate that can only
+          ever read 0% is worse than no card at all. */}
+      {IS_HOST ? null : (
       <Appear delay={40}>
         <ReliabilityCard
           reliability={profile.reliability}
@@ -265,6 +271,7 @@ export default function ProfileScreen({ navigation, route }) {
           roles={roles}
         />
       </Appear>
+      )}
 
       {/* The sign-up asks what you are into and then nothing ever repeated it
           back, so the answer may as well not have been given. */}
@@ -297,7 +304,12 @@ export default function ProfileScreen({ navigation, route }) {
         </View>
       </Appear>
 
-      {/* My Meetings — the old Joined tab, folded in here */}
+      {/* My Meetings — the old Joined tab, folded in here.
+          Absent from Host twice over: it lists meetings you joined rather than
+          ran, and every card here opens MeetingDetail, which Host does not
+          register — so in the light app these would be rows that crash. What
+          you have run is the whole of Host's home screen already. */}
+      {IS_HOST ? null : (
       <View style={styles.section}>
         <View style={styles.sectionHead}>
           <Text style={styles.sectionTitle}>{`🤝 ${t("profile.myMeetings")}`}</Text>
@@ -339,15 +351,19 @@ export default function ProfileScreen({ navigation, route }) {
           </Text>
         )}
       </View>
+      )}
 
       <View style={styles.actions}>
-        {profile.is_admin && (
+        {/* Moderation is not part of the light app: AdminDashboard and
+            AdminPending are not registered in HostNavigator, so these would
+            not be clutter, they would be a crash. */}
+        {!IS_HOST && profile.is_admin && (
           <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate("AdminDashboard")}>
             <Text style={styles.actionBtnText}>🛠️  Developer Dashboard</Text>
           </TouchableOpacity>
         )}
 
-        {profile.is_admin && (
+        {!IS_HOST && profile.is_admin && (
           <TouchableOpacity
             style={[styles.actionBtn, styles.urgentBtn]}
             onPress={() => navigation.navigate("AdminPending")}
@@ -361,9 +377,13 @@ export default function ProfileScreen({ navigation, route }) {
           </TouchableOpacity>
         )}
 
-        <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate("Create")}>
-          <Text style={styles.actionBtnText}>{`+ ${t("profile.createMeeting")}`}</Text>
-        </TouchableOpacity>
+        {/* Host's home screen carries this as its one standing button, so a
+            second copy here would be the same action twice on two screens. */}
+        {IS_HOST ? null : (
+          <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate("Create")}>
+            <Text style={styles.actionBtnText}>{`+ ${t("profile.createMeeting")}`}</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Edit profile and Settings now live in the hero, next to what they
             change, rather than repeating here. */}

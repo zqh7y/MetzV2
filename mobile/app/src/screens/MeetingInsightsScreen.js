@@ -12,6 +12,17 @@ import { RADIUS, SHADOW } from "../styles/theme";
 import Appear from "../components/Appear";
 import CountUp from "../components/CountUp";
 import { formatWhen } from "../utils/time";
+import { IS_HOST } from "../variant";
+
+/**
+ * Both ways out of this screen lead to MeetingDetail, which Metz Host does not
+ * register — it is the full app's screen, with the map, the discussion and the
+ * join flow on it, and pulling it into the light app would undo the point of
+ * the light app. So in Host these stay as the figures they are: still worth
+ * reading, no longer a tap that goes nowhere. Answering a question means
+ * opening the meeting in Metz, or following the share link.
+ */
+const openable = (navigation, id) => (IS_HOST ? undefined : () => navigation.navigate("MeetingDetail", { meeting: { id } }));
 
 /**
  * How one meeting is actually doing, for the person running it.
@@ -90,10 +101,7 @@ export default function MeetingInsightsScreen({ route, navigation }) {
         />
       }
     >
-      <Pressable
-        style={styles.head}
-        onPress={() => navigation.navigate("MeetingDetail", { meeting: { id: data.id } })}
-      >
+      <Pressable style={styles.head} onPress={openable(navigation, data.id)} disabled={IS_HOST}>
         <Text style={styles.title} numberOfLines={2}>
           {data.emoji ? `${data.emoji}  ` : ""}{data.title}
         </Text>
@@ -184,13 +192,11 @@ export default function MeetingInsightsScreen({ route, navigation }) {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>{t("insights.youTitle")}</Text>
           {/* Two rows, and both are things only the organiser can clear. */}
-          <Pressable
-            style={styles.todo}
-            onPress={() => navigation.navigate("MeetingDetail", { meeting: { id: data.id } })}
-          >
+          <Pressable style={styles.todo} onPress={openable(navigation, data.id)} disabled={IS_HOST}>
             <Text style={styles.todoValue}>{data.questions}</Text>
             <Text style={styles.todoLabel}>{t("insights.questions")}</Text>
-            <Text style={styles.chevron}>›</Text>
+            {/* No chevron where there is nowhere to go. */}
+            {IS_HOST ? null : <Text style={styles.chevron}>›</Text>}
           </Pressable>
           {data.is_over ? (
             <View style={styles.todo}>
