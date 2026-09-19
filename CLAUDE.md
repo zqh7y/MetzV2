@@ -5,6 +5,16 @@ people post local meetings, others find them on a map and join.
 
 **The phone app is the product. The web app is not.** See "Scope" below.
 
+**There are two phone apps, from one codebase.** `mobile/app/` builds both:
+Metz (`com.metz.app`) and **Metz Host** (`com.metz.host`) — three screens for
+posting a meeting and sending the link round, meant to seed the map with real
+meetings before Metz launches. `src/variant.js` reads `EXPO_PUBLIC_METZ_APP`,
+set per EAS profile; gradle product flavours give the two different application
+ids. There is no separate folder and there should not be: one api client, one
+theme, one set of seven catalogs, one bug fixed once. Run Host with
+`EXPO_PUBLIC_METZ_APP=host npx expo start`; build it with `--profile
+preview-host`.
+
 ## Scope — what to work on
 
 | Path | What it is | Touch it? |
@@ -63,6 +73,12 @@ Firebase for credentials; the API then issues its own HMAC token
   `OSError: [Errno 101] Network is unreachable`, which looks nothing like a
   mail problem. `RESEND_API_KEY` is the live path; `GMAIL_*` is kept for hosts
   that permit SMTP. Only password resets send mail now.
+- **Each app needs its own Android OAuth client.** A client is bound to one
+  package name and the redirect is built from the application id, so Host
+  cannot borrow Metz's — `app.json` holds `androidClientId` and
+  `androidClientIdHost`, and `config.js` picks by variant. Host falls back to
+  nothing rather than to Metz's id, because a button that always fails is worse
+  than one that is not there. Verified working in a Host build.
 - **Google sign-in works, and needed a setting outside this repo.** Expo Go
   cannot do it at all (its `exp://` redirect is rejected), so the button is
   greyed out there. In a real build it failed with "Access blocked … Error 400:
@@ -140,6 +156,8 @@ and confirming `versionCode` before the first upload.
   rows. Check this before investigating any "data vanished" report.
 
 **2 — Never actually observed working. Do not claim otherwise.**
+- (Google sign-in came off this list: verified end to end in a Metz Host build
+  on a real phone, with its own `com.metz.host` OAuth client.)
 - Push notifications arriving on a device. The server side is tested and the
   token round-trip works, but no push has been seen landing. Expo Go cannot
   receive them at all, so proving it needs a real build.
