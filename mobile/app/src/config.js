@@ -1,6 +1,8 @@
 import { NativeModules, Platform } from "react-native";
 import Constants from "expo-constants";
 
+import { IS_HOST } from "./variant";
+
 // Where mobile/backend/server.py is listening.
 const API_PORT = 5051;
 
@@ -96,7 +98,19 @@ export const TERMS_URL = WEB_BASE_URL ? `${WEB_BASE_URL}/terms` : "";
 // person nothing they can act on.
 const googleAuth = Constants.expoConfig?.extra?.googleAuth || {};
 export const GOOGLE_WEB_CLIENT_ID = googleAuth.webClientId || "";
-export const GOOGLE_ANDROID_CLIENT_ID = googleAuth.androidClientId || "";
+
+/**
+ * A Google OAuth client is bound to one Android package name, and Metz Host is
+ * a different package (com.metz.host) from Metz (com.metz.app). One id cannot
+ * serve both: the redirect is built from the application id, so Metz's client
+ * would be handed com.metz.host:/oauthredirect and refuse it as a mismatch.
+ *
+ * So each app has its own, and Host falls back to nothing rather than to Metz's
+ * — a button that always fails is worse than a button that is not there, and
+ * the screens already hide it when no id is configured.
+ */
+export const GOOGLE_ANDROID_CLIENT_ID =
+  (IS_HOST ? googleAuth.androidClientIdHost : googleAuth.androidClientId) || "";
 export const GOOGLE_IOS_CLIENT_ID = googleAuth.iosClientId || "";
 
 // "Configured" has to mean the id *this* platform needs, not merely that one of
