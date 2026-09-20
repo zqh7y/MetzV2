@@ -718,7 +718,7 @@ export default {
   "tag.Crafts": "Basteln",
   "create.howLong": "Wie lange dauert es?",
   "create.howLongHint": "Optional. Sagt den Leuten, ob der Abend frei bleiben muss.",
-  "create.endsAtCalc": "Endet gegen {{time}}.",
+  "create.endsAtCalc": "Endet gegen {time}.",
   "create.dur1h": "1 Stunde",
   "create.dur90": "1½ Stunden",
   "create.dur2h": "2 Stunden",
@@ -728,6 +728,6 @@ export default {
   "create.deadlineHintOptional": "Leer lassen, dann kann man bis zum Beginn beitreten.",
   "create.visibilityPublicNoteHost": "Jeder findet es in der Metz-App — auf der Karte und in Explore — und über deinen Link.",
   "create.visibilityPrivateNoteHost": "Es taucht in der Metz-App gar nicht auf. Nur wer deinen Link bekommt, sieht es.",
-  "create.showAllTags": "{{count}} weitere anzeigen",
+  "create.showAllTags": "{count} weitere anzeigen",
   "create.showFewerTags": "Weniger anzeigen",
 };

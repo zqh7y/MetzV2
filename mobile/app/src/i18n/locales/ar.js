@@ -767,7 +767,7 @@ export default {
   "tag.Crafts": "حِرَف",
   "create.howLong": "كم سيستغرق؟",
   "create.howLongHint": "اختياري. يخبر الناس إن كان عليهم إفراغ المساء.",
-  "create.endsAtCalc": "ينتهي حوالي {{time}}.",
+  "create.endsAtCalc": "ينتهي حوالي {time}.",
   "create.dur1h": "ساعة",
   "create.dur90": "ساعة ونصف",
   "create.dur2h": "ساعتان",
@@ -777,6 +777,6 @@ export default {
   "create.deadlineHintOptional": "اتركه فارغاً ويمكن الانضمام حتى موعد البدء.",
   "create.visibilityPublicNoteHost": "يجده أي شخص في تطبيق Metz — على الخريطة وفي الاستكشاف — وعبر رابطك أيضاً.",
   "create.visibilityPrivateNoteHost": "لن يظهر في تطبيق Metz إطلاقاً. يراه فقط من ترسل له الرابط.",
-  "create.showAllTags": "عرض {{count}} أخرى",
+  "create.showAllTags": "عرض {count} أخرى",
   "create.showFewerTags": "عرض أقل",
 };

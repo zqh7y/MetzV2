@@ -718,7 +718,7 @@ export default {
   "tag.Crafts": "Manualidades",
   "create.howLong": "¿Cuánto durará?",
   "create.howLongHint": "Opcional. Dice a la gente si tiene que dejar la tarde libre.",
-  "create.endsAtCalc": "Termina sobre las {{time}}.",
+  "create.endsAtCalc": "Termina sobre las {time}.",
   "create.dur1h": "1 hora",
   "create.dur90": "1½ horas",
   "create.dur2h": "2 horas",
@@ -728,6 +728,6 @@ export default {
   "create.deadlineHintOptional": "Déjalo vacío y podrán apuntarse hasta el inicio.",
   "create.visibilityPublicNoteHost": "Cualquiera lo encuentra en la app Metz — en el mapa y en Explorar — además de por tu enlace.",
   "create.visibilityPrivateNoteHost": "No aparece en la app Metz. Solo lo ve quien reciba tu enlace.",
-  "create.showAllTags": "Ver {{count}} más",
+  "create.showAllTags": "Ver {count} más",
   "create.showFewerTags": "Ver menos",
 };

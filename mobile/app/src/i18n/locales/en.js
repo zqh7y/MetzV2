@@ -723,7 +723,7 @@ export default {
   "tag.Crafts": "Crafts",
   "create.howLong": "How long will it be?",
   "create.howLongHint": "Optional. It tells people whether to keep the evening free.",
-  "create.endsAtCalc": "Ends around {{time}}.",
+  "create.endsAtCalc": "Ends around {time}.",
   "create.dur1h": "1 hour",
   "create.dur90": "1½ hours",
   "create.dur2h": "2 hours",
@@ -733,6 +733,6 @@ export default {
   "create.deadlineHintOptional": "Leave it empty and people can join right up to the start.",
   "create.visibilityPublicNoteHost": "Anyone can find it in the Metz app — on the map and in Explore — as well as through your link.",
   "create.visibilityPrivateNoteHost": "It stays off the Metz app entirely. Only people you send the link to can see it.",
-  "create.showAllTags": "Show {{count}} more",
+  "create.showAllTags": "Show {count} more",
   "create.showFewerTags": "Show fewer",
 };

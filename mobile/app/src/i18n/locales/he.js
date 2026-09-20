@@ -731,7 +731,7 @@ export default {
   "tag.Crafts": "יצירה",
   "create.howLong": "כמה זמן זה יימשך?",
   "create.howLongHint": "לא חובה. אומר לאנשים אם לפנות את כל הערב.",
-  "create.endsAtCalc": "מסתיים בסביבות {{time}}.",
+  "create.endsAtCalc": "מסתיים בסביבות {time}.",
   "create.dur1h": "שעה",
   "create.dur90": "שעה וחצי",
   "create.dur2h": "שעתיים",
@@ -741,6 +741,6 @@ export default {
   "create.deadlineHintOptional": "השאירו ריק וניתן יהיה להצטרף עד ההתחלה.",
   "create.visibilityPublicNoteHost": "כל אחד ימצא את זה באפליקציית Metz — במפה ובחיפוש — וגם דרך הקישור שלך.",
   "create.visibilityPrivateNoteHost": "זה לא יופיע באפליקציית Metz כלל. רק מי שקיבל את הקישור יראה.",
-  "create.showAllTags": "הצג עוד {{count}}",
+  "create.showAllTags": "הצג עוד {count}",
   "create.showFewerTags": "הצג פחות",
 };

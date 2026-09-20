@@ -611,13 +611,13 @@ export default function CreateScreen({ navigation }) {
               evening. Tapping the chosen one again clears it — there is no
               other way back to "did not say". */}
           <Text style={styles.label}>{t("create.howLong")}</Text>
-          <View style={styles.quickRow}>
+          <View style={styles.chipRowWrap}>
             {DURATIONS.map(({ minutes, key }) => {
               const active = duration === minutes;
               return (
                 <TouchableOpacity
                   key={minutes}
-                  style={[styles.quickBtn, active && styles.quickBtnActive]}
+                  style={[styles.quickBtn, styles.chipAuto, active && styles.quickBtnActive]}
                   onPress={() => setDuration(active ? 0 : minutes)}
                   activeOpacity={0.8}
                 >
@@ -1009,7 +1009,12 @@ const makeStyles = (t) => StyleSheet.create({
   locateBtnBusy: { opacity: 0.7 },
   locateBtnText: { fontSize: t.fs(13.5), fontFamily: FONTS.bodySemi, color: t.accentStrong },
 
-  quickRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 },
+  quickRow: { flexDirection: "row", gap: 8, marginBottom: 12 },
+  // Five chips, sized by their own text and wrapping to a second line rather
+  // than sharing one row three ways — "All evening" broke across "All eve /
+  // ning" when it inherited the date row's flex: 1.
+  chipRowWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 },
+  chipAuto: { flex: 0, paddingHorizontal: 14 },
   quickBtn: {
     flex: 1,
     alignItems: "center",

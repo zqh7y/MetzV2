@@ -718,7 +718,7 @@ export default {
   "tag.Crafts": "Loisirs créatifs",
   "create.howLong": "Ça dure combien de temps ?",
   "create.howLongHint": "Facultatif. Dit aux gens s’il faut garder la soirée libre.",
-  "create.endsAtCalc": "Se termine vers {{time}}.",
+  "create.endsAtCalc": "Se termine vers {time}.",
   "create.dur1h": "1 heure",
   "create.dur90": "1 h 30",
   "create.dur2h": "2 heures",
@@ -728,6 +728,6 @@ export default {
   "create.deadlineHintOptional": "Laissez vide : on pourra rejoindre jusqu’au début.",
   "create.visibilityPublicNoteHost": "Tout le monde le trouve dans l’app Metz — sur la carte et dans Explorer — et via votre lien.",
   "create.visibilityPrivateNoteHost": "Il n’apparaît pas dans l’app Metz. Seuls ceux à qui vous envoyez le lien le voient.",
-  "create.showAllTags": "Voir {{count}} de plus",
+  "create.showAllTags": "Voir {count} de plus",
   "create.showFewerTags": "Voir moins",
 };

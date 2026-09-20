@@ -734,7 +734,7 @@ export default {
   "tag.Crafts": "Рукоделие",
   "create.howLong": "Сколько продлится?",
   "create.howLongHint": "Необязательно. Подсказывает, освобождать ли весь вечер.",
-  "create.endsAtCalc": "Закончится около {{time}}.",
+  "create.endsAtCalc": "Закончится около {time}.",
   "create.dur1h": "1 час",
   "create.dur90": "1½ часа",
   "create.dur2h": "2 часа",
@@ -744,6 +744,6 @@ export default {
   "create.deadlineHintOptional": "Оставьте пустым — присоединиться можно до самого начала.",
   "create.visibilityPublicNoteHost": "Любой найдёт её в приложении Metz — на карте и в Explore — и по вашей ссылке.",
   "create.visibilityPrivateNoteHost": "В приложении Metz её не будет. Увидят только те, кому вы отправили ссылку.",
-  "create.showAllTags": "Показать ещё {{count}}",
+  "create.showAllTags": "Показать ещё {count}",
   "create.showFewerTags": "Показать меньше",
 };
