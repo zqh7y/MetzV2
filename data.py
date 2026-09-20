@@ -453,6 +453,98 @@ def delete_meeting(meeting_id, uid):
     return True
 
 
+
+# ─── Changing a meeting after it exists ─────────────────────────────────────
+# Until this existed the only way to correct a typo in the time was to delete
+# the meeting and post a new one — which breaks the share link already sent to
+# a group chat and silently drops everybody who had joined. For an app whose
+# whole shape is "send the link", that made a small mistake unrecoverable.
+
+# What the organiser may change. Deliberately not a free-for-all over the
+# record: the id, the creator, who has joined, the share slug, the view count
+# and the moderation status are all either somebody else's or the thing that
+# makes the link work.
+EDITABLE_MEETING_FIELDS = (
+    "title", "description", "time", "location", "lat", "lng",
+    "ends_at", "cost", "min_age", "emoji", "tags",
+    "min_attendees", "max_attendees", "join_deadline",
+)
+
+
+def update_meeting(meeting_id, uid, changes):
+    """Apply an organiser's edits. Returns the updated record, or None.
+
+    None means "not yours or not there", and the route turns that into a 404
+    rather than a 403 for the same reason meeting_insights() does: ids are
+    handed out publicly in share links, and a 403 would confirm one exists.
+    """
+    m = MEETINGS_DB.get(meeting_id)
+    if not m:
+        return None
+    if m.get("creator_uid") != uid and not is_admin(uid):
+        return None
+
+    for key in EDITABLE_MEETING_FIELDS:
+        if key in changes:
+            m[key] = changes[key]
+
+    # The country is stored rather than derived on every listing, so moving the
+    # pin has to move the country with it — otherwise an edited meeting stays
+    # filtered into the place it used to be.
+    if "lat" in changes or "lng" in changes:
+        m["country"] = country_for(m.get("lat"), m.get("lng"))
+
+    # A changed minimum or deadline can flip "gathering" to "confirmed" or back,
+    # and the organiser should not have to wait for a background pass to see it.
+    if any(k in changes for k in ("min_attendees", "max_attendees", "join_deadline")):
+        m["commit_status"] = m.get("commit_status") or "open"
+        _refresh_commit_status(m)
+
+    m["edited_at"] = datetime.now(timezone.utc).isoformat()
+    save_data()
+    return m
+
+
+def cancel_meeting(meeting_id, uid, reason=""):
+    """Call a meeting off without deleting it.
+
+    Deleting made the link 404, which tells somebody who was going nothing at
+    all — they turn up, or they spend the evening wondering. A cancelled
+    meeting keeps its page and says so, which is the only version of this that
+    is any use to the people who had already said yes.
+
+    Reversible on purpose: an organiser who cancels the wrong one can put it
+    back, and nothing has been thrown away.
+    """
+    m = MEETINGS_DB.get(meeting_id)
+    if not m:
+        return None
+    if m.get("creator_uid") != uid and not is_admin(uid):
+        return None
+
+    m["commit_status"] = "cancelled"
+    from utils.models import sanitize_html
+    m["cancel_reason"] = sanitize_html((reason or "").strip())[:200]
+    m["cancelled_at"] = datetime.now(timezone.utc).isoformat()
+    save_data()
+    return m
+
+
+def uncancel_meeting(meeting_id, uid):
+    """Undo a cancellation — the mis-tap remedy."""
+    m = MEETINGS_DB.get(meeting_id)
+    if not m:
+        return None
+    if m.get("creator_uid") != uid and not is_admin(uid):
+        return None
+    m["cancel_reason"] = ""
+    m["cancelled_at"] = ""
+    m["commit_status"] = "gathering" if m.get("min_attendees") else "open"
+    _refresh_commit_status(m)
+    save_data()
+    return m
+
+
 def can_delete_meeting(uid, meeting):
     """A meeting can be deleted by its creator or by an admin."""
     if not uid:

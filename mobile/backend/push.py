@@ -189,6 +189,102 @@ def meeting_decided(meeting_id, approved, record=None):
     )
 
 
+
+def _going(meeting_id, actor_uid=None):
+    """Everyone who said they would be there, minus whoever is doing this.
+
+    Guests are not in here and cannot be: somebody who joined through the share
+    link has a name and nothing else — no account, no device, nothing to push
+    to. That is a real hole in every one of the notices below, and the only
+    honest fix is the organiser telling them however they were invited.
+    """
+    m = MEETINGS_DB.get(meeting_id) or {}
+    audience = set(m.get("joined_uids") or [])
+    audience.discard(actor_uid)
+    return m, sorted(audience)
+
+
+def meeting_changed(meeting_id, actor_uid=None):
+    """The time or the place moved.
+
+    The only two edits worth waking a phone for. A corrected typo in the
+    description is not news; a meeting that is now somewhere else is the whole
+    reason anybody needs telling.
+    """
+    m, audience = _going(meeting_id, actor_uid)
+    if not audience:
+        return 0
+    where = m.get("location") or ""
+    when = m.get("time") or ""
+    detail = " · ".join(x for x in (when, where) if x)
+    return send(
+        audience,
+        m.get("title") or "A meeting you joined",
+        f"Changed: {detail}" if detail else "Something changed",
+        {"type": "changed", "meetingId": meeting_id},
+    )
+
+
+def meeting_cancelled(meeting_id, reason="", actor_uid=None):
+    """It is off. The reason travels with it, because the first thing anybody
+    asks is why, and a notification that makes them open an app to find out is
+    a notification that made their evening worse and told them nothing."""
+    m, audience = _going(meeting_id, actor_uid)
+    if not audience:
+        return 0
+    reason = (reason or "").strip()
+    if len(reason) > 120:
+        reason = reason[:117] + "…"
+    return send(
+        audience,
+        m.get("title") or "A meeting you joined",
+        f"Cancelled — {reason}" if reason else "Cancelled by the organiser",
+        {"type": "cancelled", "meetingId": meeting_id},
+    )
+
+
+def meeting_decided_threshold(meeting_id, action, actor_uid=None):
+    """The organiser answered "it did not fill"."""
+    m, audience = _going(meeting_id, actor_uid)
+    if not audience:
+        return 0
+    if action == "run":
+        body = "It is going ahead"
+    elif action == "extend":
+        deadline = m.get("join_deadline") or ""
+        body = f"More time to join — until {deadline}" if deadline else "More time to join"
+    else:
+        return 0
+    return send(
+        audience,
+        m.get("title") or "A meeting you joined",
+        body,
+        {"type": "decided", "meetingId": meeting_id},
+    )
+
+
+def meeting_announcement(meeting_id, text, actor_uid=None):
+    """The organiser telling everybody something on purpose.
+
+    Separate from meeting_comment() even though both end up in the discussion:
+    a comment is somebody asking, and this is the person running it speaking to
+    the room. Worth its own wording so it does not arrive looking like a
+    question from a stranger.
+    """
+    m, audience = _going(meeting_id, actor_uid)
+    if not audience:
+        return 0
+    snippet = (text or "").strip()
+    if len(snippet) > 120:
+        snippet = snippet[:117] + "…"
+    return send(
+        audience,
+        m.get("title") or "A meeting you joined",
+        snippet,
+        {"type": "announcement", "meetingId": meeting_id},
+    )
+
+
 def _display_name(uid):
     user = USERS_DB.get(uid or "") or {}
     return user.get("display_name") or user.get("username") or "Someone"

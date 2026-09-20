@@ -14,9 +14,10 @@ from data import (
     generate_user_color, display_name_for, is_trusted, is_admin, get_reliability,
     get_comments, add_comment, delete_comment, can_delete_comment, get_blocked_uids,
     record_checkin, meeting_insights, host_dashboard,
+    update_meeting, cancel_meeting, uncancel_meeting, decide_threshold,
 )
 from utils.models import (
-    InPersonMeeting, OnlineMeeting, AVAILABLE_TAGS,
+    InPersonMeeting, OnlineMeeting, AVAILABLE_TAGS, meeting_from_dict,
     validate_meeting_data, sanitize_html, validate_comment,
 )
 
@@ -405,6 +406,192 @@ def delete_meeting_route(meeting_id):
     if delete_meeting(meeting_id, current_uid()):
         return jsonify({"status": "deleted"})
     return jsonify({"error": "forbidden"}), 403
+
+
+
+@meeting_bp.route("/api/meetings/<int:meeting_id>", methods=["PATCH"])
+def edit_meeting_route(meeting_id):
+    """Change a meeting that already exists.
+
+    The gap this fills: there was no update of any kind, so correcting a typo
+    in the time meant deleting and re-posting — which breaks the share link
+    already sent to a group chat and drops everyone who had joined.
+
+    Only the fields that were sent are touched, so a client editing one thing
+    does not have to send back a whole meeting it might be holding a stale copy
+    of. Everything is validated the same way creating it was; there is no
+    second, looser set of rules for edits.
+    """
+    uid = current_uid()
+    if not get_user(uid):
+        return jsonify({"error": "unauthorized"}), 401
+
+    record = MEETINGS_DB.get(meeting_id)
+    if not record:
+        return jsonify({"error": "not found"}), 404
+
+    body = request.get_json(force=True) or {}
+    changes = {}
+
+    if "title" in body:
+        changes["title"] = sanitize_html(body.get("title") or "")
+    if "description" in body:
+        changes["description"] = sanitize_html(body.get("description") or "")
+    if "time" in body:
+        changes["time"] = (body.get("time") or "").strip()
+    if "location_name" in body:
+        changes["location"] = sanitize_html(body.get("location_name") or "")
+    if "emoji" in body:
+        changes["emoji"] = (body.get("emoji") or "").strip()
+    if "tags" in body:
+        changes["tags"] = [t for t in (body.get("tags") or []) if t in AVAILABLE_TAGS]
+
+    if "lat" in body or "lng" in body:
+        try:
+            changes["lat"] = float(body.get("lat"))
+            changes["lng"] = float(body.get("lng"))
+        except (TypeError, ValueError):
+            changes["lat"] = changes["lng"] = None
+
+    if "ends_at" in body:
+        ends_at = (body.get("ends_at") or "").strip()
+        changes["ends_at"] = ends_at if re.fullmatch(r"[0-2]?\d:[0-5]\d", ends_at or "") else ""
+    if "cost" in body:
+        changes["cost"] = sanitize_html((body.get("cost") or "").strip())[:40]
+    if "min_age" in body:
+        try:
+            changes["min_age"] = max(0, min(120, int(body.get("min_age") or 0)))
+        except (TypeError, ValueError):
+            changes["min_age"] = 0
+
+    if "min_attendees" in body:
+        changes["min_attendees"] = parse_count(body.get("min_attendees", ""))
+    if "max_attendees" in body:
+        changes["max_attendees"] = parse_count(body.get("max_attendees", ""))
+    if "join_deadline" in body:
+        changes["join_deadline"] = (body.get("join_deadline") or "").strip()
+
+    # Validated against the meeting as it will be, not as it was: sending a new
+    # time and nothing else still has to be checked against the location that
+    # is already stored.
+    merged = dict(record)
+    merged.update(changes)
+    is_online = bool(merged.get("link"))
+    errors = validate_meeting_data(
+        merged.get("title", ""), merged.get("description", ""), merged.get("time", ""),
+        "online" if is_online else "inperson",
+        location_name=merged.get("location", ""), link=merged.get("link", ""),
+    )
+    errors += validate_threshold(
+        int(merged.get("min_attendees") or 0),
+        int(merged.get("max_attendees") or 0),
+        merged.get("join_deadline") or merged.get("time", ""),
+        merged.get("time", ""),
+    )
+    if errors:
+        return jsonify({"error": " | ".join(errors)}), 400
+
+    updated = update_meeting(meeting_id, uid, changes)
+    if updated is None:
+        # Not the organiser. 404 rather than 403 for the same reason as the
+        # insights route: ids travel in public share links, and a 403 confirms
+        # one exists.
+        return jsonify({"error": "not found"}), 404
+
+    # Everyone who said they would come is told, because the reason to edit a
+    # meeting is almost always that something they were relying on changed.
+    if "time" in changes or "location" in changes:
+        push.meeting_changed(meeting_id, actor_uid=uid)
+
+    return jsonify(serialize_meeting(meeting_from_dict(MEETINGS_DB[meeting_id]), uid))
+
+
+@meeting_bp.route("/api/meetings/<int:meeting_id>/cancel", methods=["POST"])
+def cancel_meeting_route(meeting_id):
+    """Call it off without deleting it.
+
+    Deleting makes the link 404, which tells somebody who was going nothing at
+    all. A cancelled meeting keeps its page and says why.
+    """
+    uid = current_uid()
+    if not get_user(uid):
+        return jsonify({"error": "unauthorized"}), 401
+
+    body = request.get_json(force=True) or {}
+    reason = body.get("reason") or ""
+
+    if body.get("undo"):
+        updated = uncancel_meeting(meeting_id, uid)
+    else:
+        updated = cancel_meeting(meeting_id, uid, reason)
+
+    if updated is None:
+        return jsonify({"error": "not found"}), 404
+
+    if not body.get("undo"):
+        push.meeting_cancelled(meeting_id, reason, actor_uid=uid)
+
+    return jsonify(serialize_meeting(meeting_from_dict(MEETINGS_DB[meeting_id]), uid))
+
+
+@meeting_bp.route("/api/meetings/<int:meeting_id>/decide", methods=["POST"])
+def decide_threshold_route(meeting_id):
+    """"It did not fill. What do you want to do?"
+
+    The create form has always promised this — "if it does not fill by the
+    deadline, you decide what to do" — and decide_threshold() has always
+    existed, wired only into the old web app. The phone had no way to answer,
+    so the promise went unkept and the meeting sat in "awaiting" forever.
+    """
+    uid = current_uid()
+    if not get_user(uid):
+        return jsonify({"error": "unauthorized"}), 401
+
+    body = request.get_json(force=True) or {}
+    action = (body.get("action") or "").strip()
+    result = decide_threshold(meeting_id, uid, action, body.get("new_deadline", ""))
+    if result is None:
+        return jsonify({"error": "not found"}), 404
+
+    if action == "cancel":
+        push.meeting_cancelled(meeting_id, "", actor_uid=uid)
+    elif action in ("run", "extend"):
+        push.meeting_decided_threshold(meeting_id, action, actor_uid=uid)
+
+    return jsonify(result)
+
+
+@meeting_bp.route("/api/meetings/<int:meeting_id>/announce", methods=["POST"])
+def announce_route(meeting_id):
+    """Tell everyone who is coming something.
+
+    A discussion comment reaches whoever opens the meeting again; this reaches
+    the phones of the people who said they would be there, which is what an
+    organiser means by "I need to tell them". It is posted into the discussion
+    as well, so somebody who reads it later sees the same words rather than a
+    notification they have already dismissed.
+    """
+    uid = current_uid()
+    if not get_user(uid):
+        return jsonify({"error": "unauthorized"}), 401
+
+    m = MEETINGS_DB.get(meeting_id)
+    if not m:
+        return jsonify({"error": "not found"}), 404
+    if m.get("creator_uid") != uid and not is_admin(uid):
+        return jsonify({"error": "not found"}), 404
+
+    text = (request.get_json(force=True) or {}).get("text") or ""
+    text = text.strip()
+    if not text:
+        return jsonify({"error": "Say something first."}), 400
+
+    created = add_comment(meeting_id, uid, text[:300])
+    if created is None:
+        return jsonify({"error": "could not post"}), 400
+
+    push.meeting_announcement(meeting_id, text[:300], actor_uid=uid)
+    return jsonify(created)
 
 
 @meeting_bp.route("/api/hosting/dashboard")
