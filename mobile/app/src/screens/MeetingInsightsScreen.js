@@ -8,12 +8,13 @@ import { api } from "../api";
 import { useTheme } from "../context/ThemeContext";
 import { useI18n } from "../context/LocaleContext";
 import { FONTS } from "../styles/fonts";
-import { RADIUS, SHADOW } from "../styles/theme";
+import { RADIUS, SHADOW, markerColorFor } from "../styles/theme";
 import Appear from "../components/Appear";
 import CountUp from "../components/CountUp";
 import { formatWhen } from "../utils/time";
 import { IS_HOST } from "../variant";
 import { ShareLinkCard } from "../components/ShareLink";
+import WebMap from "../components/WebMap";
 
 /**
  * Opening the meeting itself is the full app's screen — the map, the attendee
@@ -116,6 +117,40 @@ export default function MeetingInsightsScreen({ route, navigation }) {
           again was the gap: the screen reported on an action it would not let
           you take. It sits above the figures because sending it is the thing
           you would do about them. */}
+      {/* Where it is, which this screen knew everything except.
+          The organiser chose this on a map and has had no way to look at it
+          since — and a pin dropped in the wrong place stays invisible until
+          somebody turns up at the wrong place.
+
+          pointerEvents="none" because it is a picture, not a workspace: the
+          map is inside a scroller, and a drag that pans it is a drag that does
+          not scroll the page. Same bargain the create form's preview makes,
+          except there the tap opens a picker and here there is nowhere to go. */}
+      {typeof data.lat === "number" && typeof data.lng === "number" ? (
+        <Appear offset={-4}>
+          <View style={styles.mapCard}>
+            <View style={styles.mapWrap} pointerEvents="none">
+              <WebMap
+                style={styles.map}
+                theme={theme}
+                center={[data.lng, data.lat]}
+                zoom={15}
+                markers={[{
+                  id: data.id,
+                  lat: data.lat,
+                  lng: data.lng,
+                  emoji: data.emoji || "",
+                  color: markerColorFor(data.id),
+                }]}
+              />
+            </View>
+            {data.location ? (
+              <Text style={styles.mapAddress} numberOfLines={2}>{`📍  ${data.location}`}</Text>
+            ) : null}
+          </View>
+        </Appear>
+      ) : null}
+
       <Appear offset={-4}>
         <ShareLinkCard
           shareUrl={data.share_url}
@@ -271,6 +306,16 @@ function Split({ styles, theme, fromLink, fromApp, t }) {
 }
 
 const makeStyles = (t) => StyleSheet.create({
+  mapCard: {
+    backgroundColor: t.surface,
+    borderRadius: RADIUS.lg,
+    overflow: "hidden",
+    marginBottom: 14,
+  },
+  // No title above it: a map of one pin does not need to be told it is a map.
+  mapWrap: { height: 170 },
+  map: { flex: 1 },
+  mapAddress: { fontSize: t.fs(13), color: t.text2, padding: 14, lineHeight: t.fs(19) },
   share: { marginBottom: 14 },
   container: { flex: 1, backgroundColor: t.bg },
   centered: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: t.bg },

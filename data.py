@@ -1012,6 +1012,14 @@ def meeting_insights(meeting_id, host_uid):
         "status": m.get("status", "approved"),
         "visibility": m.get("visibility", PUBLIC),
         "created_at": m.get("created_at"),
+        # Where it is. The organiser picked this on a map and has had no way to
+        # see it since — the figures screen knew everything about the meeting
+        # except the one thing they chose by hand, and a pin in the wrong place
+        # is invisible until somebody turns up at the wrong place.
+        "location": "" if m.get("is_online") else (m.get("location") or ""),
+        "short_location": shorten_address(m.get("location") or ""),
+        "lat": m.get("lat"),
+        "lng": m.get("lng"),
         "is_over": checkin_is_open(m),
 
         # Reach. views is browsers that opened the link; from_link is the ones
