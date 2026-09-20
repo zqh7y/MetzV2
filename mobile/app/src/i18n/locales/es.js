@@ -737,4 +737,12 @@ export default {
   "hostDash.confirmed": "Se hace",
   "hostDash.spotsLeft": "Quedan {count} plazas",
   "hostDash.full": "Completo",
+  "hostDash.messagesTitle": "Mensajes",
+  "create.kindTitle": "¿Qué tipo de encuentro es?",
+  "create.kindQuickTitle": "Algo con amigos",
+  "create.kindQuickBody": "Unas pocas preguntas y listo. No sale en el mapa: solo lo ve quien reciba tu enlace.",
+  "create.kindFullTitle": "Algo abierto a todos",
+  "create.kindFullBody": "Algunas preguntas más: coste, mínimo de gente, para quién es. Sale en el mapa para que lo encuentren cerca.",
+  "create.switchToFull": "Mejor abrirlo a todos ›",
+  "create.detailsSubQuick": "Elige el icono con el que aparece.",
 };

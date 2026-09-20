@@ -742,4 +742,12 @@ export default {
   "hostDash.confirmed": "Going ahead",
   "hostDash.spotsLeft": "{count} spots left",
   "hostDash.full": "Full",
+  "hostDash.messagesTitle": "Messages",
+  "create.kindTitle": "What kind of meeting is this?",
+  "create.kindQuickTitle": "Something with friends",
+  "create.kindQuickBody": "A few questions and you are done. It stays off the map — only people you send the link to will see it.",
+  "create.kindFullTitle": "Something open to everyone",
+  "create.kindFullBody": "A few more questions: cost, minimum numbers, who it is for. It goes on the map so people nearby can find it.",
+  "create.switchToFull": "Open it to everyone instead ›",
+  "create.detailsSubQuick": "Pick the icon it shows with.",
 };

@@ -750,4 +750,12 @@ export default {
   "hostDash.confirmed": "יוצא לפועל",
   "hostDash.spotsLeft": "נותרו {count} מקומות",
   "hostDash.full": "מלא",
+  "hostDash.messagesTitle": "הודעות",
+  "create.kindTitle": "איזה סוג מפגש זה?",
+  "create.kindQuickTitle": "משהו עם חברים",
+  "create.kindQuickBody": "כמה שאלות וסיימתם. לא יופיע במפה — רק מי שתשלחו לו את הקישור יראה.",
+  "create.kindFullTitle": "משהו פתוח לכולם",
+  "create.kindFullBody": "קצת יותר שאלות: עלות, מינימום אנשים, למי זה. יופיע במפה כדי שימצאו אותו.",
+  "create.switchToFull": "אולי לפתוח לכולם ›",
+  "create.detailsSubQuick": "בחרו אייקון שיופיע איתו.",
 };

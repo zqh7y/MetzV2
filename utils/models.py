@@ -287,10 +287,15 @@ def validate_meeting_data(title, description, time, meeting_type, location_name=
     elif len(title) > MAX_TITLE_LEN:
         errors.append(f"Title must be at most {MAX_TITLE_LEN} characters.")
 
-    # Description: required, length limit
-    if not description or not description.strip():
-        errors.append("Description is required.")
-    elif len(description) > MAX_DESC_LEN:
+    # Description: optional, length limit.
+    #
+    # It was required, which is right for something strangers are deciding
+    # whether to attend and wrong for "pizza at mine on Thursday" — and the
+    # second is most of what gets posted. The app still insists on one for a
+    # meeting meant to be found by people who do not know you; this is the
+    # floor, not the house style, and a floor that refuses a real meeting
+    # because its title already said everything is too high.
+    if description and len(description) > MAX_DESC_LEN:
         errors.append(f"Description must be at most {MAX_DESC_LEN} characters.")
 
     # Time: required

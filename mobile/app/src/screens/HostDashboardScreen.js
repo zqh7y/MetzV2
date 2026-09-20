@@ -149,7 +149,11 @@ export default function HostDashboardScreen({ navigation }) {
       {totals.pending || totals.questions ? (
         <Appear delay={40}>
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>{t("insights.youTitle")}</Text>
+            {/* "Messages" here, "Yours to answer" on the insights screen —
+                they are not the same card. This one is people talking to you;
+                that one also carries who has not said whether they came, which
+                is not a message from anybody. */}
+            <Text style={styles.cardTitle}>{t("hostDash.messagesTitle")}</Text>
             {totals.pending ? (
               <Text style={styles.line}>{t("hostDash.pendingLine", { count: totals.pending })}</Text>
             ) : null}

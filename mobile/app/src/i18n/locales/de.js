@@ -737,4 +737,12 @@ export default {
   "hostDash.confirmed": "Findet statt",
   "hostDash.spotsLeft": "Noch {count} Plätze",
   "hostDash.full": "Voll",
+  "hostDash.messagesTitle": "Nachrichten",
+  "create.kindTitle": "Was für ein Treffen ist das?",
+  "create.kindQuickTitle": "Etwas mit Freunden",
+  "create.kindQuickBody": "Ein paar Fragen und fertig. Es bleibt von der Karte fern — nur wer deinen Link bekommt, sieht es.",
+  "create.kindFullTitle": "Etwas für alle",
+  "create.kindFullBody": "Ein paar Fragen mehr: Kosten, Mindestzahl, für wen es ist. Es kommt auf die Karte, damit Leute in der Nähe es finden.",
+  "create.switchToFull": "Doch für alle öffnen ›",
+  "create.detailsSubQuick": "Wähle das Symbol dafür.",
 };

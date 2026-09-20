@@ -737,4 +737,12 @@ export default {
   "hostDash.confirmed": "Ça se fait",
   "hostDash.spotsLeft": "{count} places restantes",
   "hostDash.full": "Complet",
+  "hostDash.messagesTitle": "Messages",
+  "create.kindTitle": "Quel genre de rencontre ?",
+  "create.kindQuickTitle": "Quelque chose entre amis",
+  "create.kindQuickBody": "Quelques questions et c’est fait. Pas sur la carte : seuls ceux à qui vous envoyez le lien le verront.",
+  "create.kindFullTitle": "Quelque chose d’ouvert à tous",
+  "create.kindFullBody": "Quelques questions de plus : prix, nombre minimum, pour qui. Ça passe sur la carte pour être trouvé autour de vous.",
+  "create.switchToFull": "Plutôt l’ouvrir à tous ›",
+  "create.detailsSubQuick": "Choisissez l’icône qui l’accompagne.",
 };

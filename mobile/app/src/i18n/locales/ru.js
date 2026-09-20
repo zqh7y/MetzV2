@@ -753,4 +753,12 @@ export default {
   "hostDash.confirmed": "Состоится",
   "hostDash.spotsLeft": "Осталось {count} мест",
   "hostDash.full": "Мест нет",
+  "hostDash.messagesTitle": "Сообщения",
+  "create.kindTitle": "Что это за встреча?",
+  "create.kindQuickTitle": "Что-то с друзьями",
+  "create.kindQuickBody": "Пара вопросов — и готово. На карте её не будет: увидят только те, кому вы отправите ссылку.",
+  "create.kindFullTitle": "Что-то открытое для всех",
+  "create.kindFullBody": "Вопросов чуть больше: стоимость, минимум людей, для кого. Попадёт на карту, чтобы её нашли рядом.",
+  "create.switchToFull": "Лучше открыть для всех ›",
+  "create.detailsSubQuick": "Выберите значок для неё.",
 };

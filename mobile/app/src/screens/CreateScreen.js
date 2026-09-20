@@ -197,6 +197,21 @@ export default function CreateScreen({ navigation }) {
   // wall of every option is the reason nobody reads any of them.
   const [allInterests, setAllInterests] = useState(false);
 
+  /**
+   * Which form this is going to be.
+   *
+   * Null until asked, because the point is that it comes first: the same five
+   * steps were put to somebody arranging pizza at their flat and somebody
+   * opening a public event to strangers, and the first of those gave up
+   * halfway down a page of questions that did not apply.
+   *
+   * It is not a kind of meeting — the server stores one sort — only which
+   * questions are worth asking, and it can be changed at the bottom of the
+   * short form without losing a word of what has been typed.
+   */
+  const [mode, setMode] = useState(null);
+  const isQuick = mode === "quick";
+
   useEffect(() => {
     api.getTags().then(setAllTags).catch(() => {});
   }, []);
@@ -212,7 +227,10 @@ export default function CreateScreen({ navigation }) {
   const missing = useMemo(() => {
     const out = [];
     if (!title.trim()) out.push(t("create.needTitle"));
-    if (!description.trim()) out.push(t("create.needDescription"));
+    // Required for something strangers are deciding whether to attend, and
+    // pointless for "pizza at mine" — whose title has already said it. The
+    // server allows either; this is the stricter of the two rules.
+    if (!isQuick && !description.trim()) out.push(t("create.needDescription"));
     if (!time) out.push(t("create.needDateTime"));
     if (isOnline && !link.trim()) out.push(t("create.needLink"));
     // A pin is not a location as far as the server is concerned:
@@ -222,7 +240,7 @@ export default function CreateScreen({ navigation }) {
     // "Ready to create" and then failed on submit with a server error.
     if (!isOnline && !locationName.trim()) out.push(t("create.needLocation"));
     return out;
-  }, [title, description, time, isOnline, link, locationName, t]);
+  }, [title, description, time, isOnline, link, locationName, isQuick, t]);
 
   /**
    * The one rule the server enforces that is not simply "don't leave it empty".
@@ -347,7 +365,10 @@ export default function CreateScreen({ navigation }) {
         ends_at: endTimeFrom(time, duration),
         cost,
         min_age: minAge,
-        visibility: isPrivate ? "private" : "public",
+        // A quick meeting is for people you are going to send the link to, so
+        // it is not put on the map. Said on the chooser rather than left as a
+        // surprise, and changed by switching to the long form.
+        visibility: isQuick || isPrivate ? "private" : "public",
       };
       const res = await api.createMeeting(payload);
       // The alert that used to be here said "created" and dropped the organiser
@@ -422,6 +443,33 @@ export default function CreateScreen({ navigation }) {
           </Appear>
         ) : null}
 
+        {/* Asked before anything else, and the rest of the form waits for the
+            answer. Two cards rather than a toggle: a toggle is a setting you
+            skim past, and this decides how long the next two minutes are. */}
+        {mode === null ? (
+          <Appear delay={90}>
+            <View style={styles.chooser}>
+              <Text style={styles.chooserTitle}>{t("create.kindTitle")}</Text>
+              {[
+                { id: "quick", titleKey: "create.kindQuickTitle", bodyKey: "create.kindQuickBody" },
+                { id: "full", titleKey: "create.kindFullTitle", bodyKey: "create.kindFullBody" },
+              ].map((option) => (
+                <Pressable
+                  key={option.id}
+                  style={({ pressed }) => [styles.kind, pressed && styles.kindPressed]}
+                  onPress={() => setMode(option.id)}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.kindTitle}>{t(option.titleKey)}</Text>
+                  <Text style={styles.kindBody}>{t(option.bodyKey)}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </Appear>
+        ) : null}
+
+        {mode === null ? null : (
+        <>
         <Section index={1} title={t("create.sectionBasics")} Icon={TagIcon} styles={styles} theme={theme} delay={110}>
           <View style={styles.labelRow}>
             <Text style={styles.label}>{t("create.meetingTitle")}</Text>
@@ -635,6 +683,7 @@ export default function CreateScreen({ navigation }) {
           </Text>
         </Section>
 
+        {isQuick ? null : (
         <Section
           index={4}
           title={t("create.sectionCommitment")}
@@ -738,11 +787,15 @@ export default function CreateScreen({ navigation }) {
           />
           <Text style={styles.hint}>{t("create.waitlistHint")}</Text>
         </Section>
+        )}
 
+        {/* Four on the short form, five on the long one. A form that counts
+            1, 2, 3, 5 tells the reader they have lost a step and sends them
+            back up the page looking for it. */}
         <Section
-          index={5}
+          index={isQuick ? 4 : 5}
           title={t("create.sectionDetails")}
-          subtitle={t("create.detailsSub")}
+          subtitle={t(isQuick ? "create.detailsSubQuick" : "create.detailsSub")}
           Icon={TagIcon}
           styles={styles}
           theme={theme}
@@ -750,7 +803,14 @@ export default function CreateScreen({ navigation }) {
         >
           {/* Cost and age both go here rather than beside the location,
               because neither changes where or when it is — they change whether
-              a given person can come, which is what this section is for. */}
+              a given person can come, which is what this section is for.
+
+              Absent from the short form along with the interests: the people
+              coming to that one are being sent a link by somebody they know,
+              and they can ask. Interests are for being found by strangers, and
+              a meeting that is not on the map is not being found by anyone. */}
+          {isQuick ? null : (
+          <>
           <Text style={styles.label}>{t("create.cost")}</Text>
           <TextInput
             style={styles.input}
@@ -807,6 +867,8 @@ export default function CreateScreen({ navigation }) {
               </Text>
             </Pressable>
           ) : null}
+          </>
+          )}
 
           <Text style={styles.label}>{t("create.mapIcon")}</Text>
           <View style={styles.tagWrap}>
@@ -821,6 +883,19 @@ export default function CreateScreen({ navigation }) {
             ))}
           </View>
         </Section>
+
+        {/* The way out of the short form, and it costs nothing: every field
+            already filled in stays filled in, because the two forms are the
+            same form with different questions showing. Without this, choosing
+            "quick" at the top would be a decision you could only undo by
+            starting again. */}
+        {isQuick ? (
+          <Pressable onPress={() => setMode("full")} accessibilityRole="button">
+            <Text style={styles.switchMode}>{t("create.switchToFull")}</Text>
+          </Pressable>
+        ) : null}
+        </>
+        )}
       </ScrollView>
 
       {/* Pinned rather than sitting at the end of a long scroll, so the action
@@ -850,6 +925,25 @@ export default function CreateScreen({ navigation }) {
 }
 
 const makeStyles = (t) => StyleSheet.create({
+  chooser: { gap: 12, marginBottom: 18 },
+  chooserTitle: {
+    fontFamily: FONTS.heading, fontSize: t.fs(17), color: t.text, marginBottom: 2,
+  },
+  kind: {
+    backgroundColor: t.surface,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: t.border,
+    padding: 16,
+    ...SHADOW.s1,
+  },
+  kindPressed: { borderColor: t.accent, backgroundColor: t.accentSoft },
+  kindTitle: { fontFamily: FONTS.heading, fontSize: t.fs(15.5), color: t.text },
+  kindBody: { fontSize: t.fs(13), color: t.text2, marginTop: 5, lineHeight: t.fs(19) },
+  switchMode: {
+    fontFamily: FONTS.accent, fontSize: t.fs(13.5), color: t.accent,
+    textAlign: "center", paddingVertical: 18,
+  },
   moreTags: { fontFamily: FONTS.accent, fontSize: t.fs(13), color: t.accent, marginTop: 10 },
   flex: { flex: 1, backgroundColor: t.bg },
   container: { flex: 1, backgroundColor: t.bg },

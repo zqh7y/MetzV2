@@ -786,4 +786,12 @@ export default {
   "hostDash.confirmed": "سيقام",
   "hostDash.spotsLeft": "بقي مكان {count}",
   "hostDash.full": "مكتمل",
+  "hostDash.messagesTitle": "الرسائل",
+  "create.kindTitle": "ما نوع هذا اللقاء؟",
+  "create.kindQuickTitle": "شيء مع الأصدقاء",
+  "create.kindQuickBody": "بضعة أسئلة وتنتهي. لن يظهر على الخريطة — يراه فقط من ترسل له الرابط.",
+  "create.kindFullTitle": "شيء مفتوح للجميع",
+  "create.kindFullBody": "أسئلة أكثر قليلاً: التكلفة، الحد الأدنى، لمن هو. سيظهر على الخريطة ليجده من حولك.",
+  "create.switchToFull": "افتحه للجميع بدلاً من ذلك ›",
+  "create.detailsSubQuick": "اختر الأيقونة التي تظهر معه.",
 };
