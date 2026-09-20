@@ -22,6 +22,7 @@ import { useI18n } from "../context/LocaleContext";
 import { localizedTag } from "../i18n/vocab";
 import { placeNameFor } from "../utils/placeName";
 import { ONLINE_MEETINGS } from "../features";
+import { IS_HOST } from "../variant";
 import { Alert } from "../components/AppAlert";
 
 const CENTER = [35.2137, 31.7683]; // [lng, lat], the order WebMap takes
@@ -130,6 +131,31 @@ function Section({ index, title, subtitle, Icon, children, styles, theme, delay 
   );
 }
 
+/**
+ * "2026-09-21 19:00" + 150 minutes -> "21:30".
+ *
+ * Only the clock time is sent: the server reads an end earlier than the start
+ * as the next morning, which is how an evening that runs past midnight is
+ * described without asking anybody to pick a second date.
+ */
+function endTimeFrom(startText, minutes) {
+  if (!startText || !minutes) return "";
+  const start = new Date(String(startText).replace(" ", "T"));
+  if (Number.isNaN(start.getTime())) return "";
+  const end = new Date(start.getTime() + minutes * 60000);
+  return `${String(end.getHours()).padStart(2, "0")}:${String(end.getMinutes()).padStart(2, "0")}`;
+}
+
+// What people actually pick. "All evening" is three hours and says so on the
+// meeting; it is here because it is the phrase organisers use.
+const DURATIONS = [
+  { minutes: 60, key: "create.dur1h" },
+  { minutes: 90, key: "create.dur90" },
+  { minutes: 120, key: "create.dur2h" },
+  { minutes: 180, key: "create.dur3h" },
+  { minutes: 300, key: "create.dur5h" },
+];
+
 export default function CreateScreen({ navigation }) {
   const { theme } = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
@@ -159,9 +185,17 @@ export default function CreateScreen({ navigation }) {
   const [joinDeadline, setJoinDeadline] = useState("");
 
   // The three questions a meeting gets asked when it does not answer them.
-  const [endsAt, setEndsAt] = useState("");   // "HH:MM", blank = not said
+  // Minutes, 0 = not said. Asked as a length because that is what an
+  // organiser knows — "a couple of hours", not "until 21:00" — and because a
+  // length survives changing the start time, which an end time does not: pick
+  // 21:00, then move the meeting to 20:00, and the end is now before the
+  // beginning. The end time is worked out from the two at submit.
+  const [duration, setDuration] = useState(0);
   const [cost, setCost] = useState("");
   const [minAge, setMinAge] = useState("");
+  // Ten of twenty-four tags to begin with. The rest are one tap away, but a
+  // wall of every option is the reason nobody reads any of them.
+  const [allInterests, setAllInterests] = useState(false);
 
   useEffect(() => {
     api.getTags().then(setAllTags).catch(() => {});
@@ -310,7 +344,7 @@ export default function CreateScreen({ navigation }) {
         // the form tied them together.
         max_attendees: maxAttendees,
         join_deadline: needsMinimum ? joinDeadline : "",
-        ends_at: endsAt,
+        ends_at: endTimeFrom(time, duration),
         cost,
         min_age: minAge,
         visibility: isPrivate ? "private" : "public",
@@ -574,19 +608,31 @@ export default function CreateScreen({ navigation }) {
 
           {/* The first thing anyone asks about an event they are deciding on:
               a start says when to arrive, not whether it is an hour or all
-              evening. Optional, and a time of day rather than a second date —
-              an evening that runs past midnight is still one evening. */}
-          <Text style={styles.label}>{t("create.endsAt")}</Text>
-          <TextInput
-            style={styles.input}
-            value={endsAt}
-            onChangeText={setEndsAt}
-            placeholder={t("create.endsAtPlaceholder")}
-            placeholderTextColor={theme.text3}
-            keyboardType="numbers-and-punctuation"
-            maxLength={5}
-          />
-          <Text style={styles.hint}>{t("create.endsAtHint")}</Text>
+              evening. Tapping the chosen one again clears it — there is no
+              other way back to "did not say". */}
+          <Text style={styles.label}>{t("create.howLong")}</Text>
+          <View style={styles.quickRow}>
+            {DURATIONS.map(({ minutes, key }) => {
+              const active = duration === minutes;
+              return (
+                <TouchableOpacity
+                  key={minutes}
+                  style={[styles.quickBtn, active && styles.quickBtnActive]}
+                  onPress={() => setDuration(active ? 0 : minutes)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.quickText, active && styles.quickTextActive]}>
+                    {t(key)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <Text style={styles.hint}>
+            {duration && time
+              ? t("create.endsAtCalc", { time: endTimeFrom(time, duration) })
+              : t("create.howLongHint")}
+          </Text>
         </Section>
 
         <Section
@@ -619,9 +665,16 @@ export default function CreateScreen({ navigation }) {
           </View>
           {/* Spelled out rather than left to the label: "private" could equally
               mean invite-only or hidden-but-joinable, and the difference
-              matters before someone commits to it. */}
+              matters before someone commits to it.
+
+              Host says it differently, and has to. Somebody posting from Metz
+              Host cannot see the map this would appear on — there is no map in
+              their app — so "public" would otherwise mean nothing at all to
+              them. Naming Metz is the only way to say where the meeting goes. */}
           <Text style={styles.visibilityNote}>
-            {isPrivate ? t("create.visibilityPrivateNote") : t("create.visibilityPublicNote")}
+            {isPrivate
+              ? t(IS_HOST ? "create.visibilityPrivateNoteHost" : "create.visibilityPrivateNote")
+              : t(IS_HOST ? "create.visibilityPublicNoteHost" : "create.visibilityPublicNote")}
           </Text>
 
           <Text style={styles.label}>{t("create.howManyNeeded")}</Text>
@@ -659,14 +712,14 @@ export default function CreateScreen({ navigation }) {
                 </TouchableOpacity>
               </View>
 
-              <Text style={styles.label}>{t("create.joinBy")}</Text>
+              <Text style={styles.label}>{t("create.joinByOptional")}</Text>
               <DateTimeField
                 value={joinDeadline}
                 onChange={setJoinDeadline}
                 placeholder={t("create.pickDeadline")}
                 minimumDate={new Date()}
               />
-              <Text style={styles.hint}>{t("create.deadlineHint")}</Text>
+              <Text style={styles.hint}>{t("create.deadlineHintOptional")}</Text>
             </Appear>
           ) : null}
 
@@ -731,7 +784,7 @@ export default function CreateScreen({ navigation }) {
             {/* The loop variable used to be `t`, which shadowed the translate
                 function for the whole block — so the tag label could not be
                 localised without renaming it first. */}
-            {allTags.map((tag) => (
+            {(allInterests ? allTags : allTags.slice(0, 10)).map((tag) => (
               <TouchableOpacity
                 key={tag}
                 style={[styles.tagBtn, tags.includes(tag) && styles.tagBtnActive]}
@@ -741,6 +794,19 @@ export default function CreateScreen({ navigation }) {
               </TouchableOpacity>
             ))}
           </View>
+
+          {/* Only when there is something behind it, and it says how many —
+              "show all" on a list of eleven is a disappointment, and a count
+              is the difference between a link and a guess. */}
+          {allTags.length > 10 ? (
+            <Pressable onPress={() => setAllInterests((v) => !v)} accessibilityRole="button">
+              <Text style={styles.moreTags}>
+                {allInterests
+                  ? t("create.showFewerTags")
+                  : t("create.showAllTags", { count: allTags.length - 10 })}
+              </Text>
+            </Pressable>
+          ) : null}
 
           <Text style={styles.label}>{t("create.mapIcon")}</Text>
           <View style={styles.tagWrap}>
@@ -784,6 +850,7 @@ export default function CreateScreen({ navigation }) {
 }
 
 const makeStyles = (t) => StyleSheet.create({
+  moreTags: { fontFamily: FONTS.accent, fontSize: t.fs(13), color: t.accent, marginTop: 10 },
   flex: { flex: 1, backgroundColor: t.bg },
   container: { flex: 1, backgroundColor: t.bg },
 
@@ -942,7 +1009,7 @@ const makeStyles = (t) => StyleSheet.create({
   locateBtnBusy: { opacity: 0.7 },
   locateBtnText: { fontSize: t.fs(13.5), fontFamily: FONTS.bodySemi, color: t.accentStrong },
 
-  quickRow: { flexDirection: "row", gap: 8, marginBottom: 12 },
+  quickRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 },
   quickBtn: {
     flex: 1,
     alignItems: "center",

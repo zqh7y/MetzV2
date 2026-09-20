@@ -96,6 +96,17 @@ def create_meeting():
     except (TypeError, ValueError):
         min_age = 0
 
+    # A deadline is optional now, and defaults to the meeting's own start time.
+    #
+    # validate_threshold() refuses a minimum without one, and it lives in
+    # routes/create.py — the web app, which is out of bounds — so the default is
+    # applied here rather than the rule being relaxed there. It is also the
+    # honest default: the last moment somebody can usefully join something is
+    # the moment it begins, and an organiser who wants to know sooner can still
+    # say so.
+    if min_attendees and not join_deadline:
+        join_deadline = time
+
     errors = validate_meeting_data(title, description, time, meeting_type,
                                     location_name=location_name, link=link)
     errors += validate_threshold(min_attendees, max_attendees, join_deadline, time)

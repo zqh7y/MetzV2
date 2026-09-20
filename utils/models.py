@@ -4,9 +4,20 @@ import html
 
 
 # Fixed set of interest tags a meeting can be labeled with.
+# Ten was too few to describe what people actually post — a film night, a
+# language exchange and a dog walk all had to call themselves "Social".
+# Stored on the meeting as the English word and translated on the way to the
+# screen (see i18n/vocab.js), so adding to this list needs no migration, and an
+# untranslated one shows in English rather than breaking.
+#
+# Order matters: the create form shows the first ten and hides the rest behind
+# "show all", so the commonest go first.
 AVAILABLE_TAGS = [
     "Sports", "Food & Drink", "Study", "Music", "Art",
     "Tech", "Outdoors", "Gaming", "Social", "Fitness",
+    "Films", "Books", "Board Games", "Coffee", "Nightlife",
+    "Language Exchange", "Photography", "Volunteering", "Dance",
+    "Running", "Cycling", "Wellness", "Pets", "Crafts",
 ]
 
 
