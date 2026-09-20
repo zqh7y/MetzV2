@@ -120,6 +120,27 @@ export const api = {
   passMeeting: (id) => request(`/api/meetings/${id}/pass`, { method: "POST" }),
   deleteMeeting: (id) => request(`/api/meetings/${id}`, { method: "DELETE" }),
 
+  // Only what changed. The server merges, so a screen editing one field does
+  // not have to send back a whole meeting it may be holding a stale copy of.
+  updateMeeting: (id, changes) =>
+    request(`/api/meetings/${id}`, { method: "PATCH", body: changes }),
+  // Called off, not deleted: the link keeps working and says why. `undo` puts
+  // it back, because cancelling the wrong meeting should not be final.
+  cancelMeeting: (id, reason) =>
+    request(`/api/meetings/${id}/cancel`, { method: "POST", body: { reason } }),
+  uncancelMeeting: (id) =>
+    request(`/api/meetings/${id}/cancel`, { method: "POST", body: { undo: true } }),
+  // "It did not fill" — action is "run", "extend" or "cancel".
+  decideThreshold: (id, action, newDeadline = "") =>
+    request(`/api/meetings/${id}/decide`, {
+      method: "POST",
+      body: { action, new_deadline: newDeadline },
+    }),
+  // The organiser speaking to everyone coming: lands on their phones and stays
+  // in the discussion.
+  announce: (id, text) =>
+    request(`/api/meetings/${id}/announce`, { method: "POST", body: { text } }),
+
   getJoined: () => request("/api/joined"),
   getHosting: () => request("/api/hosting"),
 

@@ -156,7 +156,19 @@ const DURATIONS = [
   { minutes: 300, key: "create.dur5h" },
 ];
 
-export default function CreateScreen({ navigation }) {
+/**
+ * Making a meeting, and changing one.
+ *
+ * The same screen for both, because they ask the identical questions and a
+ * second form would answer them differently within a month. `route.params
+ * .editing` is the meeting being changed; without it this is a new one.
+ *
+ * Editing skips the "what kind" chooser — the meeting already is what it is,
+ * and re-asking would imply that answering differently would restructure
+ * something it cannot.
+ */
+export default function CreateScreen({ navigation, route }) {
+  const editing = route?.params?.editing || null;
   const { theme } = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
@@ -209,8 +221,56 @@ export default function CreateScreen({ navigation }) {
    * questions are worth asking, and it can be changed at the bottom of the
    * short form without losing a word of what has been typed.
    */
-  const [mode, setMode] = useState(null);
+  const [mode, setMode] = useState(
+    editing
+      ? (editing.visibility === "private" && !editing.min_attendees ? "quick" : "full")
+      : null
+  );
   const isQuick = mode === "quick";
+
+  /**
+   * Fill the form in from the meeting being changed.
+   *
+   * Once, on mount, rather than whenever `editing` changes: the object arrives
+   * through navigation params and is a new reference on every render of the
+   * screen that pushed it, so a dependency on it would overwrite what is being
+   * typed every time that screen re-rendered.
+   */
+  useEffect(() => {
+    if (!editing) return;
+    setTitle(editing.title || "");
+    setDescription(editing.description || "");
+    setTime(editing.time || "");
+    setLocationName(editing.location || "");
+    if (typeof editing.lat === "number" && typeof editing.lng === "number") {
+      setPin({ latitude: editing.lat, longitude: editing.lng });
+    }
+    setEmoji(editing.emoji || EMOJIS[0]);
+    setTags(editing.tags || []);
+    setCost(editing.cost || "");
+    setMinAge(editing.min_age ? String(editing.min_age) : "");
+    setMaxAttendees(editing.max_attendees ? String(editing.max_attendees) : "");
+    setIsPrivate(editing.visibility === "private");
+    if (editing.min_attendees) {
+      setNeedsMinimum(true);
+      setMinAttendees(editing.min_attendees);
+      setJoinDeadline(editing.join_deadline || "");
+    }
+    // A stored end time is turned back into a length, because that is the
+    // question the form asks. Anything that does not land on one of the chips
+    // is left unset rather than silently rounded to the nearest.
+    if (editing.ends_at && editing.time) {
+      const start = new Date(String(editing.time).replace(" ", "T"));
+      const [h, min] = editing.ends_at.split(":").map(Number);
+      if (!Number.isNaN(start.getTime()) && !Number.isNaN(h)) {
+        const end = new Date(start);
+        end.setHours(h, min, 0, 0);
+        if (end <= start) end.setDate(end.getDate() + 1);
+        const minutes = Math.round((end - start) / 60000);
+        if (DURATIONS.some((d) => d.minutes === minutes)) setDuration(minutes);
+      }
+    }
+  }, [editing]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     api.getTags().then(setAllTags).catch(() => {});
@@ -230,7 +290,14 @@ export default function CreateScreen({ navigation }) {
     // Required for something strangers are deciding whether to attend, and
     // pointless for "pizza at mine" — whose title has already said it. The
     // server allows either; this is the stricter of the two rules.
-    if (!isQuick && !description.trim()) out.push(t("create.needDescription"));
+    //
+    // Editing never adds a requirement that was not there when the meeting was
+    // made. A meeting posted without a description is a meeting somebody chose
+    // not to describe, and refusing to let them correct the *time* until they
+    // write one is the rule getting in the way of the thing it is for. What it
+    // does still prevent is emptying a description that exists.
+    const mustDescribe = !isQuick && (!editing || !!editing.description);
+    if (mustDescribe && !description.trim()) out.push(t("create.needDescription"));
     if (!time) out.push(t("create.needDateTime"));
     if (isOnline && !link.trim()) out.push(t("create.needLink"));
     // A pin is not a location as far as the server is concerned:
@@ -240,7 +307,7 @@ export default function CreateScreen({ navigation }) {
     // "Ready to create" and then failed on submit with a server error.
     if (!isOnline && !locationName.trim()) out.push(t("create.needLocation"));
     return out;
-  }, [title, description, time, isOnline, link, locationName, isQuick, t]);
+  }, [title, description, time, isOnline, link, locationName, isQuick, editing, t]);
 
   /**
    * The one rule the server enforces that is not simply "don't leave it empty".
@@ -370,6 +437,16 @@ export default function CreateScreen({ navigation }) {
         // surprise, and changed by switching to the long form.
         visibility: isQuick || isPrivate ? "private" : "public",
       };
+      // Editing sends the same payload to a different verb. The server merges
+      // what it is given, so sending all of it is simply an edit of everything
+      // — no diffing here, and no field that quietly cannot be changed.
+      if (editing) {
+        await api.updateMeeting(editing.id, payload);
+        // Back to where it was opened from, which already refetches on focus.
+        navigation.goBack();
+        return;
+      }
+
       const res = await api.createMeeting(payload);
       // The alert that used to be here said "created" and dropped the organiser
       // back on the map with nothing to act on — the moment they have the most
@@ -408,8 +485,8 @@ export default function CreateScreen({ navigation }) {
               <CalendarPlusIcon size={22} color="#fff" />
             </LinearGradient>
             <View style={{ flex: 1 }}>
-              <Text style={styles.headerTitle}>{t("create.headerTitle")}</Text>
-              <Text style={styles.headerSub}>{t("create.headerSub")}</Text>
+              <Text style={styles.headerTitle}>{t(editing ? "create.headerTitleEdit" : "create.headerTitle")}</Text>
+              <Text style={styles.headerSub}>{t(editing ? "create.headerSubEdit" : "create.headerSub")}</Text>
             </View>
           </View>
         </Appear>
@@ -903,7 +980,7 @@ export default function CreateScreen({ navigation }) {
       <View style={[styles.actionBar, { paddingBottom: insets.bottom + 12 }]}>
         <Text style={[styles.actionHint, ready && styles.actionHintReady]} numberOfLines={1}>
           {ready
-            ? t("create.readyToCreate")
+            ? t(editing ? "create.readyToSave" : "create.readyToCreate")
             /* A bad link is not a blank field, so it needs saying in its own
                words — "still needed: link" is wrong when a link is right there. */
             : linkInvalid && !missing.length
@@ -916,7 +993,9 @@ export default function CreateScreen({ navigation }) {
           disabled={!ready || submitting}
         >
           <Text style={[styles.submitText, (!ready || submitting) && styles.submitTextInert]}>
-            {submitting ? t("create.creating") : t("create.submit")}
+            {submitting
+              ? t(editing ? "create.saving" : "create.creating")
+              : t(editing ? "create.saveChanges" : "create.submit")}
           </Text>
         </AnimatedPressable>
       </View>

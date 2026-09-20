@@ -1,10 +1,12 @@
 import React, { useCallback, useMemo, useState } from "react";
 import {
   View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Pressable,
+  TextInput,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 
 import { api } from "../api";
+import { Alert } from "../components/AppAlert";
 import { useTheme } from "../context/ThemeContext";
 import { useI18n } from "../context/LocaleContext";
 import { FONTS } from "../styles/fonts";
@@ -54,6 +56,9 @@ export default function MeetingInsightsScreen({ route, navigation }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [announcing, setAnnouncing] = useState(false);
+  const [announcement, setAnnouncement] = useState("");
+  const [busy, setBusy] = useState("");
   const [failed, setFailed] = useState(false);
 
   const load = useCallback(() => {
@@ -68,6 +73,62 @@ export default function MeetingInsightsScreen({ route, navigation }) {
   // comes back to after sending the link, and a stale count is the one thing
   // it must not show.
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  /**
+   * The organiser's three answers to "it did not fill".
+   *
+   * Reloaded rather than patched into place: deciding changes the commitment
+   * state, the deadline and what the rest of the screen should say about all
+   * of it, and re-reading is one source of truth against three.
+   */
+  const decide = useCallback(async (action) => {
+    setBusy(action);
+    try {
+      await api.decideThreshold(meetingId, action);
+      load();
+    } catch (e) {
+      Alert.alert(t("common.somethingWentWrong"), e.message || "");
+    } finally {
+      setBusy("");
+    }
+  }, [meetingId, load, t]);
+
+  const confirmCancel = useCallback(() => {
+    Alert.alert(t("organiser.cancelTitle"), t("organiser.cancelBody"), [
+      { text: t("common.cancel"), style: "cancel" },
+      {
+        text: t("organiser.cancelConfirm"),
+        style: "destructive",
+        onPress: async () => {
+          setBusy("cancel");
+          try {
+            await api.cancelMeeting(meetingId, "");
+            load();
+          } catch (e) {
+            Alert.alert(t("common.somethingWentWrong"), e.message || "");
+          } finally {
+            setBusy("");
+          }
+        },
+      },
+    ]);
+  }, [meetingId, load, t]);
+
+  const sendAnnouncement = useCallback(async () => {
+    const text = announcement.trim();
+    if (!text) return;
+    setBusy("announce");
+    try {
+      await api.announce(meetingId, text);
+      setAnnouncement("");
+      setAnnouncing(false);
+      load();
+    } catch (e) {
+      Alert.alert(t("common.somethingWentWrong"), e.message || "");
+    } finally {
+      setBusy("");
+    }
+  }, [announcement, meetingId, load, t]);
 
   if (loading) {
     return (
@@ -218,6 +279,47 @@ export default function MeetingInsightsScreen({ route, navigation }) {
         </View>
       </Appear>
 
+      {/* First on the screen when it applies, because nothing else on the
+          page matters while a meeting is waiting on its organiser to say
+          whether it is happening. The create form promised this in writing;
+          until now there was nowhere to answer. */}
+      {data.commit_status === "awaiting" ? (
+        <Appear offset={-4}>
+          <View style={[styles.card, styles.decideCard]}>
+            <Text style={styles.decideTitle}>{t("organiser.decideTitle")}</Text>
+            <Text style={styles.decideBody}>
+              {t("organiser.decideBody", { going: data.going, needed: data.min_attendees })}
+            </Text>
+            <View style={styles.decideRow}>
+              <Pressable
+                style={({ pressed }) => [styles.decideBtn, styles.decidePrimary, pressed && styles.pressed]}
+                onPress={() => decide("run")}
+                disabled={!!busy}
+              >
+                <Text style={styles.decidePrimaryText}>{t("organiser.runAnyway")}</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [styles.decideBtn, pressed && styles.pressed]}
+                onPress={confirmCancel}
+                disabled={!!busy}
+              >
+                <Text style={styles.decideBtnText}>{t("organiser.callItOff")}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Appear>
+      ) : null}
+
+      {/* Already off. Said here as well as on the share page, because the
+          organiser is the one person who might have done it by accident. */}
+      {data.commit_status === "cancelled" ? (
+        <Appear offset={-4}>
+          <View style={[styles.card, styles.cancelledCard]}>
+            <Text style={styles.cancelledText}>{t("organiser.isCancelled")}</Text>
+          </View>
+        </Appear>
+      ) : null}
+
       <Appear delay={90}>
         <View style={styles.card}>
           <Text style={styles.cardTitle}>{t("insights.whereFromTitle")}</Text>
@@ -292,6 +394,76 @@ export default function MeetingInsightsScreen({ route, navigation }) {
           ) : null}
         </View>
       </Appear>
+
+      {/* The three things only the organiser can do, last because they are
+          what you do *about* everything above rather than something to read.
+          Not shown once it is over: there is nothing left to change, nobody
+          left to tell, and calling off a meeting that already happened is not
+          a thing. */}
+      {data.is_over || data.commit_status === "cancelled" ? null : (
+        <Appear delay={240}>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>{t("organiser.actionsTitle")}</Text>
+
+            {announcing ? (
+              <>
+                {/* Deliberately not the discussion box. That one is a reply to
+                    whoever is talking; this reaches the phone of everyone who
+                    said they are coming, which is a different act and deserves
+                    to feel like one. */}
+                <TextInput
+                  style={styles.announceInput}
+                  value={announcement}
+                  onChangeText={setAnnouncement}
+                  placeholder={t("organiser.announcePlaceholder")}
+                  placeholderTextColor={theme.text3}
+                  multiline
+                  maxLength={300}
+                  autoFocus
+                />
+                <Text style={styles.hint}>{t("organiser.announceHint")}</Text>
+                <View style={styles.actionRow}>
+                  <Pressable
+                    style={({ pressed }) => [styles.action, styles.actionPrimary, pressed && styles.pressed]}
+                    onPress={sendAnnouncement}
+                    disabled={!announcement.trim() || busy === "announce"}
+                  >
+                    <Text style={styles.actionPrimaryText}>
+                      {busy === "announce" ? t("organiser.sending") : t("organiser.send")}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    style={({ pressed }) => [styles.action, pressed && styles.pressed]}
+                    onPress={() => { setAnnouncing(false); setAnnouncement(""); }}
+                  >
+                    <Text style={styles.actionText}>{t("common.cancel")}</Text>
+                  </Pressable>
+                </View>
+              </>
+            ) : (
+              <>
+                <View style={styles.actionRow}>
+                  <Pressable
+                    style={({ pressed }) => [styles.action, pressed && styles.pressed]}
+                    onPress={() => navigation.navigate("Create", { editing: data })}
+                  >
+                    <Text style={styles.actionText}>{t("organiser.edit")}</Text>
+                  </Pressable>
+                  <Pressable
+                    style={({ pressed }) => [styles.action, pressed && styles.pressed]}
+                    onPress={() => setAnnouncing(true)}
+                  >
+                    <Text style={styles.actionText}>{t("organiser.announce")}</Text>
+                  </Pressable>
+                </View>
+                <Pressable onPress={confirmCancel} disabled={!!busy}>
+                  <Text style={styles.cancelLink}>{t("organiser.callItOff")}</Text>
+                </Pressable>
+              </>
+            )}
+          </View>
+        </Appear>
+      )}
     </ScrollView>
   );
 }
@@ -335,6 +507,42 @@ function Split({ styles, theme, fromLink, fromApp, t }) {
 }
 
 const makeStyles = (t) => StyleSheet.create({
+  pressed: { opacity: 0.75 },
+
+  decideCard: { borderWidth: 1, borderColor: t.status.warnStrong, backgroundColor: t.status.warnSoft },
+  decideTitle: { fontFamily: FONTS.heading, fontSize: t.fs(16), color: t.text },
+  decideBody: { fontSize: t.fs(13.5), color: t.text2, marginTop: 6, lineHeight: t.fs(20) },
+  decideRow: { flexDirection: "row", gap: 10, marginTop: 14 },
+  decideBtn: {
+    flex: 1, height: 44, borderRadius: RADIUS.base,
+    alignItems: "center", justifyContent: "center",
+    backgroundColor: t.surface, borderWidth: 1, borderColor: t.border,
+  },
+  decideBtnText: { fontFamily: FONTS.accent, fontSize: t.fs(14), color: t.text },
+  decidePrimary: { backgroundColor: t.accent, borderColor: t.accent },
+  decidePrimaryText: { fontFamily: FONTS.accent, fontSize: t.fs(14), color: t.accentOn },
+
+  cancelledCard: { backgroundColor: t.status.badSoft },
+  cancelledText: { fontFamily: FONTS.bodySemi, fontSize: t.fs(14), color: t.status.bad },
+
+  actionRow: { flexDirection: "row", gap: 10, marginTop: 12 },
+  action: {
+    flex: 1, height: 46, borderRadius: RADIUS.base,
+    alignItems: "center", justifyContent: "center",
+    backgroundColor: t.surface2, borderWidth: 1, borderColor: t.border,
+  },
+  actionText: { fontFamily: FONTS.accent, fontSize: t.fs(14), color: t.text },
+  actionPrimary: { backgroundColor: t.accent, borderColor: t.accent },
+  actionPrimaryText: { fontFamily: FONTS.accent, fontSize: t.fs(14), color: t.accentOn },
+  announceInput: {
+    minHeight: 84, marginTop: 12,
+    backgroundColor: t.surface2, borderRadius: RADIUS.base,
+    padding: 12, fontSize: t.fs(14), color: t.text, textAlignVertical: "top",
+  },
+  cancelLink: {
+    fontFamily: FONTS.accent, fontSize: t.fs(13.5), color: t.status.bad,
+    textAlign: "center", paddingVertical: 16,
+  },
   people: { marginTop: 16, borderTopWidth: 1, borderTopColor: t.border, paddingTop: 4 },
   person: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 8 },
   personDot: {
