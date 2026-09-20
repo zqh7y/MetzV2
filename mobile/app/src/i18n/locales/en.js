@@ -735,4 +735,5 @@ export default {
   "create.visibilityPrivateNoteHost": "It stays off the Metz app entirely. Only people you send the link to can see it.",
   "create.showAllTags": "Show {count} more",
   "create.showFewerTags": "Show fewer",
+  "insights.viaLink": "via link",
 };

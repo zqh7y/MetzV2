@@ -15,6 +15,7 @@ import { formatWhen } from "../utils/time";
 import { IS_HOST } from "../variant";
 import { ShareLinkCard } from "../components/ShareLink";
 import WebMap from "../components/WebMap";
+import FaceAvatar from "../components/FaceAvatar";
 
 /**
  * Opening the meeting itself is the full app's screen — the map, the attendee
@@ -186,6 +187,34 @@ export default function MeetingInsightsScreen({ route, navigation }) {
                 ? t("insights.reachRate", { percent: converted })
                 : ""}
           </Text>
+
+          {/* Who they are, under how many there are. A count tells you whether
+              to worry; a list tells you whether to bring a bigger table, and
+              whether the three who joined are the three you expected.
+
+              Guests keep their "via link" mark rather than being blended in:
+              they have a name and nothing else — no account, no show-up
+              record, no way to be messaged — and an organiser counting on five
+              people should see which of them can actually be reached. */}
+          {data.attendees?.length ? (
+            <View style={styles.people}>
+              {data.attendees.map((p, i) => (
+                <View key={`${p.name}-${i}`} style={styles.person}>
+                  {p.avatar_face ? (
+                    <FaceAvatar id={p.avatar_face} size={28} />
+                  ) : (
+                    <View style={[styles.personDot, { backgroundColor: p.color }]}>
+                      <Text style={styles.personInitial}>{p.initial}</Text>
+                    </View>
+                  )}
+                  <Text style={styles.personName} numberOfLines={1}>{p.name}</Text>
+                  {p.via_link ? (
+                    <Text style={styles.viaLink}>{t("insights.viaLink")}</Text>
+                  ) : null}
+                </View>
+              ))}
+            </View>
+          ) : null}
         </View>
       </Appear>
 
@@ -306,6 +335,21 @@ function Split({ styles, theme, fromLink, fromApp, t }) {
 }
 
 const makeStyles = (t) => StyleSheet.create({
+  people: { marginTop: 16, borderTopWidth: 1, borderTopColor: t.border, paddingTop: 4 },
+  person: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 8 },
+  personDot: {
+    width: 28, height: 28, borderRadius: 14,
+    alignItems: "center", justifyContent: "center", overflow: "hidden",
+  },
+  personInitial: { fontFamily: FONTS.accent, fontSize: t.fs(12), color: "#fff" },
+  personName: { flex: 1, fontSize: t.fs(14), color: t.text },
+  viaLink: {
+    fontFamily: FONTS.accentMedium, fontSize: t.fs(10.5),
+    letterSpacing: 0.4, textTransform: "uppercase",
+    color: t.text3, backgroundColor: t.surface2,
+    paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: RADIUS.pill, overflow: "hidden",
+  },
   mapCard: {
     backgroundColor: t.surface,
     borderRadius: RADIUS.lg,

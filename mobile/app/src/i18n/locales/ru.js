@@ -746,4 +746,5 @@ export default {
   "create.visibilityPrivateNoteHost": "В приложении Metz её не будет. Увидят только те, кому вы отправили ссылку.",
   "create.showAllTags": "Показать ещё {count}",
   "create.showFewerTags": "Показать меньше",
+  "insights.viaLink": "по ссылке",
 };

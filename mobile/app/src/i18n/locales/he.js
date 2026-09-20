@@ -743,4 +743,5 @@ export default {
   "create.visibilityPrivateNoteHost": "זה לא יופיע באפליקציית Metz כלל. רק מי שקיבל את הקישור יראה.",
   "create.showAllTags": "הצג עוד {count}",
   "create.showFewerTags": "הצג פחות",
+  "insights.viaLink": "דרך קישור",
 };

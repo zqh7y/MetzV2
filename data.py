@@ -978,6 +978,40 @@ def record_share_view(meeting_id):
     save_data()
 
 
+
+def _attendee_list(member_uids, guests):
+    """Everyone expected, members and link guests in one list.
+
+    Guests are kept distinguishable rather than blended in: they have a name
+    and nothing else — no account, no show-up record, no way to be messaged —
+    and an organiser counting on five people should be able to see which of
+    them can actually be reached.
+    """
+    people = []
+    for uid in member_uids:
+        u = USERS_DB.get(uid) or {}
+        name = u.get("display_name") or u.get("username") or uid
+        people.append({
+            "name": name,
+            "initial": name[:1].upper(),
+            "avatar_face": u.get("avatar_face") or "",
+            "color": generate_user_color(uid),
+            "via_link": False,
+        })
+    for g in guests:
+        name = (g or {}).get("name") or ""
+        people.append({
+            "name": name,
+            "initial": name[:1].upper() if name else "?",
+            "avatar_face": "",
+            # Guests have no uid to colour from, so they share one neutral
+            # tone — which also reads as "this one is not an account".
+            "color": "#8b94a3",
+            "via_link": True,
+        })
+    return people
+
+
 def meeting_insights(meeting_id, host_uid):
     """Everything the organiser of one meeting is entitled to know about it.
 
@@ -1028,6 +1062,15 @@ def meeting_insights(meeting_id, host_uid):
         "going": going,
         "from_app": len(members),
         "from_link": len(guests),
+        # Who, not just how many. A count tells an organiser whether to worry;
+        # a list tells them whether to bring a bigger table, and whether the
+        # three who joined are the three they were expecting.
+        #
+        # Safe on this screen and nowhere else: meeting_insights() has already
+        # refused anyone who is not the organiser or a moderator, and these are
+        # the people who chose to come to their meeting. No uid and no email —
+        # nothing here identifies anybody off this meeting.
+        "attendees": _attendee_list(members, guests),
 
         # The threshold, if one was set. spots_left is None rather than 0 when
         # there is no cap, so "no limit" and "full" cannot be confused.

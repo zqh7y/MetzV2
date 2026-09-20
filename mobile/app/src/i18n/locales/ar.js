@@ -779,4 +779,5 @@ export default {
   "create.visibilityPrivateNoteHost": "لن يظهر في تطبيق Metz إطلاقاً. يراه فقط من ترسل له الرابط.",
   "create.showAllTags": "عرض {count} أخرى",
   "create.showFewerTags": "عرض أقل",
+  "insights.viaLink": "عبر الرابط",
 };
