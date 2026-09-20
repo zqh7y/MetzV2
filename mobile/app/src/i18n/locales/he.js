@@ -744,4 +744,10 @@ export default {
   "create.showAllTags": "הצג עוד {count}",
   "create.showFewerTags": "הצג פחות",
   "insights.viaLink": "דרך קישור",
+  "hostDash.nextUp": "הבאים ({count})",
+  "hostDash.done": "הסתיימו ({count})",
+  "hostDash.needed": "{going} מתוך {needed} שצריכים",
+  "hostDash.confirmed": "יוצא לפועל",
+  "hostDash.spotsLeft": "נותרו {count} מקומות",
+  "hostDash.full": "מלא",
 };

@@ -12,6 +12,7 @@ import { RADIUS, SHADOW } from "../styles/theme";
 import Appear from "../components/Appear";
 import CountUp from "../components/CountUp";
 import { formatWhen } from "../utils/time";
+import { IS_HOST } from "../variant";
 import { ShareButton } from "../components/ShareLink";
 
 /**
@@ -30,6 +31,31 @@ import { ShareButton } from "../components/ShareLink";
  * come from the same meeting_insights() the other screen uses, so the two can
  * never disagree.
  */
+/**
+ * One line saying whether a meeting is going to happen.
+ *
+ * Only one, and only when it says something: a meeting with no minimum and no
+ * cap is simply on, and a row that announces that on every card teaches people
+ * to stop reading the line that matters. Order is by urgency — a minimum not
+ * yet met is the only one an organiser can still do anything about.
+ */
+function stateOf(m, t) {
+  const going = m.going || 0;
+  const minimum = m.min_attendees || 0;
+  if (minimum && going < minimum) {
+    return t("hostDash.needed", { going, needed: minimum });
+  }
+  if (m.commit_status === "confirmed" || (minimum && going >= minimum)) {
+    return t("hostDash.confirmed");
+  }
+  if (typeof m.spots_left === "number" && m.spots_left <= 3) {
+    return m.spots_left === 0
+      ? t("hostDash.full")
+      : t("hostDash.spotsLeft", { count: m.spots_left });
+  }
+  return "";
+}
+
 export default function HostDashboardScreen({ navigation }) {
   const { theme } = useTheme();
   const { t } = useI18n();
@@ -71,6 +97,8 @@ export default function HostDashboardScreen({ navigation }) {
 
   const totals = data.totals || {};
   const meetings = data.meetings || [];
+  const upcoming = meetings.filter((m) => !m.is_over);
+  const past = meetings.filter((m) => m.is_over);
 
   // Nothing hosted is not a broken screen, and saying so beats a page of
   // zeroes that reads as a figure rather than as an absence.
@@ -125,18 +153,40 @@ export default function HostDashboardScreen({ navigation }) {
             {totals.pending ? (
               <Text style={styles.line}>{t("hostDash.pendingLine", { count: totals.pending })}</Text>
             ) : null}
-            {totals.questions ? (
-              <Text style={styles.line}>{t("hostDash.questionsLine", { count: totals.questions })}</Text>
-            ) : null}
+            {/* Named and tappable, rather than a total. "2 questions waiting"
+                is a fact; "Board games evening · 2" is a thing to go and do,
+                and the aggregate could never say which meeting to open. */}
+            {meetings.filter((m) => m.questions > 0).map((m) => (
+              <Pressable
+                key={m.id}
+                style={({ pressed }) => [styles.todoRow, pressed && styles.rowPressed]}
+                onPress={() => navigation.navigate(
+                  IS_HOST ? "MeetingQuestions" : "MeetingInsights",
+                  IS_HOST ? { meetingId: m.id } : { meetingId: m.id },
+                )}
+              >
+                <Text style={styles.todoTitle} numberOfLines={1}>
+                  {m.emoji ? `${m.emoji}  ` : ""}{m.title}
+                </Text>
+                <Text style={styles.todoCount}>{m.questions}</Text>
+                <Text style={styles.todoChevron}>›</Text>
+              </Pressable>
+            ))}
           </View>
         </Appear>
       ) : null}
 
-      <Text style={styles.sectionLabel}>
-        {t("hostDash.allMeetings", { count: meetings.length })}
-      </Text>
+      {/* The server already sorts soonest-first then most-recent-past-first
+          and hands back one list; splitting it here is only drawing the line
+          it already drew. A meeting from last week and one tomorrow answer
+          different questions and should not sit in the same run. */}
+      {upcoming.length ? (
+        <Text style={styles.sectionLabel}>
+          {t("hostDash.nextUp", { count: upcoming.length })}
+        </Text>
+      ) : null}
 
-      {meetings.map((m, i) => (
+      {upcoming.map((m, i) => (
         <Appear key={m.id} delay={80 + i * 30}>
           <Pressable
             style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
@@ -153,6 +203,17 @@ export default function HostDashboardScreen({ navigation }) {
               ) : null}
             </View>
             <Text style={styles.rowWhen}>{formatWhen(m.time)}</Text>
+
+            {/* Whether this one is actually going to happen. The three numbers
+                below say how it has done; this says what to do about it —
+                short of its minimum means send the link again, nearly full
+                means stop. Both were in the payload and neither was shown. */}
+            {stateOf(m, t) ? (
+              <Text style={[styles.rowState, m.commit_status === "confirmed" && styles.rowStateGood]}>
+                {stateOf(m, t)}
+              </Text>
+            ) : null}
+
             <View style={styles.rowStats}>
               <Stat styles={styles} value={m.views} label={t("hostDash.opens")} />
               <Stat styles={styles} value={m.going} label={t("hostDash.names")} />
@@ -161,6 +222,34 @@ export default function HostDashboardScreen({ navigation }) {
                   few more people" is the commonest thing to want from a list
                   of your meetings, and it was three taps away. */}
               <ShareButton shareUrl={m.share_url} meetingId={m.id} title={m.title} style={styles.rowShare} />
+            </View>
+          </Pressable>
+        </Appear>
+      ))}
+
+      {past.length ? (
+        <Text style={[styles.sectionLabel, upcoming.length && styles.sectionLabelGap]}>
+          {t("hostDash.done", { count: past.length })}
+        </Text>
+      ) : null}
+
+      {past.map((m, i) => (
+        <Appear key={m.id} delay={80 + i * 30}>
+          <Pressable
+            style={({ pressed }) => [styles.row, styles.rowPast, pressed && styles.rowPressed]}
+            onPress={() => navigation.navigate("MeetingInsights", { meetingId: m.id })}
+          >
+            <View style={styles.rowHead}>
+              <Text style={styles.rowTitle} numberOfLines={1}>
+                {m.emoji ? `${m.emoji}  ` : ""}{m.title}
+              </Text>
+              <Text style={[styles.badge, styles.badgeQuiet]}>{t("hostDash.over")}</Text>
+            </View>
+            <Text style={styles.rowWhen}>{formatWhen(m.time)}</Text>
+            <View style={styles.rowStats}>
+              <Stat styles={styles} value={m.views} label={t("hostDash.opens")} />
+              <Stat styles={styles} value={m.going} label={t("hostDash.names")} />
+              <Stat styles={styles} value={m.from_link} label={t("hostDash.viaLink")} />
             </View>
           </Pressable>
         </Appear>
@@ -188,6 +277,21 @@ function Stat({ styles, value, label }) {
 }
 
 const makeStyles = (t) => StyleSheet.create({
+  sectionLabelGap: { marginTop: 26 },
+  // Past meetings are a record, not a task: same card, less ink.
+  rowPast: { opacity: 0.82 },
+  rowState: {
+    fontFamily: FONTS.accentMedium,
+    fontSize: t.fs(12.5),
+    color: t.status.warnStrong,
+    marginTop: 8,
+  },
+  rowStateGood: { color: t.status.good },
+
+  todoRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 10 },
+  todoTitle: { flex: 1, fontSize: t.fs(14), color: t.text },
+  todoCount: { fontFamily: FONTS.accent, fontSize: t.fs(14), color: t.accent },
+  todoChevron: { fontSize: t.fs(18), color: t.text3 },
   container: { flex: 1, backgroundColor: t.bg },
   centered: {
     flex: 1, alignItems: "center", justifyContent: "center",

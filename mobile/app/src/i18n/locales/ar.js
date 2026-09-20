@@ -780,4 +780,10 @@ export default {
   "create.showAllTags": "عرض {count} أخرى",
   "create.showFewerTags": "عرض أقل",
   "insights.viaLink": "عبر الرابط",
+  "hostDash.nextUp": "القادم ({count})",
+  "hostDash.done": "انتهى ({count})",
+  "hostDash.needed": "{going} من {needed} المطلوبين",
+  "hostDash.confirmed": "سيقام",
+  "hostDash.spotsLeft": "بقي مكان {count}",
+  "hostDash.full": "مكتمل",
 };

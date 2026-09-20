@@ -731,4 +731,10 @@ export default {
   "create.showAllTags": "{count} weitere anzeigen",
   "create.showFewerTags": "Weniger anzeigen",
   "insights.viaLink": "per Link",
+  "hostDash.nextUp": "Als Nächstes ({count})",
+  "hostDash.done": "Vorbei ({count})",
+  "hostDash.needed": "{going} von {needed} benötigt",
+  "hostDash.confirmed": "Findet statt",
+  "hostDash.spotsLeft": "Noch {count} Plätze",
+  "hostDash.full": "Voll",
 };

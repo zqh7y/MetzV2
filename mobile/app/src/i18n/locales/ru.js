@@ -747,4 +747,10 @@ export default {
   "create.showAllTags": "Показать ещё {count}",
   "create.showFewerTags": "Показать меньше",
   "insights.viaLink": "по ссылке",
+  "hostDash.nextUp": "Скоро ({count})",
+  "hostDash.done": "Прошли ({count})",
+  "hostDash.needed": "{going} из {needed} нужных",
+  "hostDash.confirmed": "Состоится",
+  "hostDash.spotsLeft": "Осталось {count} мест",
+  "hostDash.full": "Мест нет",
 };
