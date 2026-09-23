@@ -56,10 +56,6 @@ export default function HostStatsScreen({ navigation }) {
   const meetings = data?.meetings || [];
   const talking = meetings.filter((m) => m.questions > 0);
 
-  // Only meetings anybody has actually opened. A list of zeroes is not a
-  // measurement, it is a list of things nobody has been sent yet.
-  const reached = meetings.filter((m) => m.views > 0 || m.going > 0);
-
   const fromLink = totals.from_link || 0;
   const fromApp = Math.max(0, (totals.going || 0) - fromLink);
   const total = fromLink + fromApp;
@@ -118,19 +114,22 @@ export default function HostStatsScreen({ navigation }) {
         </Appear>
       ) : null}
 
-      {/* Per meeting, opens to names down. The row is the whole funnel, which
-          is what the card inside each meeting used to say on its own. */}
-      {reached.length ? (
+      {/* Every meeting, not only the ones somebody has opened — this is the
+          list you choose from, and a meeting missing because nobody has seen
+          it yet reads as one that is gone, which is exactly the one an
+          organiser comes here looking for. The row carries the funnel; tapping
+          it opens that meeting on its own. */}
+      {meetings.length ? (
         <Appear delay={90}>
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>{t("stats.perMeeting")}</Text>
-            {reached.map((m) => {
+            <Text style={styles.cardTitle}>{t("stats.yourMeetings")}</Text>
+            {meetings.map((m) => {
               const rate = m.views ? Math.round((m.going / m.views) * 100) : null;
               return (
                 <Pressable
                   key={m.id}
                   style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-                  onPress={() => navigation.navigate("MeetingInsights", { meetingId: m.id })}
+                  onPress={() => navigation.navigate("MeetingStats", { meetingId: m.id })}
                 >
                   <Text style={styles.rowTitle} numberOfLines={1}>
                     {m.emoji ? `${m.emoji}  ` : ""}{m.title}
