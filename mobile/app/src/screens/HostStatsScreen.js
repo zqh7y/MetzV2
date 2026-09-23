@@ -114,34 +114,10 @@ export default function HostStatsScreen({ navigation }) {
         </Appear>
       ) : null}
 
-      {/* Every meeting, not only the ones somebody has opened — this is the
-          list you choose from, and a meeting missing because nobody has seen
-          it yet reads as one that is gone, which is exactly the one an
-          organiser comes here looking for. The row carries the funnel; tapping
-          it opens that meeting on its own. */}
-      {meetings.length ? (
-        <Appear delay={90}>
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>{t("stats.yourMeetings")}</Text>
-            {meetings.map((m) => {
-              const rate = m.views ? Math.round((m.going / m.views) * 100) : null;
-              return (
-                <Pressable
-                  key={m.id}
-                  style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-                  onPress={() => navigation.navigate("MeetingStats", { meetingId: m.id })}
-                >
-                  <Text style={styles.rowTitle} numberOfLines={1}>
-                    {m.emoji ? `${m.emoji}  ` : ""}{m.title}
-                  </Text>
-                  <Text style={styles.rowFunnel}>{`${m.views} › ${m.going}`}</Text>
-                  {rate === null ? null : <Text style={styles.rowRate}>{`${rate}%`}</Text>}
-                </Pressable>
-              );
-            })}
-          </View>
-        </Appear>
-      ) : null}
+      {/* No list of meetings here. Every meeting row on the home screen
+          carries its own stats button, so repeating them would be a second
+          way to the same place — and the longer one. This screen is what is
+          true across all of them. */}
 
       {talking.length ? (
         <Appear delay={140}>

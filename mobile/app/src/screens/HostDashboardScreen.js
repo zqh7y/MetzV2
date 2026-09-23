@@ -14,6 +14,7 @@ import CountUp from "../components/CountUp";
 import { formatWhen } from "../utils/time";
 import { IS_HOST } from "../variant";
 import { ShareButton } from "../components/ShareLink";
+import { ChartIcon } from "../components/NavIcons";
 
 /**
  * Everything you have run, in one place.
@@ -228,10 +229,25 @@ export default function HostDashboardScreen({ navigation }) {
               <Stat styles={styles} value={m.views} label={t("hostDash.opens")} />
               <Stat styles={styles} value={m.going} label={t("hostDash.names")} />
               <Stat styles={styles} value={m.from_link} label={t("hostDash.viaLink")} />
-              {/* On the row rather than only inside, because "send this to a
-                  few more people" is the commonest thing to want from a list
-                  of your meetings, and it was three taps away. */}
-              <ShareButton shareUrl={m.share_url} meetingId={m.id} title={m.title} style={styles.rowShare} />
+            </View>
+
+            <View style={styles.rowActions}>
+              {/* Its own numbers, from the row it belongs to. Going through a
+                  list on another screen to reach the figures for a meeting you
+                  are already looking at is a detour past the answer. */}
+              <Pressable
+                style={({ pressed }) => [styles.rowChip, pressed && styles.rowChipPressed]}
+                onPress={() => navigation.navigate("MeetingStats", { meetingId: m.id })}
+                accessibilityRole="button"
+                accessibilityLabel={t("nav.stats")}
+                hitSlop={8}
+              >
+                <ChartIcon size={15} color={theme.text2} />
+              </Pressable>
+              {/* "Send this to a few more people" is the commonest thing to
+                  want from a list of your meetings, and it was three taps away
+                  before it sat here. */}
+              <ShareButton shareUrl={m.share_url} meetingId={m.id} title={m.title} />
             </View>
           </Pressable>
         </Appear>
@@ -260,6 +276,18 @@ export default function HostDashboardScreen({ navigation }) {
               <Stat styles={styles} value={m.views} label={t("hostDash.opens")} />
               <Stat styles={styles} value={m.going} label={t("hostDash.names")} />
               <Stat styles={styles} value={m.from_link} label={t("hostDash.viaLink")} />
+            </View>
+
+            <View style={styles.rowActions}>
+                <Pressable
+                  style={({ pressed }) => [styles.rowChip, pressed && styles.rowChipPressed]}
+                  onPress={() => navigation.navigate("MeetingStats", { meetingId: m.id })}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("nav.stats")}
+                  hitSlop={8}
+                >
+                  <ChartIcon size={15} color={theme.text2} />
+                </Pressable>
             </View>
           </Pressable>
         </Appear>
@@ -358,7 +386,16 @@ const makeStyles = (t) => StyleSheet.create({
   badgeQuiet: { color: t.text3, backgroundColor: t.surface2 },
   rowWhen: { fontSize: t.fs(12.5), color: t.text3, marginTop: 3 },
   rowStats: { flexDirection: "row", marginTop: 12, gap: 22 },
-  rowShare: { marginStart: "auto" },
+  rowActions: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    justifyContent: "flex-end", marginTop: 12,
+  },
+  rowChip: {
+    width: 32, height: 32, borderRadius: RADIUS.pill,
+    alignItems: "center", justifyContent: "center",
+    backgroundColor: t.surface2,
+  },
+  rowChipPressed: { backgroundColor: t.border },
   stat: { flexDirection: "row", alignItems: "baseline", gap: 5 },
   statValue: { fontFamily: FONTS.accent, fontSize: t.fs(16), color: t.text },
   statLabel: { fontSize: t.fs(11), color: t.text3 },
