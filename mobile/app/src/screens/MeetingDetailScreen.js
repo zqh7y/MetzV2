@@ -16,6 +16,7 @@ import { MapPinIcon } from "../components/NavIcons";
 import { FONTS } from "../styles/fonts";
 import { useTheme } from "../context/ThemeContext";
 import { RADIUS, SHADOW } from "../styles/theme";
+import { costLabel } from "../utils/cost";
 import { formatTimeUntil, formatAgo, formatCountdown } from "../utils/time";
 // The share page is served by the API, not the web app — WEB_BASE_URL
 // points at the web app's port and would 404 in development.
@@ -299,7 +300,7 @@ ${url}`,
             rather than further down with the description. */}
         {meeting.cost || meeting.min_age ? (
           <View style={styles.factRow}>
-            {meeting.cost ? <Text style={styles.fact}>{`💰  ${meeting.cost}`}</Text> : null}
+            {meeting.cost ? <Text style={styles.fact}>{`💰  ${costLabel(t, meeting.cost)}`}</Text> : null}
             {meeting.min_age ? <Text style={styles.fact}>{`${meeting.min_age}+`}</Text> : null}
           </View>
         ) : null}

@@ -127,6 +127,11 @@ export default function HostDashboardScreen({ navigation }) {
         />
       }
     >
+      {/* Both of these moved behind the stats icon in Host: the home screen
+          is for the meetings, not for measuring them. The full app has no such
+          icon — its Host dashboard is reached from the drawer and is the only
+          place these exist — so there they stay. */}
+      {IS_HOST ? null : (
       <Appear>
         <View style={styles.card}>
           <Text style={styles.cardTitle}>{t("hostDash.totalsTitle")}</Text>
@@ -143,10 +148,11 @@ export default function HostDashboardScreen({ navigation }) {
           </Text>
         </View>
       </Appear>
+      )}
 
       {/* Only when there is something to act on — a row of zeroes telling an
           organiser nothing is waiting is noise. */}
-      {totals.pending || totals.questions ? (
+      {!IS_HOST && (totals.pending || totals.questions) ? (
         <Appear delay={40}>
           <View style={styles.card}>
             {/* "Messages" here, "Yours to answer" on the insights screen —

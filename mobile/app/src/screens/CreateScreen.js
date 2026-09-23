@@ -21,6 +21,7 @@ import { RADIUS, SHADOW } from "../styles/theme";
 import { useI18n } from "../context/LocaleContext";
 import { localizedTag } from "../i18n/vocab";
 import { placeNameFor } from "../utils/placeName";
+import { FREE } from "../utils/cost";
 import { ONLINE_MEETINGS } from "../features";
 import { IS_HOST } from "../variant";
 import { Alert } from "../components/AppAlert";
@@ -146,6 +147,15 @@ function endTimeFrom(startText, minutes) {
   return `${String(end.getHours()).padStart(2, "0")}:${String(end.getMinutes()).padStart(2, "0")}`;
 }
 
+// Anyone, and the three thresholds that actually come up. Empty means "not
+// said", which is different from "anyone" only in that it is not shown at all.
+const AGES = [
+  { value: "", key: "create.minAgeAnyone" },
+  { value: "16" },
+  { value: "18" },
+  { value: "21" },
+];
+
 // What people actually pick. "All evening" is three hours and says so on the
 // meeting; it is here because it is the phrase organisers use.
 const DURATIONS = [
@@ -208,6 +218,7 @@ export default function CreateScreen({ navigation, route }) {
   // Ten of twenty-four tags to begin with. The rest are one tap away, but a
   // wall of every option is the reason nobody reads any of them.
   const [allInterests, setAllInterests] = useState(false);
+  const [costMode, setCostMode] = useState(null);   // null | "free" | "paid"
 
   /**
    * Which form this is going to be.
@@ -248,6 +259,7 @@ export default function CreateScreen({ navigation, route }) {
     setEmoji(editing.emoji || EMOJIS[0]);
     setTags(editing.tags || []);
     setCost(editing.cost || "");
+    if (editing.cost) setCostMode(editing.cost === FREE ? "free" : "paid");
     setMinAge(editing.min_age ? String(editing.min_age) : "");
     setMaxAttendees(editing.max_attendees ? String(editing.max_attendees) : "");
     setIsPrivate(editing.visibility === "private");
@@ -888,30 +900,75 @@ export default function CreateScreen({ navigation, route }) {
               a meeting that is not on the map is not being found by anyone. */}
           {isQuick ? null : (
           <>
-          <Text style={styles.label}>{t("create.cost")}</Text>
-          <TextInput
-            style={styles.input}
-            value={cost}
-            onChangeText={setCost}
-            placeholder={t("create.costPlaceholder")}
-            placeholderTextColor={theme.text3}
-            maxLength={40}
-          />
-          {/* Free text rather than a number and a currency dropdown: "₪20",
-              "free", "bring cash for pizza" are all things organisers say, and
-              the app has no reason to understand any of them, only show them. */}
-          <Text style={styles.hint}>{t("create.costHint")}</Text>
+          {/* Free or not is one tap, because it is the question, and almost
+              every meeting answers it the same way. The price only appears
+              once the answer is "paid" — asking everyone for a number in order
+              to say "nothing" is how a form gets abandoned.
 
+              Free stores the marker FREE rather than the word, because the
+              word would be whichever language the organiser happened to be
+              using and everyone else would read it in that one. The screens
+              translate it on the way out. */}
+          <Text style={styles.label}>{t("create.cost")}</Text>
+          <View style={styles.typeRow}>
+            <Pressable
+              style={[styles.typeBtn, costMode === "free" && styles.typeBtnActive]}
+              onPress={() => { setCostMode("free"); setCost(FREE); }}
+            >
+              <Text style={[styles.typeText, costMode === "free" && styles.typeTextActive]}>
+                {t("create.costFree")}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[styles.typeBtn, costMode === "paid" && styles.typeBtnActive]}
+              onPress={() => { setCostMode("paid"); setCost(cost === FREE ? "" : cost); }}
+            >
+              <Text style={[styles.typeText, costMode === "paid" && styles.typeTextActive]}>
+                {t("create.costPaid")}
+              </Text>
+            </Pressable>
+          </View>
+
+          {costMode === "paid" ? (
+            <Appear offset={6} duration={200}>
+              <TextInput
+                style={styles.input}
+                value={cost}
+                onChangeText={setCost}
+                placeholder={t("create.costPlaceholder")}
+                placeholderTextColor={theme.text3}
+                maxLength={40}
+              />
+              {/* Still free text inside "paid": "₪20", "£5 at the door" and
+                  "bring cash for pizza" are all things organisers say, and a
+                  number plus a currency dropdown understands none of them any
+                  better while asking two questions instead of one. */}
+              <Text style={styles.hint}>{t("create.costHint")}</Text>
+            </Appear>
+          ) : null}
+
+          {/* Four answers cover almost everything, and a keyboard for a number
+              between 0 and 120 was more work than the question deserved.
+              Tapping the chosen one again clears it. */}
           <Text style={styles.label}>{t("create.minAge")}</Text>
-          <TextInput
-            style={styles.input}
-            value={minAge}
-            onChangeText={(v) => setMinAge(v.replace(/[^0-9]/g, "").slice(0, 3))}
-            keyboardType="number-pad"
-            placeholder={t("create.minAgePlaceholder")}
-            placeholderTextColor={theme.text3}
-          />
-          <Text style={styles.hint}>{t("create.minAgeHint")}</Text>
+          <View style={styles.chipRowWrap}>
+            {AGES.map(({ value, key }) => {
+              const active = minAge === value;
+              return (
+                <TouchableOpacity
+                  key={value || "any"}
+                  style={[styles.quickBtn, styles.chipAuto, active && styles.quickBtnActive]}
+                  onPress={() => setMinAge(active ? "" : value)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.quickText, active && styles.quickTextActive]}>
+                    {key ? t(key) : `${value}+`}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <Text style={styles.hint}>{t("create.minAgeHintChips")}</Text>
 
           <View style={styles.labelRow}>
             <Text style={styles.label}>{t("create.interests")}</Text>

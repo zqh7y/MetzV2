@@ -233,30 +233,13 @@ export default function MeetingInsightsScreen({ route, navigation }) {
         </Appear>
       ) : null}
 
+      {/* Who is coming, which is something to act on rather than a figure.
+          The numbers that used to sit above this — opens, names down, the
+          rate between them — moved to the stats screen with everything else
+          measured, so this page is about running the meeting. */}
       <Appear delay={40}>
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>{t("insights.reachTitle")}</Text>
-          <View style={styles.funnel}>
-            <Figure styles={styles} value={data.views} label={t("insights.opened")} />
-            <Text style={styles.arrow}>›</Text>
-            <Figure styles={styles} value={data.going} label={t("insights.going")} accent />
-          </View>
-          <Text style={styles.hint}>
-            {data.views === 0
-              ? t("insights.reachNone")
-              : converted !== null
-                ? t("insights.reachRate", { percent: converted })
-                : ""}
-          </Text>
-
-          {/* Who they are, under how many there are. A count tells you whether
-              to worry; a list tells you whether to bring a bigger table, and
-              whether the three who joined are the three you expected.
-
-              Guests keep their "via link" mark rather than being blended in:
-              they have a name and nothing else — no account, no show-up
-              record, no way to be messaged — and an organiser counting on five
-              people should see which of them can actually be reached. */}
+          <Text style={styles.cardTitle}>{t("insights.goingTitle")}</Text>
           {data.attendees?.length ? (
             <View style={styles.people}>
               {data.attendees.map((p, i) => (
@@ -320,21 +303,7 @@ export default function MeetingInsightsScreen({ route, navigation }) {
         </Appear>
       ) : null}
 
-      <Appear delay={90}>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>{t("insights.whereFromTitle")}</Text>
-          {/* The split the meeting page cannot show. A guest has no account —
-              they are exactly the people the link brought in, which makes this
-              the one honest measure of whether sharing is worth doing. */}
-          <Split
-            styles={styles}
-            theme={theme}
-            fromLink={data.from_link}
-            fromApp={data.from_app}
-            t={t}
-          />
-        </View>
-      </Appear>
+
 
       {data.min_attendees || data.max_attendees ? (
         <Appear delay={140}>
@@ -543,7 +512,10 @@ const makeStyles = (t) => StyleSheet.create({
     fontFamily: FONTS.accent, fontSize: t.fs(13.5), color: t.status.bad,
     textAlign: "center", paddingVertical: 16,
   },
-  people: { marginTop: 16, borderTopWidth: 1, borderTopColor: t.border, paddingTop: 4 },
+  // The rule and the gap above it were separating this from the reach
+  // figures it used to sit under. It is the whole card now, so a line
+  // under the heading separates the heading from nothing.
+  people: { marginTop: -4 },
   person: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 8 },
   personDot: {
     width: 28, height: 28, borderRadius: 14,

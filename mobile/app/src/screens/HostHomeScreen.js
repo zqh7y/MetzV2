@@ -9,6 +9,7 @@ import { FONTS } from "../styles/fonts";
 import { RADIUS, SHADOW } from "../styles/theme";
 import BrandMark from "../components/BrandMark";
 import FaceAvatar from "../components/FaceAvatar";
+import { ChartIcon } from "../components/NavIcons";
 import SisterAppLink from "../components/SisterAppLink";
 import HostDashboardScreen from "./HostDashboardScreen";
 
@@ -49,6 +50,21 @@ export default function HostHomeScreen({ navigation }) {
           <SisterAppLink compact />
         </View>
 
+        <View style={styles.barRight}>
+          {/* Everything measured lives behind this. Home is for the meetings
+              themselves; somebody who wants to know how it is going comes
+              looking, and somebody who wants to post another one never has to
+              read a percentage on the way. */}
+          <Pressable
+            onPress={() => navigation.navigate("HostStats")}
+            style={styles.iconBtn}
+            accessibilityRole="button"
+            accessibilityLabel={t("nav.stats")}
+            hitSlop={8}
+          >
+            <ChartIcon size={22} color={theme.text2} />
+          </Pressable>
+
         {/* Your face, opening your account — there is no profile page to send
             anyone to, and everything that was on it is in Settings. */}
         <Pressable
@@ -65,6 +81,7 @@ export default function HostHomeScreen({ navigation }) {
             </View>
           )}
         </Pressable>
+        </View>
       </View>
 
       {/* The dashboard scrolls under its own header; this sits above it so the
@@ -112,6 +129,8 @@ const makeStyles = (t) => StyleSheet.create({
     borderRadius: RADIUS.pill,
     overflow: "hidden",
   },
+  barRight: { flexDirection: "row", alignItems: "center", gap: 14 },
+  iconBtn: { padding: 2 },
   avatarTap: { borderRadius: RADIUS.pill },
   initial: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
   initialText: { fontFamily: FONTS.accent, fontSize: t.fs(14), color: t.accentOn },

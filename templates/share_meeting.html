@@ -21,7 +21,7 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Metz">
 <meta property="og:title" content="{{ m.title }}">
-<meta property="og:description" content="{{ when_text }}{% if m.ends_at %}–{{ m.ends_at }}{% endif %}{% if m.location %} · {{ m.location }}{% endif %}{% if m.cost %} · {{ m.cost }}{% endif %}{% if m.min_age %} · {{ m.min_age }}+{% endif %} — {{ m.description[:120] }}">
+<meta property="og:description" content="{{ when_text }}{% if m.ends_at %}–{{ m.ends_at }}{% endif %}{% if m.location %} · {{ m.location }}{% endif %}{% if m.cost %} · {{ "Free" if m.cost == "free" else m.cost }}{% endif %}{% if m.min_age %} · {{ m.min_age }}+{% endif %} — {{ m.description[:120] }}">
 <meta property="og:url" content="{{ page_url }}">
 <meta property="og:image" content="{{ og_image }}">
 <meta name="twitter:card" content="summary_large_image">
@@ -128,7 +128,10 @@
          Each is shown only when the organiser answered it — an empty pill
          saying nothing is worse than one pill fewer. #}
       {% if m.ends_at %}<span class="pill">until {{ m.ends_at }}</span>{% endif %}
-      {% if m.cost %}<span class="pill">{{ m.cost }}</span>{% endif %}
+      {# "free" is a stored marker, not the organiser's word — see
+         mobile/app/src/utils/cost.js. This page is English, so it becomes the
+         English word; the app turns it into whichever language is reading. #}
+      {% if m.cost %}<span class="pill">{{ "Free" if m.cost == "free" else m.cost }}</span>{% endif %}
       {% if m.min_age %}<span class="pill">{{ m.min_age }}+</span>{% endif %}
       {% for tag in m.tags[:4] %}<span class="pill">{{ tag }}</span>{% endfor %}
     </div>
