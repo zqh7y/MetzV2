@@ -53,22 +53,34 @@ its contents into an environment variable and load it from there.
 `Procfile` already declares the command:
 
 ```
-web: gunicorn --workers 2 --threads 4 --timeout 60 --bind 0.0.0.0:$PORT wsgi:app
+web: gunicorn --workers 1 --threads 8 --timeout 60 --bind 0.0.0.0:$PORT wsgi:app
 ```
 
 Build command: `pip install -r requirements.txt -r requirements-prod.txt`
 
-> **Worker count matters.** The rate limiter in `utils/security.py` keeps its
-> counters in process memory, so N workers give a caller N times the budget.
-> Two is a reasonable compromise; if you scale past that, move those counters
-> into Redis.
+> **One worker, and it is not a tuning choice.** `data.py` keeps every meeting,
+> user, report and inbox message in module-level dicts that `load_data()` fills
+> once at import. Postgres is written on every change but only *read* at
+> start-up, so a second worker boots its own copy and then never sees the
+> first one's writes — create a meeting, refresh, and it appears or vanishes
+> depending on which worker answered. Worse, `save_data()` rewrites every row,
+> so worker B's write can delete rows worker A just created.
+>
+> The rate limiter in `utils/security.py` has the same shape of problem: its
+> counters live in process memory, so N workers give a caller N times the
+> budget.
+>
+> `--threads` gives concurrency inside the one process, which is what this app
+> can support. Going multi-worker means moving that state into Postgres proper
+> (read per request) and the limiter into Redis. This file said `--workers 2`
+> until today, which is where any running service with two came from.
 
 ## 4 · Mobile API
 
 Second service, same repo, different command:
 
 ```
-gunicorn --workers 2 --threads 4 --bind 0.0.0.0:$PORT mobile.backend.server:app
+gunicorn --workers 1 --threads 8 --bind 0.0.0.0:$PORT mobile.backend.server:app
 ```
 
 `mobile/backend/server.py` adds the repository root to `sys.path` on import, so
