@@ -212,6 +212,21 @@ export default function HostDashboardScreen({ navigation }) {
               ) : m.is_over ? (
                 <Text style={[styles.badge, styles.badgeQuiet]}>{t("hostDash.over")}</Text>
               ) : null}
+              {/* Top right, with the meeting's name rather than in the card's
+                  footer: these are this meeting's numbers, and a control that
+                  sits beside the thing it is about needs no label to say so.
+                  It also leaves the bottom line to Share alone, which is what
+                  it was before the figures and two chips stopped fitting on
+                  one row together. */}
+              <Pressable
+                style={({ pressed }) => [styles.rowChip, pressed && styles.rowChipPressed]}
+                onPress={() => navigation.navigate("MeetingStats", { meetingId: m.id })}
+                accessibilityRole="button"
+                accessibilityLabel={t("nav.stats")}
+                hitSlop={10}
+              >
+                <ChartIcon size={15} color={theme.text2} />
+              </Pressable>
             </View>
             <Text style={styles.rowWhen}>{formatWhen(m.time)}</Text>
 
@@ -229,25 +244,15 @@ export default function HostDashboardScreen({ navigation }) {
               <Stat styles={styles} value={m.views} label={t("hostDash.opens")} />
               <Stat styles={styles} value={m.going} label={t("hostDash.names")} />
               <Stat styles={styles} value={m.from_link} label={t("hostDash.viaLink")} />
-            </View>
-
-            <View style={styles.rowActions}>
-              {/* Its own numbers, from the row it belongs to. Going through a
-                  list on another screen to reach the figures for a meeting you
-                  are already looking at is a detour past the answer. */}
-              <Pressable
-                style={({ pressed }) => [styles.rowChip, pressed && styles.rowChipPressed]}
-                onPress={() => navigation.navigate("MeetingStats", { meetingId: m.id })}
-                accessibilityRole="button"
-                accessibilityLabel={t("nav.stats")}
-                hitSlop={8}
-              >
-                <ChartIcon size={15} color={theme.text2} />
-              </Pressable>
-              {/* "Send this to a few more people" is the commonest thing to
-                  want from a list of your meetings, and it was three taps away
-                  before it sat here. */}
-              <ShareButton shareUrl={m.share_url} meetingId={m.id} title={m.title} />
+              {/* Back on the figures row now that the stats chip has moved to
+                  the title: one chip fits beside three labels, two did not,
+                  and a line holding a single button was mostly empty space. */}
+              <ShareButton
+                shareUrl={m.share_url}
+                meetingId={m.id}
+                title={m.title}
+                style={styles.rowShare}
+              />
             </View>
           </Pressable>
         </Appear>
@@ -270,6 +275,21 @@ export default function HostDashboardScreen({ navigation }) {
                 {m.emoji ? `${m.emoji}  ` : ""}{m.title}
               </Text>
               <Text style={[styles.badge, styles.badgeQuiet]}>{t("hostDash.over")}</Text>
+              {/* Top right, with the meeting's name rather than in the card's
+                  footer: these are this meeting's numbers, and a control that
+                  sits beside the thing it is about needs no label to say so.
+                  It also leaves the bottom line to Share alone, which is what
+                  it was before the figures and two chips stopped fitting on
+                  one row together. */}
+              <Pressable
+                style={({ pressed }) => [styles.rowChip, pressed && styles.rowChipPressed]}
+                onPress={() => navigation.navigate("MeetingStats", { meetingId: m.id })}
+                accessibilityRole="button"
+                accessibilityLabel={t("nav.stats")}
+                hitSlop={10}
+              >
+                <ChartIcon size={15} color={theme.text2} />
+              </Pressable>
             </View>
             <Text style={styles.rowWhen}>{formatWhen(m.time)}</Text>
             <View style={styles.rowStats}>
@@ -278,17 +298,6 @@ export default function HostDashboardScreen({ navigation }) {
               <Stat styles={styles} value={m.from_link} label={t("hostDash.viaLink")} />
             </View>
 
-            <View style={styles.rowActions}>
-                <Pressable
-                  style={({ pressed }) => [styles.rowChip, pressed && styles.rowChipPressed]}
-                  onPress={() => navigation.navigate("MeetingStats", { meetingId: m.id })}
-                  accessibilityRole="button"
-                  accessibilityLabel={t("nav.stats")}
-                  hitSlop={8}
-                >
-                  <ChartIcon size={15} color={theme.text2} />
-                </Pressable>
-            </View>
           </Pressable>
         </Appear>
       ))}
@@ -386,12 +395,9 @@ const makeStyles = (t) => StyleSheet.create({
   badgeQuiet: { color: t.text3, backgroundColor: t.surface2 },
   rowWhen: { fontSize: t.fs(12.5), color: t.text3, marginTop: 3 },
   rowStats: { flexDirection: "row", marginTop: 12, gap: 22 },
-  rowActions: {
-    flexDirection: "row", alignItems: "center", gap: 8,
-    justifyContent: "flex-end", marginTop: 12,
-  },
+  rowShare: { marginStart: "auto" },
   rowChip: {
-    width: 32, height: 32, borderRadius: RADIUS.pill,
+    width: 28, height: 28, borderRadius: RADIUS.pill,
     alignItems: "center", justifyContent: "center",
     backgroundColor: t.surface2,
   },
